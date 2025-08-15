@@ -7,7 +7,7 @@ function bootTomJS () {
 	// Return an initialized experiment class, plus perform other startup processess.
 	console.log('Booting up tomJS');
 	// set body defaults
-	document.body.style.backgroundColor = "black";
+	document.body.style.backgroundColor = "pink";
 	document.body.style.color = "white";
 	// create canvas
 	let canvas = document.createElement('canvas');
@@ -100,27 +100,25 @@ function fillArray (source, limit) {
 	return array;
 };
 
-function drawGabor(contrast, orientation, x=0.5, y=0.5, size=0.5, options = {}) {
-	// Draw a gabor patch with specified details to the tomJS canvas. Written by chatGPT and edited by TN.
-	const dpr = window.devicePixelRatio || 1;
-	const w   = tomJS.canvas.width * size / dpr;
-	const h   = tomJS.canvas.height * size / dpr;
-	const cx  = w / 2, cy = h / 2;
+function drawGabor(contrast, orientation, x=0.5, y=0.5, size=0.5, args = {}) {
+	// Draw a gabor patch with specified details to the tomJS canvas. Used chatGPT for the maths.
+	const w  = tomJS.canvas.width * size;
+	const h  = tomJS.canvas.height * size;
+	const cx = w / 2, cy = h / 2;
 	// Get optional settings
-	const phase   = options.phase ?? 0;
-	const meanLum = options.meanLum ?? 127.5; // 0 to 255
-	const sigma   = options.sigma ?? 0.2 * Math.min(w, h);
-	const sf 	  = options.sf ?? 15;
+	const phase = args.phase ?? 0;
+	const luminance = args.luminance ?? 127.5;
+	const sigma = args.sigma ?? 0.2 * Math.min(w, h);
+	const sf    = args.sf ?? 15;
 	// Calculate maths terms
 	const theta = (orientation * Math.PI) / 180;
 	const cosT  = Math.cos(theta), sinT = Math.sin(theta);
 	const k     = 2 * Math.PI * sf / w;
-	const amp   = meanLum * Math.max(0, Math.min(contrast, 1));
-	const twoSigma2 = 2 * sigma * sigma;
+	const amp   = luminance * Math.max(0, Math.min(contrast, 1));
 	// Make image object
 	const img  = tomJS.context.createImageData(w, h);
 	const data = img.data;
-	// Add to img data
+	// Add to img data, written by chatGPT
 	let i = 0;
 	for (let _y = 0; _y < h; _y++) {
 		const dy = _y - cy;
@@ -128,9 +126,9 @@ function drawGabor(contrast, orientation, x=0.5, y=0.5, size=0.5, options = {}) 
 			const dx = _x - cx;
 			const xPrime  =  dx * cosT + dy * sinT;
 			const yPrime  = -dx * sinT + dy * cosT;
-			const gauss   = Math.exp(-(xPrime * xPrime + yPrime * yPrime) / twoSigma2);
+			const gauss   = Math.exp(-(xPrime * xPrime + yPrime * yPrime) / (2 * sigma * sigma));
 			const carrier = Math.cos(k * xPrime + phase);
-			const L = meanLum + amp * carrier;	
+			const L = luminance + amp * carrier;	
 			const v = Math.max(0, Math.min(255, L)) | 0;	
 			data[i++] = v; // R
 			data[i++] = v; // G
@@ -139,7 +137,7 @@ function drawGabor(contrast, orientation, x=0.5, y=0.5, size=0.5, options = {}) 
 		}
 	}
 	// Draw
-	let pos_x = tomJS.canvas.width * x * size;
-	let pos_y = tomJS.canvas.height * y * size;
+	let pos_x = tomJS.canvas.width * x - (w * 0.5);
+	let pos_y = tomJS.canvas.height * y - (h * 0.5);
 	tomJS.context.putImageData(img, pos_x, pos_y);
 };
