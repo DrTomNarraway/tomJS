@@ -1,11 +1,52 @@
 
 class Experiment {
-	constructor() {};
+	
+	constructor(args={}) {
+		
+		this.subject  = Date.now()
+		this.date     = new Date().toDateString()
+		this.browser  = navigator.appCodeName
+		this.platform = navigator.platform
+		this.file	  = null
+		
+		// controls
+		this.key_left  = args.key_left  ?? 'f'
+        this.key_right = args.key_right ?? 'j'
+        this.key_quit  = args.key_quit  ?? 'Escape'
+        this.key_back  = args.key_back  ?? 'Backspace'
+		
+		// feedback information
+		this.feedback_colors = args.feedback_colors ?? {'Correct':'white', 'Incorrect':'white', 'Fast':'white', 'Slow':'white', 'Censored':'white'}
+        this.feedback_texts  = args.feedback_texts ?? {'Correct':'Correct', 'Incorrect':'Incorrect', 'Fast':'Too Fast', 'Slow':' Too Slow', 'Censored':'Too Slow'}
+		
+		// demographics
+        this.gather_demographics   = args.gather_demographics ?? true
+        this.demographics_language = args.demographics_language ?? 'en'
+		this.demographics          = {}
+        if (this.gather_demographics) {
+			this.demographics.age    = window.prompt(demographics_prompts.age[this.demographics_language], '')
+			this.demographics.gender = window.prompt(demographics_prompts.gender[this.demographics_language], '')
+			this.demographics.hand   = window.prompt(demographics_prompts.hand[this.demographics_language], '')
+		}
+		
+		// timing
+        this.now   = Date.now()
+        this.frame = 0
+		
+		// timeline
+        this.running  = true
+        this.timeline = []
+        this.time_pos = 0
+        this.stimuli  = {}
+        this.trials   = {}
+		
+	};	
+	
 };
 
-function bootTomJS () {
+function bootTomJS (args={}) {
 	// Return an initialized experiment class, plus perform other startup processess.
-	console.log('Booting up tomJS');
+	console.log('booting tomJS');
 	// set body defaults
 	document.body.style.backgroundColor = "pink";
 	document.body.style.color = "white";
@@ -19,13 +60,12 @@ function bootTomJS () {
 	canvas.style.color = "white";
 	document.body.appendChild(canvas);
 	// create tomJS object and store data in it
-	let tomJS = new Experiment();
+	let tomJS = new Experiment(args);
 	tomJS.canvas = canvas;
 	tomJS.context = canvas.getContext("2d");
 	// add event listener
 	document.addEventListener('keydown', processKeypress, true);
-	tomJS.key_log = [null, null];
-	tomJS.key_index = -1;
+	tomJS.keys = [null, null];
 	// return the finished tomJS object
 	return tomJS;
 };
@@ -33,9 +73,8 @@ function bootTomJS () {
 function processKeypress (event) {
 	// Accept a listener event and extract the key from it. Also append the key to the tomJS key log.
 	let key = event.key;
-	tomJS.key_index += 1;
-	tomJS.key_log[tomJS.key_index % 2] = key;
-	console.log(tomJS.key_log);
+    tomJS.keys[0] = tomJS.keys[1]; 	// move key from right to left
+    tomJS.keys[1] = key;			// store new keypress on the right
 };
 
 function writeToBody (text) {
@@ -141,3 +180,20 @@ function drawGabor(contrast, orientation, x=0.5, y=0.5, size=0.5, args = {}) {
 	let pos_y = tomJS.canvas.height * y - (h * 0.5);
 	tomJS.context.putImageData(img, pos_x, pos_y);
 };
+
+// demographics prompts
+
+demographics_prompts = {
+	'age' : {
+		'en' : 'How old are you?',
+		'de' : 'Wie alt bist du?',
+	},
+	'gender' : {
+		'en' : 'What is your gender?',
+		'de' : 'Welches Geschlecht hast du?',
+	},
+	'hand' : {
+		'en' : 'Which is your main hand?',
+		'de' : 'Welche Händigkeit haben Sie?',
+	}
+}
