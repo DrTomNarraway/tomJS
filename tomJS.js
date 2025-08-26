@@ -1,48 +1,147 @@
 
+// classes -------------------------------------------------------------------------------------------------------------------------
+
 class Experiment {
 	
 	constructor(args={}) {
 		
-		this.subject  = Date.now()
-		this.date     = new Date().toDateString()
-		this.browser  = navigator.appCodeName
-		this.platform = navigator.platform
-		this.file	  = null
+		this.subject  = Date.now();
+		this.date     = new Date().toDateString();
+		this.browser  = navigator.appCodeName;
+		this.platform = navigator.platform;
+		this.file	  = null;
 		
 		// controls
-		this.key_left  = args.key_left  ?? 'f'
-        this.key_right = args.key_right ?? 'j'
-        this.key_quit  = args.key_quit  ?? 'Escape'
-        this.key_back  = args.key_back  ?? 'Backspace'
+		this.key_left  = args.key_left  ?? 'f';
+        this.key_right = args.key_right ?? 'j';
+        this.key_quit  = args.key_quit  ?? 'Escape';
+        this.key_back  = args.key_back  ?? 'Backspace';
 		
 		// feedback information
-		this.feedback_colors = args.feedback_colors ?? {'Correct':'white', 'Incorrect':'white', 'Fast':'white', 'Slow':'white', 'Censored':'white'}
-        this.feedback_texts  = args.feedback_texts ?? {'Correct':'Correct', 'Incorrect':'Incorrect', 'Fast':'Too Fast', 'Slow':' Too Slow', 'Censored':'Too Slow'}
+		this.feedback_colors = args.feedback_colors ?? {'Correct':'white', 'Incorrect':'white', 'Fast':'white', 'Slow':'white', 'Censored':'white'};
+        this.feedback_texts  = args.feedback_texts ?? {'Correct':'Correct', 'Incorrect':'Incorrect', 'Fast':'Too Fast', 'Slow':' Too Slow', 'Censored':'Too Slow'};
 		
 		// demographics
-        this.gather_demographics   = args.gather_demographics ?? true
-        this.demographics_language = args.demographics_language ?? 'en'
-		this.demographics          = {}
+        this.gather_demographics   = args.gather_demographics ?? true;
+        this.demographics_language = args.demographics_language ?? 'en';
+		this.demographics          = {};
         if (this.gather_demographics) {
-			this.demographics.age    = window.prompt(demographics_prompts.age[this.demographics_language], '')
-			this.demographics.gender = window.prompt(demographics_prompts.gender[this.demographics_language], '')
-			this.demographics.hand   = window.prompt(demographics_prompts.hand[this.demographics_language], '')
-		}
+			this.demographics.age    = window.prompt(demographics_prompts.age[this.demographics_language], '');
+			this.demographics.gender = window.prompt(demographics_prompts.gender[this.demographics_language], '');
+			this.demographics.hand   = window.prompt(demographics_prompts.hand[this.demographics_language], '');
+		};
 		
 		// timing
-        this.now   = Date.now()
-        this.frame = 0
+        this.now   = Date.now();
+        this.frame = 0;
 		
 		// timeline
-        this.running  = true
-        this.timeline = []
-        this.time_pos = 0
-        this.stimuli  = {}
-        this.trials   = {}
+        this.running  = true;
+        this.timeline = [];
+        this.time_pos = 0;
+        this.stimuli  = {};
+        this.trials   = {};
 		
 	};	
 	
+	run () {
+        // self.window.mouseVisible = False
+        // self.firstState()
+        while (this.running) {
+            this.now = Date.now();
+            this.frame += 1;
+            if (this.key_quit in this.keys) this.running = false;
+            // this.updateState()
+            // self.window.flip()
+		};
+        // self.saveData()
+        // self.core.quit()
+	};
+	
 };
+
+class Stimulus {    
+	
+	constructor (args={}) {
+		this.key = 'Stimulus';
+        this.properties = args;	
+	};
+
+    drawStimulus () {};
+
+    resetStimulus () {};
+
+	set (key, value, reset=true) {
+        this.properties[key] = value;
+        if (reset) this.resetStimulus();
+	};
+
+};
+
+class Gabor extends Stimulus {
+
+	constructor (args={}) {
+		super(args);
+		this.key = 'Gabor';
+        this.properties.contrast = args.gabor_contrast ?? 0.5;
+        this.properties.opacity  = args.gabor_opacity  ?? 1.0;
+        this.properties.ori      = args.gabor_ori      ?? 25;
+        this.properties.x        = args.gabor_x        ?? 0.5;
+		this.properties.y        = args.gabor_y        ?? 0.5;
+        this.properties.sf       = args.gabor_sf       ?? 15;
+        this.properties.size     = args.gabor_size     ?? 0.5;
+		this.properties.phase    = args.gabor_phase    ?? 0;
+		this.properties.lum      = args.gabor_lum      ?? 127.5;
+		this.properties.target   = args.target         ?? 'L';
+		tomJS.stimuli[this.key] = this;
+	};
+	
+	drawStimulus (args={}) {
+		// Draw a gabor patch with specified details to the tomJS canvas. Used chatGPT for the maths.
+		const w  = tomJS.canvas.width * this.properties.size;
+		const h  = tomJS.canvas.height * this.properties.size;
+		const cx = w / 2, cy = h / 2;
+		// optionla arguments
+		const sigma = args.sigma ?? 0.2 * Math.min(w, h);
+		// calculate target direction multiplier
+		let dir = 0
+		if (this.properties.target == 'L') dir = -1 
+		else dir = 1
+		// Calculate maths terms		
+		const theta = (this.properties.ori * Math.PI * dir) / 180;
+		const cosT  = Math.cos(theta), sinT = Math.sin(theta);
+		const k     = 2 * Math.PI * this.properties.sf / w;
+		const amp   = this.properties.lum * Math.max(0, Math.min(this.properties.contrast, 1));
+		// Make image object
+		const img  = tomJS.context.createImageData(w, h);
+		const data = img.data;
+		// Add to img data, written by chatGPT
+		let i = 0;
+		for (let _y = 0; _y < h; _y++) {
+			const dy = _y - cy;
+			for (let _x = 0; _x < w; _x++) {
+				const dx = _x - cx;
+				const xPrime  =  dx * cosT + dy * sinT;
+				const yPrime  = -dx * sinT + dy * cosT;
+				const gauss   = Math.exp(-(xPrime * xPrime + yPrime * yPrime) / (2 * sigma * sigma));
+				const carrier = Math.cos(k * xPrime + this.properties.phase);
+				const L = this.properties.lum + amp * carrier;	
+				const v = Math.max(0, Math.min(255, L)) | 0;	
+				data[i++] = v; // R
+				data[i++] = v; // G
+				data[i++] = v; // B
+				data[i++] = Math.round(255 * gauss); // A
+			}
+		}
+		// Draw
+		let pos_x = tomJS.canvas.width * this.properties.x - (w * 0.5);
+		let pos_y = tomJS.canvas.height * this.properties.y - (h * 0.5);
+		tomJS.context.putImageData(img, pos_x, pos_y);
+	};
+	
+};
+
+// functions -----------------------------------------------------------------------------------------------------------------------
 
 function bootTomJS (args={}) {
 	// Return an initialized experiment class, plus perform other startup processess.
@@ -139,49 +238,7 @@ function fillArray (source, limit) {
 	return array;
 };
 
-function drawGabor(contrast, orientation, x=0.5, y=0.5, size=0.5, args = {}) {
-	// Draw a gabor patch with specified details to the tomJS canvas. Used chatGPT for the maths.
-	const w  = tomJS.canvas.width * size;
-	const h  = tomJS.canvas.height * size;
-	const cx = w / 2, cy = h / 2;
-	// Get optional settings
-	const phase = args.phase ?? 0;
-	const luminance = args.luminance ?? 127.5;
-	const sigma = args.sigma ?? 0.2 * Math.min(w, h);
-	const sf    = args.sf ?? 15;
-	// Calculate maths terms
-	const theta = (orientation * Math.PI) / 180;
-	const cosT  = Math.cos(theta), sinT = Math.sin(theta);
-	const k     = 2 * Math.PI * sf / w;
-	const amp   = luminance * Math.max(0, Math.min(contrast, 1));
-	// Make image object
-	const img  = tomJS.context.createImageData(w, h);
-	const data = img.data;
-	// Add to img data, written by chatGPT
-	let i = 0;
-	for (let _y = 0; _y < h; _y++) {
-		const dy = _y - cy;
-		for (let _x = 0; _x < w; _x++) {
-			const dx = _x - cx;
-			const xPrime  =  dx * cosT + dy * sinT;
-			const yPrime  = -dx * sinT + dy * cosT;
-			const gauss   = Math.exp(-(xPrime * xPrime + yPrime * yPrime) / (2 * sigma * sigma));
-			const carrier = Math.cos(k * xPrime + phase);
-			const L = luminance + amp * carrier;	
-			const v = Math.max(0, Math.min(255, L)) | 0;	
-			data[i++] = v; // R
-			data[i++] = v; // G
-			data[i++] = v; // B
-			data[i++] = Math.round(255 * gauss); // A
-		}
-	}
-	// Draw
-	let pos_x = tomJS.canvas.width * x - (w * 0.5);
-	let pos_y = tomJS.canvas.height * y - (h * 0.5);
-	tomJS.context.putImageData(img, pos_x, pos_y);
-};
-
-// demographics prompts
+// data ----------------------------------------------------------------------------------------------------------------------------
 
 demographics_prompts = {
 	'age' : {
@@ -197,3 +254,4 @@ demographics_prompts = {
 		'de' : 'Welche Händigkeit haben Sie?',
 	}
 }
+
