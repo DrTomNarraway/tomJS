@@ -3,9 +3,18 @@
 	<script src="./tomJS.js"></script>
 	<script src="./assets/javascripts/jatos.js"></script>
 	<body></body>
-	<script>
-		var args = {};
-		var tomJS = bootTomJS(args);
+	<script>	
+		var tomJS = bootTomJS({'gather_demographics':false, 'verbose':true});
+		
+		var welcome = new Slide([
+				{'text':'You just pressed the ~keys[1]~ key :)'},
+				{'text':'Press F and J to continue.', 'y':0.75},
+			], false);
+		
+		tomJS.appendToTimeline(welcome);
+		
+		tomJS.appendOneTrial(Trial, {});
+		
 		tomJS.run();
 	</script>
 </html>
