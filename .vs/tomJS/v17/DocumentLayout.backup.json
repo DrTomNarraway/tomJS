@@ -9,6 +9,10 @@
     {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\tomax\\Documents\\Dr Tom Narraway\\tomJS\\tomJS.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:tomJS.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\tomax\\Documents\\Dr Tom Narraway\\tomJS\\states\\state.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:states\\state.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
     }
   ],
   "DocumentGroupContainers": [
@@ -28,7 +32,7 @@
               "RelativeDocumentMoniker": "test.html",
               "ToolTip": "C:\\Users\\tomax\\Documents\\Dr Tom Narraway\\tomJS\\test.html",
               "RelativeToolTip": "test.html",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAB4AAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABYAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001512|",
               "WhenOpened": "2025-09-01T08:38:57.751Z",
               "IsPinned": true,
@@ -42,10 +46,22 @@
               "RelativeDocumentMoniker": "tomJS.js",
               "ToolTip": "C:\\Users\\tomax\\Documents\\Dr Tom Narraway\\tomJS\\tomJS.js",
               "RelativeToolTip": "tomJS.js",
-              "ViewState": "AgIAAE0AAAAAAAAAAAAAAGIAAAAEAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAMAAAAaAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
               "WhenOpened": "2025-09-01T08:38:53.593Z",
-              "IsPinned": true,
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "state.js",
+              "DocumentMoniker": "C:\\Users\\tomax\\Documents\\Dr Tom Narraway\\tomJS\\states\\state.js",
+              "RelativeDocumentMoniker": "states\\state.js",
+              "ToolTip": "C:\\Users\\tomax\\Documents\\Dr Tom Narraway\\tomJS\\states\\state.js",
+              "RelativeToolTip": "states\\state.js",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2025-09-01T09:53:55.298Z",
               "EditorCaption": ""
             }
           ]

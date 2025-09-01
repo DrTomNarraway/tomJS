@@ -1,20 +1,30 @@
+
 <!DOCTYPE html>
-<html>
-	<script src="./tomJS.js"></script>
-	<script src="./assets/javascripts/jatos.js"></script>
-	<body></body>
-	<script>	
-		var tomJS = bootTomJS({'gather_demographics':false, 'verbose':true});
-		
-		var welcome = new Slide([
-				{'text':'You just pressed the ~keys[1]~ key :)'},
-				{'text':'Press F and J to continue.', 'y':0.75},
+<html>	
+	<body>
+		<script src="./assets/javascripts/jatos.js"></script>
+		<script src="./tomJS.js"></script>
+		<script>
+            const tomJS = new Experiment({ 'gather_demographics': false, 'verbose': true });
+
+			const welcome = new Slide([
+				{ 'text': '~keys[1]~' },
+				{ 'text': 'Press F and J to continue.', 'y': 0.75 },
 			], false);
-		
-		tomJS.appendToTimeline(welcome);
-		
-		tomJS.appendOneTrial(Trial, {});
-		
-		tomJS.run();
-	</script>
+
+			tomJS.appendToTimeline(welcome);
+
+			const _trialwise = {
+				'gabor_contrast' : [0.50, 1.00]
+			};
+
+			const _additional = {
+				'stimulus' : Gabor,
+			};
+
+			tomJS.appendBlock(Trial, _trialwise, _additional, 2, null, null);
+
+			tomJS.run();
+		</script>
+	</body>
 </html>
