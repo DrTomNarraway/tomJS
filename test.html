@@ -5,26 +5,57 @@
 		<script src="./assets/javascripts/jatos.js"></script>
 		<script src="./tomJS.js"></script>
 		<script>
-            const tomJS = new Experiment({ 'gather_demographics': false, 'verbose': true });
+            
+			const BLOCK_REPS  = 2;
+            const CONTRAST    = [0.01, 0.10, 1.00];
+			const ORIENTATION = 3;
+			const TRIAL_REPS  = 5;
+			const STIMULUS    = Gabor;
+
+			const tomJS = new Experiment({ 'gather_demographics': false, 'verbose': true });
+
+			// slides ---------------------------------------------------------
 
 			const welcome = new Slide([
-				{ 'text': '~keys[1]~' },
-				{ 'text': 'Press F and J to continue.', 'y': 0.75 },
-			], false);
+				{'class':'text','text':'Welcome to this experiment. Please press f and then j', 'y':0.25},
+                {'class':'text','text':'to make sure your keyboard is being read by the experiment correctly.','y':0.3},
+				{'class':'text','text':'~key~'},
+				{'class':'text','text':'Press f and j to continue.', 'y':0.7},
+				], false);
 
-			tomJS.appendToTimeline(welcome);
+			const gabor = new Slide([
+				{'class':'text','text':'On each trial you will see a stimulus like the one below.','y':0.2},
+                {'class':'text','text':'You will press f if you think it is leaning left and j if you think it is leaning right.','y':0.25},
+                {'class':'text','text':'Press f and j now to see examples.','y':0.3},
+                {'class':'gabor', 'target':'~dir~', 'gabor_ori':ORIENTATION, 'gabor_contrast':CONTRAST[CONTRAST.length], 'gabor_size':0.25},
+                {'class':'text','text':'Press f and j to continue.', 'y': 0.7},
+				], false);
+
+			// trial arguments ------------------------------------------------
 
 			const _trialwise = {
-				'gabor_contrast' : [0.50, 1.00]
+				'target' : ['L', 'R'],
+				'gabor_contrast': CONTRAST,
 			};
 
 			const _additional = {
-				'stimulus' : Gabor,
+				'stimulus'  : STIMULUS,
+				'gabor_ori' : ORIENTATION,
 			};
 
-			tomJS.appendBlock(Trial, _trialwise, _additional, 2, null, null);
+			const _trialreps = TRIAL_REPS;
+
+			// timeline -------------------------------------------------------
+
+            tomJS.appendToTimeline(welcome);
+			tomJS.appendToTimeline(gabor);
+
+            tomJS.appendBlock(Trial, _trialwise, _additional, _trialreps, null, null);
+
+			// run ------------------------------------------------------------
 
 			tomJS.run();
+
 		</script>
 	</body>
 </html>

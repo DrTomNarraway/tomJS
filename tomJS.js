@@ -6,18 +6,20 @@ class Experiment {
 		// Create the experiment plus perform other startup processess.
 		console.log('booting tomJS');
 
-		// set body defaults
-		document.body.style.backgroundColor = "pink";
-		document.body.style.color = "white";
+		// debugging
+		this.pilot = args.pilot ?? false;
+		this.verbose = args.verbose ?? false;
 
-		// add lister to detect any key press
-		document.addEventListener('keydown', processKeypress, true);
+		// set body defaults
+		document.body.style.backgroundColor = "black";
+		document.body.style.color = "white";
 
 		// gather identifying information
 		this.subject  = Date.now();
 		this.date     = new Date().toDateString();
 		this.language = navigator.language;
-		this.file	  = null;
+		this.file = null;	
+		if (this.verbose) console.log(this.subject, this.date, this.language, this.file);
 		
 		// create canvas
 		this.width = window.innerWidth - 16;
@@ -33,15 +35,14 @@ class Experiment {
 		this.context = this.canvas.getContext("2d");
 		
 		// controls
+		this.keyboard = new Keyboard();
 		this.key_left  = args.key_left  ?? 'f';
         this.key_right = args.key_right ?? 'j';
         this.key_quit  = args.key_quit  ?? 'Escape';
         this.key_back  = args.key_back  ?? 'Backspace';
-		this.keys	   = ['', ''];
-		
-		// feedback information
-		this.feedback_colors = args.feedback_colors ?? {'Correct':'white', 'Incorrect':'white', 'Fast':'white', 'Slow':'white', 'Censored':'white'};
-        this.feedback_texts  = args.feedback_texts ?? {'Correct':'Correct', 'Incorrect':'Incorrect', 'Fast':'Too Fast', 'Slow':' Too Slow', 'Censored':'Too Slow'};
+		this.key = '';
+		this.dir = '';
+		if (this.verbose) console.log(this.key_left, this.key_right, this.key_quit, this.key_back);
 		
 		// demographics
         this.gather_demographics   = args.gather_demographics ?? true;
@@ -52,6 +53,7 @@ class Experiment {
 			this.demographics.gender = window.prompt(demographics_prompts.gender[this.demographics_language], '')
 			this.demographics.hand   = window.prompt(demographics_prompts.hand[this.demographics_language], '')
 		};
+		if (this.verbose) console.log(this.demographics);
 		
 		// timing
         this.now   = Date.now();
@@ -67,11 +69,7 @@ class Experiment {
         this.trial  = 0;
         this.block  = 0;
         this.trials = 0;
-        this.blocks = 0;
-		
-		// debugging
-		this.pilot = args.pilot ?? false;
-		this.verbose = args.verbose ?? false;
+		this.blocks = 0;
 	}
 
 	
@@ -90,15 +88,23 @@ class Experiment {
 	appendBlock(trial_type, trialwise = {}, additional = {}, trial_reps = 1, start_slide = null, end_slide = null) {
 		let _t_cells = returnTotalDictLength(trialwise);
 		let _trialwise = returnAllCombinationsFromDict(trialwise);
-		_trialwise = returnShuffledArray(_trialwise);
+		_trialwise = returnShuffledArray(_trialwise); // TODO: make it actually shuffle
 		let _n_trials = _t_cells * trial_reps;
 		if (start_slide != null) this.appendToTimeline(start_slide);
 		for (let t = 0; t < _n_trials; t++) {
-			let _args = Object.assign({ }, _trialwise[t%_t_cells], additional, { 'block': this.blocks, 'trial': t });
+			let _args = Object.assign({ }, _trialwise[t%_t_cells], additional, {'block':this.blocks, 'trial':t});
 			this.appendOneTrial(trial_type, _args);
 		};
 		if (end_slide != null) this.appendToTimeline(end_slide);
 		this.blocks += 1;
+	}
+
+
+	error(message) {
+		this.running = false;
+		this.context.fillStyle = "rgb(200,0,0)";
+		this.context.fillRect(0, 0, this.width, this.height);
+		this.writeToCanvas('ERROR: '+message);
 	}
 
 	
@@ -138,17 +144,18 @@ class Experiment {
 	
 	writeToCanvas (text, args={}) {
 		// Write text to the canvas with a relative position (0.5 being center).
-		tomJS.context.fillStyle = args.fillStyle ?? "white";
-		tomJS.context.textAlign = args.textAlign ?? "center";
+		tomJS.context.fillStyle = args.colour ?? "white";
+		tomJS.context.textAlign = args.align  ?? "center";
 		let _pt = args.pt ?? 24;
-		let tf = args.font ?? "Arial";
-		let _font = _pt+ "px " + tf;
+		let _tf = args.font ?? "Arial";
+		let _font = _pt+ "px " + _tf;
 		tomJS.context.font = _font;
 		let _x = args.x ?? 0.5;
 		let _y = args.y ?? 0.5;
-		let pos_x = tomJS.canvas.width * _x;
-		let pos_y = tomJS.canvas.height * _y;
-		tomJS.context.fillText(text, pos_x, pos_y);
+		let _pos_x = tomJS.canvas.width * _x;
+		let _pos_y = tomJS.canvas.height * _y;
+		let _width = tomJS.width ?? 1;
+		tomJS.context.fillText(text, _pos_x, _pos_y, _width);
 	}
 
 
@@ -252,9 +259,18 @@ class Trial extends State {
 			'feedback_off_time'  : null,
 			'feedback_on_frame'  : null,
 			'feedback_off_frame' : null,
+			'feedback_text'      : null,
+			'feedback_colour'    : null,
 			'end_frame'          : null,
 			'end_time'           : null,
 		};
+
+		// check that a target was passed to the trial
+		if (this.data.target == null) tomJS.error('no target passed to trial');
+
+		// feedback information
+		this.feedback_colors = args.feedback_colors ?? { 'Correct': 'white', 'Incorrect': 'white', 'Fast': 'white', 'Slow': 'white', 'Censored': 'white' };
+		this.feedback_texts  = args.feedback_texts  ?? { 'Correct': 'Correct', 'Incorrect': 'Incorrect', 'Fast': 'Too Fast', 'Slow': ' Too Slow', 'Censored': 'Too Slow' };
 
 		// ensure too slow response does not override stimulus duration, unless desired
 		if ('stimulus_duration' in args && ! 'stimulus_slow' in args)
@@ -296,7 +312,7 @@ class Trial extends State {
 
 
 	calculateRT() {
-		this.data.rt = this.data.response_given - this.data.stimulus_on_time;
+		this.data.rt = (this.data.response_given-this.data.stimulus_on_time)/1000;
 	}
         
         
@@ -311,11 +327,12 @@ class Trial extends State {
 		else if (this.data.rt >= this.data['stimulus_slow']) {this.data.outcome = 'Slow' }
 		else if (this.data.rt <= this.data['stimulus_fast']) {this.data.outcome = 'Fast'}
 		else if (this.data.response == this.data['target'])  {this.data.outcome = 'Correct'}
-        else												 {this.data.outcome = 'ERROR 0'}
+        else												 {this.data.outcome = 'Incorrect'}
 	}
 
 
 	feedbackEnter() {
+		this.updateFeedbackText()
 		this.data.feedback_on_time = tomJS.now;
 		this.data.feedback_on_frame = tomJS.frame;
 		this.substate_virgin = false;
@@ -331,7 +348,7 @@ class Trial extends State {
 
 	feedbackUpdate() {
 		if (this.substate_virgin) this.feedbackEnter();
-		tomJS.writeToCanvas('feedback');	
+		tomJS.writeToCanvas(this.data.feedback_text, { 'colour': this.data.feedback_colour });	
 		if (tomJS.frame >= this.data.feedback_end) this.feedbackExit();
 	}
 
@@ -388,23 +405,10 @@ class Trial extends State {
 
 	
 	recordResponse() {
-		this.data.response_key = tomJS.keys[1]; // the latest key pressed in stored in [1]
-		if (this.data.response_key == tomJS.key_left) this.data.response = 'L';
-		else if (this.data.response_key == tomJS.key_right) this.data.response = 'R';
-		else this.data.response = 'ERROR 1';
+		this.data.response_key   = tomJS.key; // key is the last key that was pressed
+		this.data.response       = tomJS.dir; // the indicated direction of the last key pressed
 		this.data.response_given = tomJS.now;
 		this.data.response_frame = tomJS.frame;
-	}
-
-
-	returnKeyInKeys() {
-		// if a response key was pressed return it, otherwise return null
-		let _key = null;
-		if (tomJS.keys.includes(tomJS.key_left) || tomJS.keys.includes(tomJS.key_right)) {
-			_key = tomJS.keys[1];
-			if (tomJS.verbose) console.log(_key+' pressed');
-		};
-		return _key;
 	}
 
 
@@ -418,8 +422,8 @@ class Trial extends State {
 	stimulusExitResponse() {
 		this.recordResponse();
 		this.calculateRT();
-		this.calculateScore();
 		this.determineOutcome();
+		this.calculateScore();
 		this.data.stimulus_off_time = tomJS.now;
 		this.data.stimulus_off_frame = tomJS.frame;
 		this.substate_virgin = true;
@@ -438,10 +442,15 @@ class Trial extends State {
 
 	stimulusUpdate() {
 		if (this.substate_virgin) this.stimulusEnter();
-		this.stimulus.drawStimulus();
-		let _key = this.returnKeyInKeys();
-		if (_key != null) this.stimulusExitResponse();
-		if (tomJS.frame >= this.data.stimulus_end) this.stimulusExitTime();
+		this.stimulus.drawStimulus(this.args);
+		if (tomJS.keyboard.anyKeysPressed(['f', 'j'])) this.stimulusExitResponse();
+		if (tomJS.frame >= this.data.stimulus_end)     this.stimulusExitTime();
+	}
+
+
+	updateFeedbackText() {
+		this.data.feedback_text   = this.feedback_texts[this.data.outcome];
+		this.data.feedback_colour = this.feedback_colors[this.data.outcome];
 	}
 
 
@@ -460,38 +469,60 @@ class Slide extends State {
 		this.args = args;
 		this.content = content;
 		this.can_return = can_return;
+		this.start_time = null;
+		this.force_wait = args.force_wait ?? 1000; // in milliseconds
 	}
 
 
 	// super ------------------------------------------------------------------
 
 
+	onEnter() {
+		this.start_time = tomJS.now;
+		if (tomJS.verbose) console.log(this.start_time, this.force_wait, tomJS.now);
+		super.onEnter();
+	}
+
+
 	onUpdate() {
-		super.onUpdate()
-		for (const _content of this.content) {
-			let _text = this.parseText(_content['text']);
-			tomJS.writeToCanvas(_text, _content);
-		};
-		this.checkBothKeys();
+		super.onUpdate();
+		this.drawContent();
+		if (tomJS.now < this.start_time + this.force_wait) return;
+		this.checkUserInput();
 	}
 
 
 	// functions --------------------------------------------------------------
 
 
-	checkBothKeys() {
-		if (tomJS.keys.includes(tomJS.key_left) && tomJS.keys.includes(tomJS.key_right)) {
-			this.ready_to_exit = true;
-			if (tomJS.verbose) console.log('both keys pressed');
+	checkUserInput() {
+		if (tomJS.keyboard.allKeysPressed(['f', 'j'])) this.ready_to_exit = true;
+	}
+
+
+	drawContent() {
+		for (const _content of this.content) {
+			switch(_content.class) {
+				case 'text':
+					let _text = this.parseText(_content['text']);
+					tomJS.writeToCanvas(_text, _content);
+					break;
+				case 'gabor':
+					let _args = {..._content,...{'target':this.parseText(_content['target'])}};
+					let _gabor = new Gabor(_args);
+					_gabor.drawStimulus()
+			};
 		};
 	}
 
 
 	parseText(_text) {
-		if (_text.search('~') != -1) {
-			let _split = _text.split('~');
-			let _eval = eval('tomJS.' + _split[1]);
-			_text = _split[0] + _eval + _split[2];
+		while (_text.includes('~')) { 
+			if (_text.includes('~')) {
+				let _split = _text.split('~');
+				let _eval = eval('tomJS.' + _split[1]);
+				_text = _split[0] + _eval + _split[2];
+			};
 		};
 		return _text;
 	}
@@ -535,6 +566,7 @@ class Gabor extends Stimulus {
 
 
 	constructor(args = {}) {
+		if (!'target' in args) tomJS.error('no target passed to gabor stimulus');
 		super(args);
 		this.id = 'Gabor' + this.tag;
 		this.properties.contrast = args.gabor_contrast ?? 0.5;
@@ -545,8 +577,8 @@ class Gabor extends Stimulus {
 		this.properties.sf = args.gabor_sf ?? 15;
 		this.properties.size = args.gabor_size ?? 0.5;
 		this.properties.phase = args.gabor_phase ?? 0;
-		this.properties.lum = args.gabor_lum ?? 127.5;
-		this.properties.target = args.target ?? 'L';
+		this.properties.lum = args.gabor_lum ?? 127.5;		
+		this.properties.target = args.target;
 		if (!this.id in tomJS.stimuli) tomJS.stimuli[this.id] = this;
 	}
 
@@ -563,7 +595,7 @@ class Gabor extends Stimulus {
 		const sigma = args.sigma ?? 0.2 * Math.min(w, h);
 
 		// calculate target direction multiplier
-		let dir = 0;
+		let dir = null;
 		if (this.properties.target == 'L') dir = -1;
 		else dir = 1;
 
@@ -622,18 +654,11 @@ function fillArray(source, limit) {
 }
 
 
-function processKeypress(event) {
-	// Accept a listener event and extract the key from it. Also append the key to the key log.
-	let key = event.key;
-	tomJS.keys[0] = tomJS.keys[1]; 	// move key from right to left
-	tomJS.keys[1] = key;			// store new keypress on the right
-}
-
-
 function returnAllCombinationsFromDict(_dict) {
-	let out = [[]];
-	for (const i of Object.values(_dict)) {
-		out = out.flatMap(xs => i.map(y => [...xs, y]));
+	// Return a list of dicts, each containing one argument from each key/value pair in dict.
+	let out = [{}];
+	for (const [key, values] of Object.entries(_dict)) {
+		out = out.flatMap(obj => values.map(v => ({ ...obj, [key]: v })));
 	};
 	return out;
 }
@@ -641,15 +666,14 @@ function returnAllCombinationsFromDict(_dict) {
 
 function returnShuffledArray(array) {
 	// Return a randomly reordered version of an array.
-	let currentIndex = array.length, temp, randomIndex;
-	while (0 !== currentIndex) {
-		randomIndex = Math.floor(Math.random() * currentIndex);
-		currentIndex -= 1;
-		temp = array[currentIndex];
-		array[currentIndex] = array[randomIndex];
-		array[randomIndex] = temp;
+	let _shuffled = array;
+	for (let i = 0; i < _shuffled.length; i++) {
+		let rng = Math.floor(Math.random()*_shuffled.length);
+		let tmp = _shuffled[i];
+		_shuffled[i]   = _shuffled[rng];
+		_shuffled[rng] = tmp;
 	};
-	return array;
+	return _shuffled;
 }
 
 
@@ -687,6 +711,70 @@ function writeToBody(text) {
 	let p = document.createElement("p");
 	p.appendChild(document.createTextNode(text));
 	document.body.appendChild(p);
+}
+
+
+// util classes ===============================================================
+
+
+class Keyboard {
+
+
+	constructor(args={}) {
+		this.args = args;
+		this.keys = {};
+		this.keyPress   = this.keyPress.bind(this);
+		this.keyRelease = this.keyRelease.bind(this);
+		document.addEventListener('keydown', this.keyPress, true);
+		document.addEventListener('keyup', this.keyRelease, true);
+	}
+
+
+	allKeysPressed(targets) {
+		// loop over all keys and check if all targets are pressed
+		for (let i = 0; i < targets.length; i++) {
+			let target = targets[i];
+			if (!target in this.keys | !this.keys[target]) return false;
+		}
+		// if we reach the end of the for loop then all target keys are pressed
+		return true;
+	}
+
+
+	anyKeysPressed(targets) {
+		// loop over all keys and check if any targets are pressed
+		for (let i = 0; i < targets.length; i++) {
+			let target = targets[i];
+			if (target in this.keys & this.keys[target]) return true;
+		}
+		// if we reach the end of the for loop then no target keys are pressed
+		return false;
+	}
+
+
+	keyPress(event) {
+		let key = event.key;
+		if (!key in this.keys) this.keys[key] = null;
+		this.keys[key] = true;
+		tomJS.key = key;
+		switch (key) {
+			case tomJS.key_left: 
+				tomJS.dir = 'L';
+				break;
+			case tomJS.key_right: 
+				tomJS.dir = 'R';
+				break;
+		};
+		if (tomJS.verbose) console.log(key, tomJS.key, tomJS.dir);
+	}
+
+
+	keyRelease(event) {
+		let key = event.key;
+		this.keys[key] = false;
+	}
+
+
 }
 
 
