@@ -9,6 +9,7 @@ class Experiment {
 		// debugging
 		this.pilot = args.pilot ?? false;
 		this.verbose = args.verbose ?? false;
+		this.show_fps = args.show_fps ?? false;
 
 		// set body defaults
 		document.body.style.backgroundColor = "black";
@@ -34,7 +35,7 @@ class Experiment {
 		document.body.appendChild(this.canvas);
 		this.context = this.canvas.getContext("2d");
 		
-		// controls
+		// controls		
 		this.keyboard = new Keyboard();
 		this.key_left  = args.key_left  ?? 'f';
         this.key_right = args.key_right ?? 'j';
@@ -43,6 +44,7 @@ class Experiment {
 		this.key = '';
 		this.dir = '';
 		if (this.verbose) console.log(this.key_left, this.key_right, this.key_quit, this.key_back);
+		// TODO : make inputs not dependent on keyboard layout using keycodes and positions
 		
 		// demographics
         this.gather_demographics   = args.gather_demographics ?? true;
@@ -56,8 +58,11 @@ class Experiment {
 		if (this.verbose) console.log(this.demographics);
 		
 		// timing
-        this.now   = Date.now();
+        this.now   = window.performance.now();
         this.frame = 0;
+		this.fps   = args.fps ?? 120;
+		this.tick  = 1000 / this.fps;
+		// TODO: make actually run at target fps
 		
 		// timeline
         this.running  = true;
@@ -100,16 +105,36 @@ class Experiment {
 	}
 
 
+	averageFromTimeine (variable, conditions=[[]]) {
+        let values = [];
+        let n = 0;
+        for (let t = 0; t < this.timeline.length; t++) {
+            let trial = this.timeline[t];
+			if ('data' in trial == false) continue;
+			// check all conditions are met
+			let all_clear = true;
+            for (let c = 0; c < conditions.length; c++) {
+				let condition = conditions[c];
+				let value = trial.data[condition[0]];
+				let target = condition[1];
+				if (value != target) all_clear = false;
+			};
+			// if all clear is still true after checking all conditions
+			if (all_clear) {
+				values.append(trial.data[variable]);
+				n += 1;
+			};
+		};
+        let average = Math.sum(values) / n;
+        return average;
+	}
+
+
 	error(message) {
 		this.running = false;
 		this.context.fillStyle = "rgb(200,0,0)";
 		this.context.fillRect(0, 0, this.width, this.height);
 		this.writeToCanvas('ERROR: '+message);
-	}
-
-	
-	flushKeys () {
-		this.keys = ['',''];
 	}
 
 	
@@ -124,14 +149,24 @@ class Experiment {
             this.timeline[this.time_pos].onExit();
             this.time_pos = _new_position;
             this.timeline[this.time_pos].onEnter();
-			if (this.verbose) console.log('entering '+this.timeline[this.time_pos].id);
 		};
 	}
 	
 	
 	resetCanvas () {
+		// clear the screen, rendering just a black backgorund
 		this.context.fillStyle = "rgb(0,0,0)";
 		this.context.fillRect(0, 0, this.width, this.height);
+	}
+
+
+	run = () => {
+		if (!this.running) return;
+		this.now = window.performance.now();
+		this.frame += 1;
+		this.resetCanvas();		
+		this.update();
+		requestAnimationFrame(this.run);
 	}
 
 	
@@ -156,16 +191,6 @@ class Experiment {
 		let _pos_y = tomJS.canvas.height * _y;
 		let _width = tomJS.width ?? 1;
 		tomJS.context.fillText(text, _pos_x, _pos_y, _width);
-	}
-
-
-	run = () => {
-		if (!this.running) return;
-		this.resetCanvas();
-		this.now = Date.now();
-		this.frame += 1;
-		this.update();
-		requestAnimationFrame(this.run);
 	}
 
 
@@ -199,7 +224,7 @@ class State {
 	}
 
 	onExit() {
-		if (tomJS.verbose) console.log(this.data);
+		// does nothing
 	}
 
 }
@@ -288,7 +313,6 @@ class Trial extends State {
 
 	onEnter() {
 		super.onEnter();
-		tomJS.flushKeys();
 		this.data.start_time = tomJS.now;
 		this.data.start_frame = tomJS.frame;
 		this.queueFirstSubstate();
@@ -299,6 +323,7 @@ class Trial extends State {
 		super.onExit();
 		this.data.end_time = tomJS.now;
 		this.data.end_frame = tomJS.frame;
+		if (tomJS.verbose) console.log('data:', this.data);
 	}
 
 
@@ -479,7 +504,6 @@ class Slide extends State {
 
 	onEnter() {
 		this.start_time = tomJS.now;
-		if (tomJS.verbose) console.log(this.start_time, this.force_wait, tomJS.now);
 		super.onEnter();
 	}
 
@@ -517,16 +541,85 @@ class Slide extends State {
 
 
 	parseText(_text) {
-		while (_text.includes('~')) { 
-			if (_text.includes('~')) {
-				let _split = _text.split('~');
-				let _eval = eval('tomJS.' + _split[1]);
-				_text = _split[0] + _eval + _split[2];
-			};
+		if (_text.includes('~')) {
+			let _split = _text.split('~');
+			let _eval = eval('tomJS.' + _split[1]);
+			_text = _split[0] + _eval + _split[2];
+		};
+		if (_text.includes('^')) {
+			let _split = _text.split('^');
+			let _eval = eval('this.' + _split[1]);
+			_text = _split[0] + _eval + _split[2];
 		};
 		return _text;
 	}
 
+
+}
+
+
+class Countdown extends Slide {
+
+
+	constructor(lifetime, content = [], can_return = true, args = {}) {
+		super(content, can_return, args);
+		this.id = 'Countdown';
+		this.lifetime = lifetime * 1000;
+	}
+
+
+	// super ------------------------------------------------------------------
+
+
+	onUpdate() {
+        tomJS.writeToCanvas(Math.round((this.start_time + this.lifetime - tomJS.now) / 1000));
+        if (tomJS.now >= this.start_time + this.lifetime) this.ready_to_exit = true;
+		super.onUpdate()
+	}
+
+
+}
+
+
+class EndBlock extends Slide {
+
+
+	constructor(content = [], can_return = true, args = {}) {
+		super(content, can_return, args);
+		this.score = null
+        this.rt    = null
+        this.n_cor = null
+        this.n_err = null
+        this.n_fst = null
+        this.n_slw = null
+        this.n_cen = null
+	}
+
+
+	// super ------------------------------------------------------------------
+
+
+	onEnter () {
+        super.onEnter();
+        // percentages
+        this.score = tomJS.averageFromTimeine('score', [[['block', tomJS.block]]]);
+        this.rt    = Math.random();
+        // counts
+        this.n_cor = Math.random();
+        this.n_err = Math.random();
+        this.n_fst = Math.random();
+        this.n_slw = Math.random();
+        this.n_cen = Math.random();
+	}
+
+
+    onExit () {
+        tomJS.saveData();
+        tomJS.block += 1;
+        tomJS.trial = 0;
+        super.onExit();
+	}
+        
 
 }
 
@@ -765,7 +858,6 @@ class Keyboard {
 				tomJS.dir = 'R';
 				break;
 		};
-		if (tomJS.verbose) console.log(key, tomJS.key, tomJS.dir);
 	}
 
 
