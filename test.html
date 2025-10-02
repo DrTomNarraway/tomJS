@@ -7,58 +7,65 @@
 		<script>
             
 			const BLOCK_REPS  = 2;
-            const CONTRAST    = [0.01, 1.00];
-			const ORIENTATION = 3;
+            const CONTRAST    = [0.01, 0.50];
+            const DIFFERENCE  = [1, 5, 10];
+			const ORIENTATION = 2;
 			const TRIAL_REPS  = 1;
-			const STIMULUS    = Gabor;
+            const STIMULUS    = TwoLines;
 
-            const args = { 'gather_demographics':false, 'verbose':true, 'show_fps':true };
-			const tomJS = new Experiment(args);
+            // trial arguments ------------------------------------------------
+
+			const _blockwise = {
+			};
+
+            const _trialwise = {
+                'target': ['L', 'R'],
+                'gabor_contrast': CONTRAST,
+                'twoline_difference': DIFFERENCE,
+            };
+
+            const _additional = {
+                'stimulus': STIMULUS,
+                'gabor_ori': ORIENTATION				
+            };
 
 			// slides ---------------------------------------------------------
 
 			const welcome = new Slide([
-				{'class':'text', 'text':'Welcome to this experiment. Please press f and then j', 'y':0.25},
-                {'class':'text', 'text':'to make sure your keyboard is being read by the experiment correctly.','y':0.3},
-				{'class':'text', 'text':'~key~'},
-				{'class':'text', 'text':'Press f and j to continue.', 'y':0.7},
+                { 'class': 'text', 'text': 'Welcome to this experiment. Please press F and then J a few times ', 'y': 0.25 },
+                { 'class': 'text', 'text': 'to make sure your keyboard is being read by the experiment correctly.', 'y': 0.3 },
+                { 'class': 'text', 'text': '~key~' },
+                { 'class': 'text', 'text': 'Press F and J to continue.', 'y': 0.7 },
 				], false);
 
 			const gabor = new Slide([
-				{'class':'text', 'text':'On each trial you will see a stimulus like the one below.','y':0.2},
-                {'class':'text', 'text':'You will press f if you think it is leaning left and j if you think it is leaning right.','y':0.25},
-                {'class':'text', 'text':'Press f and j now to see examples.','y':0.3},
-                {'class':'gabor', 'target':'~dir~', 'gabor_ori':ORIENTATION, 'gabor_contrast':CONTRAST[CONTRAST.length], 'gabor_size':0.25},
-                {'class':'text', 'text':'Press f and j to continue.', 'y':0.7},
+                { 'class': 'text', 'text': 'On each trial you will see a stimulus like the one below. Please press ', 'y': 0.20 },
+                { 'class': 'text', 'text': 'F if you think the left line is longer or J if you think the right line is.' , 'y': 0.25 },
+                { 'class': 'text', 'text': 'Press F and J now to see examples.', 'y': 0.30 },
+                //{'class':'gabor', 'target':'~dir~', 'gabor_ori':ORIENTATION, 'gabor_contrast':CONTRAST[CONTRAST.length], 'gabor_size':0.25},
+                { 'class': 'twolines', 'target': '~dir~','twoline_difference':DIFFERENCE[DIFFERENCE.length] },
+                { 'class': 'text', 'text': 'Press F and J to continue.', 'y': 0.70 },
 				], false);
 
 			const countdown = new Countdown(3.0);
 
 			const end_block = new EndBlock([
-				{'class':'text','text':'You responded correctly to ^score^% trials this block.'},
-                {'class':'text', 'text':'Press f and j to continue.', 'y':0.7},
+                { 'class': 'text', 'text': 'You responded correctly to ^score^% trials this block.', 'y': 0.45 },
+                { 'class': 'text', 'text': 'Your average response time was ^rt^ milliseconds this block.' },
+                { 'class': 'text', 'text': 'Press f and j to continue.', 'y': 0.70 },
 			]);
 
-			// trial arguments ------------------------------------------------
+            // set up experiment ----------------------------------------------
 
-			const _trialwise = {
-				'target' : ['L', 'R'],
-				'gabor_contrast': CONTRAST,
-			};
-
-			const _additional = {
-				'stimulus'  : STIMULUS,
-				'gabor_ori' : ORIENTATION,
-			};
-
-			const _trialreps = TRIAL_REPS;
+            const args = { 'gather_demographics': false, 'verbose': true, 'show_fps': true };
+            const tomJS = new Experiment(args);
 
 			// timeline -------------------------------------------------------
 
             tomJS.appendToTimeline(welcome);
 			tomJS.appendToTimeline(gabor);
 
-            tomJS.appendBlock(Trial, _trialwise, _additional, _trialreps, countdown, end_block);
+            tomJS.appendBlocks(Trial, _blockwise, _trialwise, _additional, BLOCK_REPS, TRIAL_REPS, countdown, end_block);
 
 			// run ------------------------------------------------------------
 
