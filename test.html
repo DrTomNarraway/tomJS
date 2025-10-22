@@ -6,12 +6,15 @@
 		<script src="./tomJS.js"></script>
 		<script>
             
-			const BLOCK_REPS  = 2;
-            const CONTRAST    = [0.01, 0.50];
-            const DIFFERENCE  = [1, 5, 10];
-			const ORIENTATION = 2;
-			const TRIAL_REPS  = 1;
-            const STIMULUS    = TwoLines;
+            const BLOCK_REPS = 2;
+            const DIFFICULTY = [0.4, 0.46, 0.48, 0.52, 0.54, 0.60];
+            const TRIAL_REPS = 1;
+            const STIMULUS   = PixelPatch;
+
+            // set up experiment ----------------------------------------------
+
+            const args = { 'gather_demographics': false, 'verbose': true, 'show_fps': true };
+            const tomJS = new Experiment(args);
 
             // trial arguments ------------------------------------------------
 
@@ -19,14 +22,11 @@
 			};
 
             const _trialwise = {
-                'target': ['L', 'R'],
-                'gabor_contrast': CONTRAST,
-                'twoline_difference': DIFFERENCE,
+                'pixelpatch_aness' : DIFFICULTY,
             };
 
             const _additional = {
                 'stimulus': STIMULUS,
-                'gabor_ori': ORIENTATION				
             };
 
 			// slides ---------------------------------------------------------
@@ -43,7 +43,7 @@
                 { 'class': 'text', 'text': 'F if you think the left line is longer or J if you think the right line is.' , 'y': 0.25 },
                 { 'class': 'text', 'text': 'Press F and J now to see examples.', 'y': 0.30 },
                 //{'class':'gabor', 'target':'~dir~', 'gabor_ori':ORIENTATION, 'gabor_contrast':CONTRAST[CONTRAST.length], 'gabor_size':0.25},
-                { 'class': 'twolines', 'target': '~dir~','twoline_difference':DIFFERENCE[DIFFERENCE.length] },
+                //{ 'class': 'twolines', 'target': '~dir~','twoline_difference':DIFFERENCE[DIFFERENCE.length] },
                 { 'class': 'text', 'text': 'Press F and J to continue.', 'y': 0.70 },
 				], false);
 
@@ -53,12 +53,7 @@
                 { 'class': 'text', 'text': 'You responded correctly to ^score^% trials this block.', 'y': 0.45 },
                 { 'class': 'text', 'text': 'Your average response time was ^rt^ milliseconds this block.' },
                 { 'class': 'text', 'text': 'Press f and j to continue.', 'y': 0.70 },
-			]);
-
-            // set up experiment ----------------------------------------------
-
-            const args = { 'gather_demographics': false, 'verbose': true, 'show_fps': true };
-            const tomJS = new Experiment(args);
+			]);         
 
 			// timeline -------------------------------------------------------
 
