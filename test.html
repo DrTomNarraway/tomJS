@@ -7,62 +7,70 @@
 		<script>
             
             const BLOCK_REPS = 2;
-            const DIFFICULTY = [0.4, 0.46, 0.48, 0.52, 0.54, 0.60];
-            const TRIAL_REPS = 1;
+            const CONDITION  = [0.500, 1.000, 1.500];
+            const DIFFICULTY = [0.4, 0.47, 0.53, 0.60];
             const STIMULUS   = PixelPatch;
+            const TRIAL_REPS = 1;
+            const TRIAL_TYPE = VisibleFeedbackDeadline;
 
-            // set up experiment ----------------------------------------------
+            // set up experiment ==================================================================
 
-            const args = { 'gather_demographics': false, 'verbose': true, 'show_fps': true };
+            const args = { 'gather_demographics': false, 'verbose': true, 'grid_lines':true};
             const tomJS = new Experiment(args);
 
-            // trial arguments ------------------------------------------------
+            // script =============================================================================
+
+            const S00 = 'Welcome to this experiment. Please press F and then J a few times ';
+            const S01 = 'to make sure your keyboard is being read by the experiment correctly.';
+            const S02 = '~key~';
+            const S03 = 'Press F and J to continue.';
+
+            const S10 = 'You responded correctly to ^score^% trials this block.';
+            const S11 = 'Your average response time was ^rt^ milliseconds this block.';
+            const S12 = 'Press f and j to continue.';
+
+            // trial arguments ====================================================================
 
 			const _blockwise = {
 			};
 
             const _trialwise = {
-                'pixelpatch_aness' : DIFFICULTY,
+                'pp_aness' : DIFFICULTY,
+                'condition' : CONDITION,
             };
 
             const _additional = {
                 'stimulus': STIMULUS,
+                'deadline_max' : 1.500,
             };
 
-			// slides ---------------------------------------------------------
+            // slides =============================================================================
 
 			const welcome = new Slide([
-                { 'class': 'text', 'text': 'Welcome to this experiment. Please press F and then J a few times ', 'y': 0.25 },
-                { 'class': 'text', 'text': 'to make sure your keyboard is being read by the experiment correctly.', 'y': 0.3 },
-                { 'class': 'text', 'text': '~key~' },
-                { 'class': 'text', 'text': 'Press F and J to continue.', 'y': 0.7 },
-				], false);
-
-			const gabor = new Slide([
-                { 'class': 'text', 'text': 'On each trial you will see a stimulus like the one below. Please press ', 'y': 0.20 },
-                { 'class': 'text', 'text': 'F if you think the left line is longer or J if you think the right line is.' , 'y': 0.25 },
-                { 'class': 'text', 'text': 'Press F and J now to see examples.', 'y': 0.30 },
-                //{'class':'gabor', 'target':'~dir~', 'gabor_ori':ORIENTATION, 'gabor_contrast':CONTRAST[CONTRAST.length], 'gabor_size':0.25},
-                //{ 'class': 'twolines', 'target': '~dir~','twoline_difference':DIFFERENCE[DIFFERENCE.length] },
-                { 'class': 'text', 'text': 'Press F and J to continue.', 'y': 0.70 },
+                { 'class': 'text', 'text': S00, 'y': 0.25 },
+                { 'class': 'text', 'text': S01, 'y': 0.3 },
+                { 'class': 'text', 'text': S02 , 'upper':true},
+                { 'class': 'text', 'text': S03, 'y': 0.7 },
 				], false);
 
 			const countdown = new Countdown(3.0);
 
 			const end_block = new EndBlock([
-                { 'class': 'text', 'text': 'You responded correctly to ^score^% trials this block.', 'y': 0.45 },
-                { 'class': 'text', 'text': 'Your average response time was ^rt^ milliseconds this block.' },
-                { 'class': 'text', 'text': 'Press f and j to continue.', 'y': 0.70 },
+                { 'class': 'text', 'text': S10, 'y': 0.45 },
+                { 'class': 'text', 'text': S11},
+                { 'class': 'text', 'text': S12, 'y': 0.70 },
 			]);         
 
-			// timeline -------------------------------------------------------
+            // timeline ===========================================================================
 
             tomJS.appendToTimeline(welcome);
-			tomJS.appendToTimeline(gabor);
 
-            tomJS.appendBlocks(Trial, _blockwise, _trialwise, _additional, BLOCK_REPS, TRIAL_REPS, countdown, end_block);
+            tomJS.appendBlocks(
+                TRIAL_TYPE, _blockwise, _trialwise, _additional, 
+                BLOCK_REPS, TRIAL_REPS, countdown, end_block
+            );
 
-			// run ------------------------------------------------------------
+            // run ================================================================================
 
 			if (tomJS.verbose) console.log(tomJS.timeline);
 
