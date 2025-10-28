@@ -1,81 +1,94 @@
 
 <!DOCTYPE html>
 <html>	
-	<body>
-		<script src="./assets/javascripts/jatos.js"></script>
-		<script src="./tomJS.js"></script>
-		<script>
+<body>
+<script src="./assets/javascripts/jatos.js"></script>
+<script src="./tomJS.js"></script>
+<script>
+
+// define constants ===============================================================================
             
-            const BLOCK_REPS = 2;
-            const CONDITION  = [0.500, 1.000, 1.500];
-            const DIFFICULTY = [0.4, 0.47, 0.53, 0.60];
-            const STIMULUS   = PixelPatch;
-            const TRIAL_REPS = 1;
-            const TRIAL_TYPE = VisibleFeedbackDeadline;
+const BLOCK_REPS = 2;
+const CONDITION  = [0.500, 1.000, 1.500];
+const DIFFICULTY = [0.40, 0.47, 0.53, 0.60];
+const STIMULUS   = PixelPatch;
+const TRIAL_REPS = 1;
+const TRIAL_TYPE = VisibleFeedbackDeadline;
 
-            // set up experiment ==================================================================
+// boot up jatos ==================================================================================
 
-            const args = { 'gather_demographics': false, 'verbose': true, 'grid_lines':true};
-            const tomJS = new Experiment(args);
+var use_jatos;
+try {    
+    jatos.onLoad();
+    console.log('JATOS loaded');
+    use_jatos = true;
+} catch {
+    console.log('JATOS not found');
+    use_jatos = false;
+};
 
-            // script =============================================================================
+// set up experiment ==============================================================================
 
-            const S00 = 'Welcome to this experiment. Please press F and then J a few times ';
-            const S01 = 'to make sure your keyboard is being read by the experiment correctly.';
-            const S02 = '~key~';
-            const S03 = 'Press F and J to continue.';
+const contacts = ["Tom Narraway: narraway@uni-bremen.de", "Heinrich Liesefeld: heinrich.liesefeld@uni-bremen.de"];
+const args = { 'gather_demographics':true, 'verbose':true, 'use_jatos':use_jatos, 'grid_lines':false, 'contacts':contacts };
+const tomJS = new Experiment(args);
 
-            const S10 = 'You responded correctly to ^score^% trials this block.';
-            const S11 = 'Your average response time was ^rt^ milliseconds this block.';
-            const S12 = 'Press f and j to continue.';
+const A = tomJS.key_a.toUpperCase();
+const B = tomJS.key_b.toUpperCase();
 
-            // trial arguments ====================================================================
+// trial arguments ================================================================================
 
-			const _blockwise = {
-			};
+const _blockwise = {
+};
 
-            const _trialwise = {
-                'pp_aness' : DIFFICULTY,
-                'condition' : CONDITION,
-            };
+const _trialwise = {
+    'pp_aness' : DIFFICULTY,
+    'condition' : CONDITION,
+};
 
-            const _additional = {
-                'stimulus': STIMULUS,
-                'deadline_max' : 1.500,
-            };
+const _additional = {
+    'stimulus': STIMULUS,
+    'deadline_max' : 1.500,
+};
 
-            // slides =============================================================================
+// slides =========================================================================================
 
-			const welcome = new Slide([
-                { 'class': 'text', 'text': S00, 'y': 0.25 },
-                { 'class': 'text', 'text': S01, 'y': 0.3 },
-                { 'class': 'text', 'text': S02 , 'upper':true},
-                { 'class': 'text', 'text': S03, 'y': 0.7 },
-				], false);
+const welcome = new Slide([
+    { 'class': 'text', 'text': 'Please press ' + A + ' and then ' + B + ' a few times ', 'y': 0.25 },
+    { 'class': 'text', 'text': 'to make sure your keyboard is being read by the experiment correctly.', 'y': 0.30 },
+    { 'class': 'text', 'text': '~key~' , 'upper':true},
+    { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
+]);
 
-			const countdown = new Countdown(3.0);
+const stimulus = new Slide([
+    { 'class': 'text', 'text': 'On each trial you will see a stimulus like the one below. Press ' + A + ' if ', 'y': 0.15 },
+    { 'class': 'text', 'text': 'you think te stimulus has more black than white pixels, or press ' + B , 'y': 0.20 },
+    { 'class': 'text', 'text': 'if you think it is more white. Press '+A+' and '+B+' now to see examples.', 'y': 0.25 },
+    { 'class':'pixelpatch', 'A':0.60, 'B':0.40 },
+    { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to start the experiment.', 'y': 0.75 },
+]);
 
-			const end_block = new EndBlock([
-                { 'class': 'text', 'text': S10, 'y': 0.45 },
-                { 'class': 'text', 'text': S11},
-                { 'class': 'text', 'text': S12, 'y': 0.70 },
-			]);         
+const countdown = new Countdown(3.0);
 
-            // timeline ===========================================================================
+const end_block = new EndBlock([
+    { 'class': 'text', 'text': 'You responded correctly to ^score^% trials this block.', 'y': 0.55 },
+    { 'class': 'text', 'text': 'Your average response time was ^rt^ milliseconds this block.'},
+    { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
+]);         
 
-            tomJS.appendToTimeline(welcome);
+// timeline =======================================================================================
 
-            tomJS.appendBlocks(
-                TRIAL_TYPE, _blockwise, _trialwise, _additional, 
-                BLOCK_REPS, TRIAL_REPS, countdown, end_block
-            );
+tomJS.appendToTimeline(welcome);
+tomJS.appendToTimeline(stimulus);
 
-            // run ================================================================================
+tomJS.appendBlocks(TRIAL_TYPE, _blockwise, _trialwise, _additional, BLOCK_REPS, TRIAL_REPS, start_block=null, end_block, add_countdown=false);
 
-			if (tomJS.verbose) console.log(tomJS.timeline);
+// run ============================================================================================
 
-			tomJS.run();
+if (tomJS.verbose) console.log(tomJS.timeline);
 
-		</script>
-	</body>
+tomJS.start();
+
+</script>
+</body>
 </html>

@@ -1,14 +1,14 @@
 {
   "Version": 1,
-  "WorkspaceRootPath": "C:\\Users\\tomax\\Documents\\Dr Tom Narraway\\tomJS\\",
+  "WorkspaceRootPath": "C:\\Users\\Thomas\\Documents\\tomJS\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\tomax\\Documents\\Dr Tom Narraway\\tomJS\\tomJS.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:tomJS.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Thomas\\Documents\\tomJS\\tomJS.js||{3B902123-F8A7-4915-9F01-361F908088D0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:tomJS.js||{3B902123-F8A7-4915-9F01-361F908088D0}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\tomax\\Documents\\Dr Tom Narraway\\tomJS\\test.html||{40D31677-CBC0-4297-A9EF-89D907823A98}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:test.html||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Thomas\\Documents\\tomJS\\test.html||{3B902123-F8A7-4915-9F01-361F908088D0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:test.html||{3B902123-F8A7-4915-9F01-361F908088D0}"
     }
   ],
   "DocumentGroupContainers": [
@@ -24,27 +24,25 @@
               "$type": "Document",
               "DocumentIndex": 1,
               "Title": "test.html",
-              "DocumentMoniker": "C:\\Users\\tomax\\Documents\\Dr Tom Narraway\\tomJS\\test.html",
+              "DocumentMoniker": "C:\\Users\\Thomas\\Documents\\tomJS\\test.html",
               "RelativeDocumentMoniker": "test.html",
-              "ToolTip": "C:\\Users\\tomax\\Documents\\Dr Tom Narraway\\tomJS\\test.html",
+              "ToolTip": "C:\\Users\\Thomas\\Documents\\tomJS\\test.html",
               "RelativeToolTip": "test.html",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABEAAABdAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAACAAAAB5AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001512|",
-              "WhenOpened": "2025-09-01T08:38:57.751Z",
-              "IsPinned": true,
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-28T09:30:12.971Z"
             },
             {
               "$type": "Document",
               "DocumentIndex": 0,
               "Title": "tomJS.js",
-              "DocumentMoniker": "C:\\Users\\tomax\\Documents\\Dr Tom Narraway\\tomJS\\tomJS.js",
+              "DocumentMoniker": "C:\\Users\\Thomas\\Documents\\tomJS\\tomJS.js",
               "RelativeDocumentMoniker": "tomJS.js",
-              "ToolTip": "C:\\Users\\tomax\\Documents\\Dr Tom Narraway\\tomJS\\tomJS.js",
+              "ToolTip": "C:\\Users\\Thomas\\Documents\\tomJS\\tomJS.js",
               "RelativeToolTip": "tomJS.js",
-              "ViewState": "AgIAAHkAAAAAAAAAAAAAAJEAAAACAAAAAAAAAA==",
+              "ViewState": "AgIAAGgGAAAAAAAAAAAAAGkGAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
-              "WhenOpened": "2025-10-02T09:42:28.213Z",
+              "WhenOpened": "2025-10-28T12:38:18.774Z",
               "EditorCaption": ""
             }
           ]

@@ -1,22 +1,14 @@
 
 
-class Experiment {
-	
-	colours = {
-		'black'  : [16, 16, 16, 255],
-		'blue'   : [20, 129, 235, 255],
-		'green'  : [22, 235, 20, 255],
-		'orange' : [235, 126, 20, 255],
-		'pink'   : [233, 20, 235, 255],
-		'purple' : [126, 17, 238, 255],
-		'red'    : [238, 17, 19, 255],
-		'yellow' : [232, 238, 108, 255],
-		'white'  : [250, 250, 250, 255],
-	};
+class Experiment {	
 
-	constructor(args = {}) {	
+	constructor(args = {}) {
+		
 		// Create the experiment plus perform other startup processess.
 		console.log('booting tomJS');
+
+		// connection to JATOS
+		this.use_jatos = args.use_jatos ?? false;
 
 		// debugging
 		this.pilot = args.pilot ?? false;
@@ -28,24 +20,15 @@ class Experiment {
 		document.body.style.color = "white";
 
 		// gather identifying information
-		this.subject  = Date.now();
-		this.file = null;	
-		if (this.verbose) console.log(this.subject, this.file);
+		this.subject = Date.now();
 		
 		// create canvas
 		this.height = window.innerHeight - 16;
 		this.width  = window.innerWidth - 16;
 		this.size   = Math.min(this.height, this.width); // find the smaller dimension
-		this.canvas = document.createElement('canvas');
-		this.canvas.id = "canvas";
-		this.canvas.height = this.size;
-		this.canvas.width  = this.size; // make canvas square
-		this.canvas.style.position = "absolute"; 
-		this.canvas.style.backgroundColor = "black";
-		this.canvas.style.color = "white";
-		this.canvas.style.left = (this.width - this.size + 16) / 2 + "px"; // position canvas in center
-		document.body.appendChild(this.canvas); // add canvas to window
-		this.context = this.canvas.getContext("2d");
+		this.backgroundColour = args.backgroundColour ?? "black";
+		this.colour = args.colour ?? "white";
+		this.createCanvas();
 		
 		// controls
 		this.keyboard  = new Keyboard();
@@ -63,20 +46,14 @@ class Experiment {
 		// demographics
         this.gather_demographics   = args.gather_demographics ?? true;
         this.demographics_language = args.demographics_language ?? 'en';
-		this.demographics          = {};
-        if (this.gather_demographics) {
-			this.demographics.age    = window.prompt(demographics_prompts.age[this.demographics_language], '')
-			this.demographics.gender = window.prompt(demographics_prompts.gender[this.demographics_language], '')
-			this.demographics.hand   = window.prompt(demographics_prompts.hand[this.demographics_language], '')
-		};
-		if (this.verbose) console.log(this.demographics);
+		this.demographics          = {'age':null, 'gender':null, 'hand':null};
 		
 		// timing
-        this.now   = window.performance.now();
+        this.now = window.performance.now();
 		
 		// timeline
         this.running  = true;
-        this.timeline = [];
+        this.timeline = (this.gather_demographics) ? [new Consent(args), new Demographics(args)] : [new Consent(args)];
         this.time_pos = 0;
 
         // timeline identifiers
@@ -84,7 +61,6 @@ class Experiment {
         this.block  = 0;
         this.trials = 0;
 		this.blocks = 0;
-
 
 		// data
 		this.data = [];
@@ -104,23 +80,36 @@ class Experiment {
 	}
 
 
-	appendBlock(trial_type, trialwise={}, additional={}, trial_reps=1, start_slide=null, end_slide=null) {
-		const _block = new Block(trial_type, trialwise, additional, trial_reps, start_slide, end_slide);
+	appendBlock(trial_type, trialwise={}, additional={}, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
+		const _block = new Block(trial_type, trialwise, additional, trial_reps, start_slide, end_slide, countdown);
 		this.appendToTimeline(_block);
 	}
 
 
-	appendBlocks(trial_type, blockwise={}, trialwise={}, additional={}, block_reps=1, trial_reps=1, start_slide=null, end_slide=null) {
-        // Append a number of blocks with different blockwise and trialwise arguments, filling out the entire provided design matrix.
+	appendBlocks(trial_type, blockwise={}, trialwise={}, additional={}, block_reps=1, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
 		let _b_cells  = returnTotalDictLength(blockwise);
         for (let b = 0; b < block_reps; b++) {
             let _blockwise = returnAllCombinationsFromDict(blockwise);
             _blockwise = returnShuffledArray(_blockwise);
             for (let i = 0; i < _b_cells; i++) {
 				let _additional = Object.assign({ }, _blockwise[i%_b_cells], additional);
-                this.appendBlock(trial_type, trialwise, _additional, trial_reps, start_slide, end_slide);
+                this.appendBlock(trial_type, trialwise, _additional, trial_reps, start_slide, end_slide, add_countdown);
 			};
 		};
+	}
+
+
+	createCanvas() {
+		this.canvas = document.createElement('canvas');
+		this.canvas.id = "canvas";
+		this.canvas.height = this.size;
+		this.canvas.width  = this.size; // make canvas square
+		this.canvas.style.position = "absolute"; 
+		this.canvas.style.backgroundColor = this.backgroundColour;
+		this.canvas.style.color = this.colour;
+		this.canvas.style.left = (this.width - this.size + 16) / 2 + "px"; // position canvas in center
+		document.body.appendChild(this.canvas); // add canvas to window
+		this.context = this.canvas.getContext("2d");
 	}
 
 
@@ -131,7 +120,7 @@ class Experiment {
 			let h = this.size * 0.001;
 			let x = (this.size * 0.5) - (w * 0.5);
 			let y = (this.size * 0.5 * (i/2)) - (h * 0.5);
-			tomJS.context.fillStyle = "white";
+			tomJS.context.fillStyle = this.colour;
 			tomJS.context.fillRect(x, y, w, h);
 		}
 		// vertical
@@ -140,7 +129,7 @@ class Experiment {
 			let h = this.size;
 			let x = (this.size * 0.5 * (i/2)) - (w * 0.5);
 			let y = (this.size * 0.5) - (h * 0.5);
-			tomJS.context.fillStyle = "white";
+			tomJS.context.fillStyle = this.colour;
 			tomJS.context.fillRect(x, y, w, h);
 		}
 	}
@@ -171,8 +160,8 @@ class Experiment {
 	
 	resetCanvas () {
 		// clear the screen, rendering just a black backgorund
-		this.context.fillStyle = "black";
-		this.context.fillRect(0, 0, this.width, this.height);		
+		this.context.fillStyle = this.backgroundColour;
+		this.context.fillRect(0, 0, this.width, this.height);
 	}
 
 
@@ -186,7 +175,19 @@ class Experiment {
 
 
 	saveData() {
-		console.log('data saved :)');
+		if (this.use_jatos) {
+			jatos.submitResultData(data);
+			console.log('saved to JATOS');
+		} else {
+			console.log('saved locally');
+		};
+	}
+
+	
+	start () {
+		this.resetCanvas();
+		this.timeline[0].onEnter();
+		requestAnimationFrame(this.run);
 	}
 
 	
@@ -204,14 +205,14 @@ class Experiment {
 		let _text = _upper ? text.toUpperCase() : text;
 		tomJS.context.fillStyle = args.colour ?? "white";
 		tomJS.context.textAlign = args.align  ?? "center";
-		let _pt = args.pt ?? 24;
-		let _tf = args.font ?? "Arial";
+		let _pt = args.pt ?? 22;
+		let _tf = args.font ?? "Georgia";
 		let _font = _pt+ "px " + _tf;
 		tomJS.context.font = _font;
 		let _x = args.x ?? 0.5;
 		let _y = args.y ?? 0.5;
 		let _pos_x = tomJS.size * _x;
-		let _pos_y = tomJS.size * _y;
+		let _pos_y = tomJS.size * _y + (0.334 * _pt);
 		let _width = tomJS.size ?? 1;
 		tomJS.context.fillText(_text, _pos_x, _pos_y, _width);
 	}
@@ -256,7 +257,7 @@ class State {
 class Block extends State {
 
 
-	constructor(trial_type, trialwise={}, additional={}, trial_reps=1, start_slide=null, end_slide=null) {
+	constructor(trial_type, trialwise={}, additional={}, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
 		super();
 
 		// identification
@@ -278,7 +279,7 @@ class Block extends State {
 
 		// state
 		this.ready_to_exit = false;		
-		this.timeline      = this.generateTimeline(trial_type, trialwise, additional, trial_reps, start_slide, end_slide);
+		this.timeline      = this.generateTimeline(trial_type, trialwise, additional, trial_reps, start_slide, end_slide, add_countdown);
         this.time_pos      = 0;		
 	}
 
@@ -288,6 +289,7 @@ class Block extends State {
 
 	onEnter() {
 		super.onEnter();
+		this.timeline[0].onEnter();
 	}
 
 
@@ -331,19 +333,19 @@ class Block extends State {
 	}
 
 
-	generateTimeline(trial_type, trialwise, additional, trial_reps, start_slide, end_slide) {
+	generateTimeline(trial_type, trialwise, additional, trial_reps, start_slide, end_slide, add_countdown) {
 		let _timeline = [];
 		let _t_cells = returnTotalDictLength(trialwise);
 		let _trialwise = returnAllCombinationsFromDict(trialwise);
 		_trialwise = returnShuffledArray(_trialwise);
 		let _n_trials = _t_cells * trial_reps;
 		if (start_slide != null) _timeline.push(start_slide);
+		if (add_countdown) _timeline.push(new Countdown(3.0));
 		for (let t = 0; t < _n_trials; t++) {
 			let _args = Object.assign({ }, _trialwise[t%_t_cells], additional, {'block':this.block, 'trial':t});
 			let _new_trial = new trial_type(_args);
 			_timeline.push(_new_trial);
 			this.block_data.n++;
-
 		};
 		if (end_slide != null) _timeline.push(end_slide);
 		return _timeline;
@@ -355,7 +357,7 @@ class Block extends State {
         let _new_position = this.time_pos + 1;
         if (_new_position > _end) {
             this.timeline[this.time_pos].onExit();
-            this.running = false;
+            this.ready_to_exit = true;
 		} else {
 			if ('data' in this.timeline[this.time_pos]) {
 				this.pushOutcome(this.timeline[this.time_pos].data.outcome);
@@ -465,7 +467,7 @@ class Trial extends State {
 	onExit() {
 		super.onExit();
 		this.properties.end = tomJS.now;
-		// this.data = Object.assign({}, this.data, this.stimulus.data);
+		this.data = Object.assign({}, this.data, this.stimulus.data);
 		if (tomJS.verbose) this.printTrialSummary();
 	}
 
@@ -727,16 +729,16 @@ class Slide extends State {
 		this.content = content;
 		this.can_return = can_return;
 		this.start = null;
-		this.force_wait = args.force_wait ?? 1000; // in milliseconds
+		this.force_wait = (args.force_wait ?? 1) * 1000; // pass in seconds for consistency
 	}
 
 
-	// super ------------------------------------------------------------------
+	// super --------------------------------------------------------------------------------------
 
 
 	onEnter() {
-		this.start = tomJS.now;
 		super.onEnter();
+		this.start = tomJS.now;
 	}
 
 
@@ -748,7 +750,7 @@ class Slide extends State {
 	}
 
 
-	// functions --------------------------------------------------------------
+	// functions ----------------------------------------------------------------------------------
 
 
 	checkUserInput() {
@@ -760,19 +762,32 @@ class Slide extends State {
 		for (const _content of this.content) {
 			switch(_content.class) {
 				case 'text':
-					let _text = this.parseText(_content['text']);
+					const _text = this.parseText(_content.text);
 					tomJS.writeToCanvas(_text, _content);
 					break;
 				case 'gabor':
-					let _gabor_args = {..._content,...{'target':this.parseText(_content['target'])}};
-					let _gabor = new Gabor(_gabor_args);
-					_gabor.drawStimulus();
+					const _gb_args = {..._content,...{'target':this.parseText(_content.target)}};
+					const _gb = new Gabor(_gb_args);
+					_gb.drawStimulus();
 					break;
 				case 'twolines':
-					let _twoline_args = {..._content,...{'target':this.parseText(_content['target'])}};
-					let _twolines = new TwoLines(_twoline_args);
-					_twolines.drawStimulus();
+					const _tl_args = {..._content,...{'target':this.parseText(_content.target)}};
+					const _tl = new TwoLines(_tl_args);
+					_tl.drawStimulus();
 					break;
+				case 'pixelpatch':
+					if (!this.A) {
+						let tmp = new PixelPatch({'pp_aness':_content.A});
+						this.A = tmp.image_data;
+					};
+					if (!this.B) {
+						let tmp = new PixelPatch({'pp_aness':_content.B});
+						this.B = tmp.image_data;
+					};
+					const _image_data = (tomJS.dir == 'A') ? this.A : this.B ;
+					const _pp_args = {..._content,...{'image_data':_image_data}};
+					const _pp = new PixelPatch(_pp_args);
+					_pp.drawStimulus();
 			};
 		};
 	}
@@ -796,25 +811,370 @@ class Slide extends State {
 }
 
 
+
+class Consent extends Slide {
+
+
+	constructor(args = {}) {
+		super([], false, args);
+		this.id = 'Consent';
+		this.exit_pressed = false;
+		this.exit_button  = null;
+		this.container    = null;
+		this.institute  = args.institute  ?? "Institut für Psychologie";
+		this.department = args.department ?? "Fachbereich 11";
+		this.group      = args.group      ?? "Psychologische Forschungsmethoden und Kognitive Psychologie";
+		this.contact    = args.contact    ?? "Contacts";
+		this.contacts   = args.contacts   ?? ["Tom Narraway: narraway@uni-bremen.de"];
+		this.h0 = (args.h0 ?? "24")+ "px";
+		this.h1 = (args.h1 ?? "18")+ "px";
+		this.h2 = (args.h2 ?? "14")+ "px";
+	}
+
+
+	// override -----------------------------------------------------------------------------------
+
+
+	onUpdate() {
+		this.drawContent();		
+		if (tomJS.now < this.start + this.force_wait) return;
+	}
+
+
+	// super --------------------------------------------------------------------------------------
+
+
+	onEnter() {
+		super.onEnter();
+		this.createContainer();
+		this.createTopPanel();
+		this.createMain();
+		this.createButton();
+	}
+
+
+	onExit() {
+		super.onExit();
+		this.container.remove();
+	}
+
+
+	// functions ----------------------------------------------------------------------------------
+
+
+	buttonClicked() {
+		this.slide.ready_to_exit = true;
+	}
+
+
+	createBremenLogo() {
+		const url = "https://www.uni-bremen.de/typo3conf/ext/package/Resources/Public/Images/logo_ub_2021.png";
+		const img = document.createElement('IMG');
+		img.id = "Bremen Logo";
+		img.src = url;
+		img.style.width = "418px";
+		img.style.height = "150px";
+		return img;
+	}
+
+
+	createButton() {
+		const btn = document.createElement('button');
+		btn.id = "exit_button";
+		btn.textContent = "I Consent";
+		btn.onclick = this.buttonClicked;
+		btn.slide = this;
+		btn.style.marginTop = '4em';
+		btn.style.cursor    = 'pointer';
+		btn.style.padding   = '1em';
+		this.container.appendChild(btn);
+	}
+
+
+	createContactPanel() {
+		const div = document.createElement('div');
+		div.id = "Contact Panel";
+		div.style.display = "flex";
+		div.style.flexDirection = "column";
+		div.style.textAlign = "left";
+		div.style.width = "45%";
+		div.style.marginLeft = "10%";
+		// institute
+		let ins = document.createElement('label');
+		ins.textContent = this.institute;
+		ins.style.marginTop = "1em";
+		ins.style.fontSize = this.h0;			
+		div.append(ins);
+		// department
+		let dep = document.createElement('label');
+		dep.textContent = this.department;
+		dep.style.marginTop = "1em";
+		dep.style.fontSize = this.h1,	
+		div.append(dep);
+		// group
+		let grp = document.createElement('label');
+		grp.textContent = this.group;
+		grp.style.marginTop = "1em";
+		grp.style.fontSize = this.h2;			
+		div.append(grp);
+		// contact
+		let ctc = document.createElement('label');
+		ctc.textContent = this.contact;
+		ctc.style.marginTop = "1em";
+		ctc.style.fontSize = this.h1;			
+		div.append(ctc);
+		// contacts
+		for (let i = 0; i < this.contacts.length; i++) {
+			let tmp = document.createElement('label');
+			tmp.textContent = this.contacts[i];
+			tmp.style.marginTop = "1em";
+			tmp.style.fontSize = this.h2;			
+			div.append(tmp);
+		};
+		return div;
+	}
+
+
+	createContainer() {
+		const ctr = document.createElement('div');		
+		ctr.id = "container";
+		ctr.style.width           = "65%";
+		ctr.style.justifyContent  = "center";
+		ctr.style.alignItems      = "center";
+		ctr.style.display         = "flex";
+		ctr.style.flexDirection   = "column";
+		ctr.style.flexWrap        = "wrap";
+		ctr.style.textAlign       = "right";
+		ctr.style.fontFamily      = "Georgia";
+		ctr.style.position        = "absolute";
+		ctr.style.top             = "0%";
+		ctr.style.left            = "50%";
+		ctr.style.transform       = "translate(-50%, -0%)";
+		ctr.style.color           = "black";
+		ctr.style.backgroundColor = "white";
+		ctr.style.padding         = "24px";
+		this.container = ctr;
+		document.body.appendChild(ctr);
+	}
+
+
+
+	createMain(){
+		const div = document.createElement('div');
+		div.id = "Main Panel";
+		div.style.display = "flex";
+		div.style.flexDirection = "column";
+		div.style.width = "100%";
+		div.style.textAlign = "left";
+		// main content
+		for (let i = 0; i < consent_form.length; i++) {
+			const tmp = document.createElement('label');
+			tmp.textContent = consent_form[i];
+			tmp.style.width = "100%";
+			tmp.style.marginBottom = "1em";
+			if (i % 2 == 0) { 
+				tmp.style.fontSize = this.h1;
+			} else {
+				tmp.style.fontSize = this.h2;
+			};
+			div.append(tmp);
+		}
+		// join
+		this.container.append(div);
+	}
+
+	
+	createTopPanel() {
+		const div = document.createElement('div');
+		div.id = "Top Panel";
+		div.style.display = "flex";
+		div.style.flexDirection = "row";
+		div.style.width = "100%";
+		div.style.marginBottom = "32px";
+		const logo = this.createBremenLogo();
+		const info = this.createContactPanel();
+		div.append(logo, info);
+		this.container.append(div);
+	}
+
+
+}
+
+
+
 class Countdown extends Slide {
 
 
-	constructor(lifetime, content = [], can_return = true, args = {}) {
+	constructor(lifetime, content = [], can_return = false, args = {}) {
 		super(content, can_return, args);
 		this.id = 'Countdown';
 		this.lifetime = lifetime * 1000;
 	}
 
 
-	// super ------------------------------------------------------------------
+	// super --------------------------------------------------------------------------------------
+
+
+	onEnter() {
+		super.onEnter();
+		console.log(this.start, this.lifetime);
+	}
 
 
 	onUpdate() {
         tomJS.writeToCanvas(Math.round((this.start + this.lifetime - tomJS.now) / 1000));
         if (tomJS.now >= this.start + this.lifetime) this.ready_to_exit = true;
-		super.onUpdate()
+		super.onUpdate();
 	}
 
+
+}
+
+
+class Demographics extends Slide {
+
+
+	constructor(args={}) {
+		super([], false, args);
+		this.id = 'Demographics';
+		this.age = null;
+		this.gender = null;
+		this.hand = null;
+		this.exit_pressed = false;
+		this.exit_button = null;
+		this.heading = args.heading ?? "Welcome to the experiment.";
+		this.instructions = args.instructions ?? "The following information is optional."+
+			" Pless press \"Submit\" when you are ready to continue. "+
+			" Please do not refresh the page at any time.";			
+	}
+
+
+	// override -----------------------------------------------------------------------------------
+
+
+	onUpdate() {
+		this.drawContent();
+		if (tomJS.now < this.start + this.force_wait) return;
+	}
+
+
+	// super --------------------------------------------------------------------------------------
+
+
+	onEnter() {
+		super.onEnter();
+		this.createContainer();
+		this.createHeading();
+		this.age = this.createField(demographics_prompts.age.en, 'number');
+		this.gender = this.createField(demographics_prompts.gender.en, 'select', demographics_choices.gender.en);
+		this.hand = this.createField(demographics_prompts.hand.en, 'select', demographics_choices.hand.en);
+		this.createButton();
+	}
+
+
+	onExit() {
+		super.onExit();
+		tomJS.demographics.age    = this.age.value;
+		tomJS.demographics.gender = this.gender.value;
+		tomJS.demographics.hand   = this.hand.value;
+		if (tomJS.verbose) console.log(tomJS.demographics);
+		this.container.remove();
+	}
+
+
+	// functions ----------------------------------------------------------------------------------
+
+
+	buttonClicked() {
+		this.slide.ready_to_exit = true;
+	}
+
+
+	createButton() {
+		const btn = document.createElement('button');
+		btn.id = "exit_button";
+		btn.textContent = "Submit";
+		btn.onclick = this.buttonClicked;
+		btn.slide = this;
+		btn.style.marginTop = '4em';
+		btn.style.cursor    = 'pointer';
+		btn.style.display   = 'flex';
+		btn.style.padding   = '1em';
+		this.container.appendChild(btn);
+	}
+
+
+	createContainer() {
+		const ctr = document.createElement('div');		
+		ctr.id = "container";
+		ctr.style.width          = "100vh";
+		ctr.style.justifyContent = "center";
+		ctr.style.alignItems     = "center";
+		ctr.style.display        = "flex";
+		ctr.style.flexDirection  = "row";
+		ctr.style.flexWrap       = "wrap";
+		ctr.style.textAlign      = "right";
+		ctr.style.fontFamily     = "Georgia";
+		ctr.style.position       = "absolute";
+		ctr.style.top            = "50%";
+		ctr.style.left           = "50%";
+		ctr.style.transform      = "translate(-50%, -50%)";
+		this.container = ctr;
+		document.body.appendChild(ctr);
+	}
+
+
+	createField(label, type, options = []) {
+		// create wrapper div
+		const div = document.createElement('div');
+		div.id = label;
+		div.style.width = "100vh";
+		div.style.marginTop = "2em";
+		// create label
+		const lbl = document.createElement('label');
+		lbl.textContent = label;
+		lbl.style.textAlign = "right";
+		lbl.style.width = "50vh";
+		// create input options
+		let input;		
+		if (type === 'select') {
+			input = document.createElement('select');
+			options.forEach(opt => {
+				const o = document.createElement('option');
+				o.value = opt;
+				o.textContent = opt === '' ? 'Select...' : opt;
+			input.appendChild(o);
+			});
+		} else {
+			input = document.createElement('input');
+			input.type = type;
+		}
+		input.style.width = "50vh";
+		input.style.marginLeft = "2em";
+		// stich together
+		div.append(lbl, input);
+		this.container.append(div);
+		// connect to slide
+		return input;
+	}
+
+
+	createHeading() {
+		// heading
+		const hed = document.createElement('label');
+		hed.textContent = this.heading;	
+		hed.style.textAlign = "center";
+		hed.style.fontSize = "28px"
+		this.container.appendChild(hed);
+		// instructions
+		const ins = document.createElement('label');
+		ins.textContent = this.instructions;
+		ins.style.width = '100vh';
+		ins.style.marginTop = '2em';
+		ins.style.textAlign = "center";
+		this.container.appendChild(ins);
+	}
+	
 
 }
 
@@ -834,7 +1194,7 @@ class EndBlock extends Slide {
 	}
 
 
-	// super ------------------------------------------------------------------
+	// super --------------------------------------------------------------------------------------
 
 
 	onEnter () {
@@ -908,7 +1268,7 @@ class Gabor extends Stimulus {
 	}
 
 
-	// super -----------------------------------------------------------------------------------------
+	// super --------------------------------------------------------------------------------------
 
 
 	drawStimulus() {
@@ -1029,20 +1389,20 @@ class PixelPatch extends Stimulus {
 
 	
 	constructor(args = {}) {
-		if (!('pp_aness' in args)) tomJS.error('no A-ness passed to pixel patch stimulus');
+		if (!('pp_aness' in args) & (!'image_data' in args)) tomJS.error('no wy to generate pixel patch stimulus');
 		if (args.pp_aness == 0.5 | args.pp_aness == 0) tomJS.error('pixel patch must have some bias');				
 		super(args);
 		this.id = 'PixelPatch' + this.tag;
 		this.data.pp_aness      = args.pp_aness;
-		this.data.pp_color_A    = args.pp_color_A    ?? tomJS.colours.black;
-		this.data.pp_color_B    = args.pp_color_B    ?? tomJS.colours.white;
+		this.data.pp_color_A    = args.pp_color_A    ?? colours.black;
+		this.data.pp_color_B    = args.pp_color_B    ?? colours.white;
         this.data.pp_size       = args.pp_size       ?? 0.3;	// percent of canvas
 		this.data.pp_rows       = args.pp_rows       ?? 50;		// count
         this.data.pp_x          = args.pp_x          ?? 0.5;	// percent of canvas
 		this.data.pp_y          = args.pp_y          ?? 0.5;	// percent of canvas
 		this.data.target = (this.data.pp_aness > 0.5) ? 'A' : 'B';
 		this.calculateImageSize();
-		this.image_data = this.prepareImageData();
+		this.image_data = args.image_data ?? this.prepareImageData();
 	}
 
 	// super --------------------------------------------------------------------------------------
@@ -1218,7 +1578,7 @@ function writeToBody(text) {
 }
 
 
-// util classes ===============================================================
+// util classes ===================================================================================
 
 
 class Keyboard {
@@ -1281,7 +1641,54 @@ class Keyboard {
 }
 
 
-// data =======================================================================
+// data ===========================================================================================
+
+
+colours = {
+	//			R    G    B    A
+	'black'  : [16,  16,  16,  255],
+	'blue'   : [20,  129, 235, 255],
+	'green'  : [22,  235, 20,  255],
+	'orange' : [235, 126, 20,  255],
+	'pink'   : [233, 20,  235, 255],
+	'purple' : [126, 17,  238, 255],
+	'red'    : [238, 17,  19,  255],
+	'yellow' : [232, 238, 108, 255],
+	'white'  : [250, 250, 250, 255],
+}
+
+
+consent_form = [
+	"General information",
+		"Thank you for your interest in our scientific study."+
+		" Please read the following information carefully and then decide whether or not to participate in this study."+
+		" If you have any further questions about the study beyond this information please message or email Tom Narraway.",
+	"1. Objective of this Research Project",
+		"In this study, we investigate the cognitive representations of motor action planning." +
+		" We aim to determine how our experiment affects the speed and accuracy of your responses.",
+	"2. Study Procedure",
+		"You will be asked to press buttons in response to simple visual stimuli."+
+		" For each decision we record how long you take to respond and if your response is correct or not."+
+		" The exact procedure will be explained to you during the experiment."+
+		" We will also ask to record for your age, gender, and dominant hand, but these details are optional."+
+		" The experiment takes approximately 60 minutes.",
+	"3. Reimbursement",
+		"You will be reimbursed at the rate of £9.50 per hour.",
+	"4. Obligations",
+		"The success of scientific studies depends significantly on your cooperation."+
+		" We therefore ask you to remain focused and to work according to the instructions throughout the entire study.",
+	"5. Voluntary participation and possibility of dropping out",
+		"Your participation in the study is voluntary. "+
+		" You may withdraw from the study at any time and without giving reasons, without incurring any disadvantages."+
+		" If you withdraw, you are entitled to a pro rata compensation for your time spent.",
+	"6. Confidentiality and anonymity",
+		"Data collected as part of this study is connected to a randomly assigned ID-number and therefore cannot be traced back to you.",
+	"7. Data protection",
+		"The collection and processing of your personal data described above is carried out without collecting any identifying information."+
+		" This means that no one can link your data to you after collection."+
+		" Accordingly, your data cannot be deleted after collection."+
+		" Therefore you cannot withdraw consent to the use of your data."
+]
 
 
 demographics_prompts = {
@@ -1299,3 +1706,14 @@ demographics_prompts = {
 	}
 }
 
+
+demographics_choices = {
+	'gender': {
+		'en':['','Female','Male','Diverse'],
+		'de':['','Weiblich','Maennlich','Divers']
+	},
+	'hand': {
+		'en':['','Left','Right','Both'],
+		'de':['','Links','Rechts','Beide']
+	}
+}
