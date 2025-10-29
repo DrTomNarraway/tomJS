@@ -1,0 +1,99 @@
+
+<!DOCTYPE html>
+<html>	
+<body>
+<script src="jatos.js"></script>
+<script src="tomJS.js"></script>
+<script>
+
+    // define constants ====================================================================================================
+                
+    const BLOCK_REPS = 2;
+    const CONDITION  = [0.500, 1.000];
+    const DIFFICULTY = [0.48, 0.52];
+    const STIMULUS   = PixelPatch;
+    const TRIAL_REPS = 1;
+    const TRIAL_TYPE = VisibleFeedbackDeadline;
+        
+    // set up experiment ===================================================================================================
+    
+    const tomJS = new Experiment();
+
+    const contacts = ["Tom Narraway: narraway@uni-bremen.de", "Heinrich Liesefeld: heinrich.liesefeld@uni-bremen.de"];
+    const args = { 'gather_demographics': true, 'verbose': true, 'contacts': contacts };
+
+    try {
+        jatos.onLoad(tomJS.bootTomJS(args, jatos));
+    } catch {
+        tomJS.bootTomJS(args);
+    };
+    
+    while (!tomJS.booted) continue;
+
+    const A = tomJS.key_a_upper;
+    const B = tomJS.key_b_upper;
+
+    // trial arguments =====================================================================================================
+
+    const _blockwise = {
+    };
+    
+    const _trialwise = {
+        'difficulty' : DIFFICULTY,
+        'condition'  : CONDITION,
+    };
+    
+    const _additional = {
+        'stimulus': STIMULUS,
+        'deadline_max' : 1.000,
+    };
+    
+    // slides ==============================================================================================================
+    
+    const welcome = new Slide([
+        { 'class': 'text', 'text': 'Please press ' + A + ' and then ' + B + ' a few times ', 'y': 0.25 },
+        { 'class': 'text', 'text': 'to make sure your keyboard is being read by the experiment correctly.', 'y': 0.30 },
+        { 'class': 'text', 'text': '~key~' , 'upper':true},
+        { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
+    ]);
+    
+    const stimulus = new Slide([
+        { 'class': 'text', 'text': 'On each trial you will see a stimulus like the one below. Press ' + A + ' if ', 'y': 0.15 },
+        { 'class': 'text', 'text': 'you think te stimulus has more black than white pixels, or press ' + B , 'y': 0.20 },
+        { 'class': 'text', 'text': 'if you think it is more white. Press '+A+' and '+B+' now to see examples.', 'y': 0.25 },
+        { 'class':'pixelpatch', 'A':0.60, 'B':0.40 },
+        { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to start the experiment.', 'y': 0.75 },
+    ]);
+    
+    const countdown = new Countdown(3.0);
+    
+    const end_block = new EndBlock([
+        { 'class': 'text', 'text': 'End of block. Please take a short break. ', 'y':0.25 },
+        { 'class': 'text', 'text': 'You responded before the deadline on ^hits^% of trials this block.' },
+        { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
+    ]);         
+    
+    const end_exp = new EndExperiment([
+        { 'class': 'text', 'text': 'End of Experiment. Thank you for your help.', 'y': 0.25 },
+        { 'class': 'text', 'text': 'You responded before the deadline on ^hits^% of trials this experiment.' },
+        { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to end the experiment.', 'y': 0.75 },
+    ]);
+
+    // timeline ============================================================================================================
+    
+    tomJS.appendToTimeline(welcome);
+    tomJS.appendToTimeline(stimulus);
+    
+    tomJS.appendBlocks(TRIAL_TYPE, _blockwise, _trialwise, _additional, BLOCK_REPS, TRIAL_REPS, start_block=null, end_block, add_countdown=false);
+    
+    tomJS.replaceEndBlockWithEndExperiment(end_exp);
+    
+    // run =================================================================================================================
+    
+    if (tomJS.verbose) console.log(tomJS.timeline);
+    
+    tomJS.start();
+
+</script>
+</body>
+</html>

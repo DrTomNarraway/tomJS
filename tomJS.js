@@ -1,71 +1,53 @@
 
 
+
+
+
 class Experiment {	
 
-	constructor(args = {}) {
-		
-		// Create the experiment plus perform other startup processess.
-		console.log('booting tomJS');
 
-		// connection to JATOS
-		this.use_jatos = args.use_jatos ?? false;
+	version = '29-10-25 16:54';
 
-		// debugging
-		this.pilot = args.pilot ?? false;
-		this.verbose = args.verbose ?? false;
-		this.grid_lines = args.grid_lines ?? false;
 
-		// set body defaults
-		document.body.style.backgroundColor = "black";
-		document.body.style.color = "white";
-
-		// gather identifying information
-		this.subject = Date.now();
-		
-		// create canvas
-		this.height = window.innerHeight - 16;
-		this.width  = window.innerWidth - 16;
-		this.size   = Math.min(this.height, this.width); // find the smaller dimension
-		this.backgroundColour = args.backgroundColour ?? "black";
-		this.colour = args.colour ?? "white";
-		this.createCanvas();
-		
-		// controls
-		this.keyboard  = new Keyboard();
-		this.key_a     = args.key_a     ?? 'f';
-        this.key_b     = args.key_b     ?? 'j';
-        this.key_quit  = args.key_quit  ?? 'Escape';
-        this.key_back  = args.key_back  ?? 'Backspace';
-		this.resp_a    = args.resp_a    ?? 'A';
-		this.resp_b    = args.resp_b    ?? 'B';
-		this.key = '';
-		this.dir = '';
-		if (this.verbose) console.log(this.key_a, this.key_b, this.key_quit, this.key_back, this.resp_a, this.resp_b);
-		// TODO : make inputs not dependent on keyboard layout using keycodes and positions
-		
-		// demographics
-        this.gather_demographics   = args.gather_demographics ?? true;
-        this.demographics_language = args.demographics_language ?? 'en';
-		this.demographics          = {'age':null, 'gender':null, 'hand':null};
-		
-		// timing
-        this.now = window.performance.now();
-		
-		// timeline
-        this.running  = true;
-        this.timeline = (this.gather_demographics) ? [new Consent(args), new Demographics(args)] : [new Consent(args)];
-        this.time_pos = 0;
-
-        // timeline identifiers
-        this.trial  = 0;
-        this.block  = 0;
-        this.trials = 0;
-		this.blocks = 0;
-
-		// data
-		this.data = [];
-
+	constructor() {
+		this.pilot = null;
+		this.verbose = null;
+		this.grid_lines = null;
+		this.save = null;
+		this.backgroundColor = null;
+		this.color = null;
+		this.subject = null;
+		this.height = null;
+		this.width = null;
+		this.size = null;
+		this.keyboard = null;
+		this.key_a = null;
+        this.key_b = null;
+        this.key_quit = null;
+        this.key_back = null;
+		this.key_a_upper = null;
+        this.key_b_upper = null;
+		this.resp_a = null;
+		this.resp_b = null;
+		this.key = null;
+		this.dir = null;		
+        this.gather_demographics = null;
+        this.demographics_language = null;
+		this.demographics = null;
+        this.now = null;
+        this.running = null;
+        this.timeline = null;
+        this.time_pos = null;
+        this.trial = null;
+        this.block = null;
+        this.trials = null;
+		this.blocks = null;
+		this.data = null;
+		this.booted = false;
 	}
+
+
+	// functions -----------------------------------------------------------------------------------------------------------
 
 	
 	appendToTimeline (new_state) {
@@ -99,13 +81,84 @@ class Experiment {
 	}
 
 
+	bootTomJS(args={}, j=null) {
+
+		console.log('booting tomJS version '+this.version);
+
+		this.jatos = j;
+
+		// debugging
+		this.pilot = args.pilot ?? false;
+		this.verbose = args.verbose ?? false;
+		this.grid_lines = args.grid_lines ?? false;
+		this.save = args.save ?? true;
+
+		// set body defaults
+		this.backgroundColor = args.backgroundColor ?? "black";
+		this.color = args.color ?? "white";		
+
+		// gather identifying information
+		if (this.jatos) this.subject = ('workerID' in this.jatos.urlQueryParameters) ? 
+			this.jatos.urlQueryParameters.workerID : Math.round(Math.random()*999999);
+		else this.subject = Math.round(Math.random()*999999);
+		if (this.verbose) console.log(this.subject);
+		
+		// create canvas
+		this.height = window.innerHeight - 16;
+		this.width  = window.innerWidth - 16;
+		this.size   = Math.min(this.height, this.width); // find the smaller dimension
+		this.createCanvas();
+		
+		// controls
+		this.keyboard  = new Keyboard();
+		this.key_a     = args.key_a     ?? 'f';
+        this.key_b     = args.key_b     ?? 'j';
+        this.key_quit  = args.key_quit  ?? 'Escape';
+        this.key_back  = args.key_back  ?? 'Backspace';
+		this.key_a_upper = this.key_a.toUpperCase();
+		this.key_b_upper = this.key_b.toUpperCase();
+		this.resp_a    = args.resp_a    ?? 'A';
+		this.resp_b    = args.resp_b    ?? 'B';
+		this.key = '';
+		this.dir = '';
+		if (this.verbose) console.log(this.key_a, this.key_b, this.key_quit, this.key_back, this.resp_a, this.resp_b);
+		// TODO : make inputs not dependent on keyboard layout using keycodes and positions
+		
+		// demographics
+        this.gather_demographics   = args.gather_demographics ?? true;
+        this.demographics_language = args.demographics_language ?? 'en';
+		this.demographics          = {'age':null, 'gender':null, 'hand':null};
+		
+		// timing
+        this.now = window.performance.now();
+		
+		// timeline
+        this.running  = true;
+        this.timeline = (this.gather_demographics) ? [new Consent(args), new Demographics(args)] : [new Consent(args)];
+        this.time_pos = 0;
+
+        // timeline identifiers
+        this.trial  = 0;
+        this.block  = 0;
+        this.trials = 0;
+		this.blocks = 0;
+
+		// data
+		this.data = [];
+
+		// flag experiment as finished booting
+		this.booted = true;
+
+	}
+
+
 	createCanvas() {
 		this.canvas = document.createElement('canvas');
 		this.canvas.id = "canvas";
 		this.canvas.height = this.size;
 		this.canvas.width  = this.size; // make canvas square
 		this.canvas.style.position = "absolute"; 
-		this.canvas.style.backgroundColor = this.backgroundColour;
+		this.canvas.style.backgroundColor = this.backgroundColor;
 		this.canvas.style.color = this.colour;
 		this.canvas.style.left = (this.width - this.size + 16) / 2 + "px"; // position canvas in center
 		document.body.appendChild(this.canvas); // add canvas to window
@@ -120,8 +173,8 @@ class Experiment {
 			let h = this.size * 0.001;
 			let x = (this.size * 0.5) - (w * 0.5);
 			let y = (this.size * 0.5 * (i/2)) - (h * 0.5);
-			tomJS.context.fillStyle = this.colour;
-			tomJS.context.fillRect(x, y, w, h);
+			this.context.fillStyle = this.colour;
+			this.context.fillRect(x, y, w, h);
 		}
 		// vertical
 		for (let i = 0; i < 5; i++) {
@@ -129,9 +182,15 @@ class Experiment {
 			let h = this.size;
 			let x = (this.size * 0.5 * (i/2)) - (w * 0.5);
 			let y = (this.size * 0.5) - (h * 0.5);
-			tomJS.context.fillStyle = this.colour;
-			tomJS.context.fillRect(x, y, w, h);
+			this.context.fillStyle = this.colour;
+			this.context.fillRect(x, y, w, h);
 		}
+	}
+
+
+	endExperiment() {
+		if (this.jatos) jatos.startNextComponent();
+		else window.close();
 	}
 
 
@@ -148,19 +207,25 @@ class Experiment {
         let _new_position = this.time_pos + 1;
         if (_new_position > _end) {
             this.timeline[this.time_pos].onExit();
-            console.log('at end of timeline, ending experiment');
-            this.running = false;
+            if (this.verbose) console.log('at end of timeline, ending experiment');
+            this.endExperiment();
 		} else {
             this.timeline[this.time_pos].onExit();
             this.time_pos = _new_position;
             this.timeline[this.time_pos].onEnter();
 		};
 	}
+
+
+	replaceEndBlockWithEndExperiment(end_slide) {		
+		const i = this.timeline.length - 1;
+		const j = this.timeline[i].timeline.length - 1;
+		this.timeline[i].timeline[j] = end_slide;
+	}
 	
 	
 	resetCanvas () {
-		// clear the screen, rendering just a black backgorund
-		this.context.fillStyle = this.backgroundColour;
+		this.context.fillStyle = this.backgroundColor;
 		this.context.fillRect(0, 0, this.width, this.height);
 	}
 
@@ -175,12 +240,9 @@ class Experiment {
 
 
 	saveData() {
-		if (this.use_jatos) {
-			jatos.submitResultData(data);
-			console.log('saved to JATOS');
-		} else {
-			console.log('saved locally');
-		};
+		const csv = this.writeCSV();
+		if (this.jatos) jatos.submitResultData(csv);
+		console.log(csv);
 	}
 
 	
@@ -196,6 +258,20 @@ class Experiment {
 		if (this.timeline[this.time_pos].ready_to_exit) this.nextState();
 		else this.timeline[this.time_pos].update();
 		if (this.grid_lines) this.drawGridLines();
+	}
+
+
+	writeCSV() {
+		const d = this.data;
+		const n = d.length;
+		let csv = 'subject,age,gender,hand,block,trial,condition,difficulty,rt,score,outcome,target,response\n';
+		for (let i = 0; i < n; i++) {
+			let x = d[i];
+			let r = [this.subject, this.demographics.age, this.demographics.gender, this.demographics.hand,
+				x.block, x.trial, x.condition, x.difficulty, x.rt, x.score, x.outcome, x.target, x.response];			
+			csv += r.toString() + '\n';
+		};
+		return csv;
 	}
 
 	
@@ -221,7 +297,7 @@ class Experiment {
 }
 
 
-// states =========================================================================================
+// states ==================================================================================================================
 
 
 class State {
@@ -251,7 +327,7 @@ class State {
 }
 
 
-// blocks =========================================================================================
+// blocks ==================================================================================================================
 
 
 class Block extends State {
@@ -284,7 +360,7 @@ class Block extends State {
 	}
 
 	
-	// super --------------------------------------------------------------------------------------
+	// super ---------------------------------------------------------------------------------------------------------------
 
 
 	onEnter() {
@@ -305,21 +381,7 @@ class Block extends State {
 	}
 
 
-	// functions ----------------------------------------------------------------------------------
-
-
-	calculateBlockData() {
-		let n = this.block_data.n;
-		// arrays to averages
-		this.block_data.rt = Math.round((this.block_data.rt.reduce((a,b)=>a+b,0)/n)*1000);
-		this.block_data.score = Math.round((this.block_data.score.reduce((a,b)=>a+b,0)/n)*100);
-		// counts to percentages
-		this.block_data.correct   = Math.round(this.block_data.correct/n);
-		this.block_data.incorrect = Math.round(this.block_data.incorrect/n);
-		this.block_data.fast      = Math.round(this.block_data.fast/n);
-		this.block_data.slow      = Math.round(this.block_data.slow/n);
-		this.block_data.censored  = Math.round(this.block_data.censored/n);
-	}
+	// functions -----------------------------------------------------------------------------------------------------------	
 
 
 	pushOutcome(outcome) {
@@ -374,7 +436,7 @@ class Block extends State {
 }
 
 
-// trials =========================================================================================
+// trials ==================================================================================================================
 
 
 class Trial extends State {
@@ -390,14 +452,14 @@ class Trial extends State {
 
 		// create data object
 		this.data = {
-			'block'             : args.block ?? tomJS.blocks,
-			'trial'             : args.trial ?? tomJS.trials,
-			'condition'         : args.condition ?? null,
-			'rt'                : null,
-			'score'             : null,
-			'target'            : this.stimulus.data.target,
-			'response'          : null,
-			'outcome'           : null,
+			'block'      : args.block ?? tomJS.blocks,
+			'trial'      : args.trial ?? tomJS.trials,
+			'condition'  : args.condition ?? null,
+			'difficulty' : this.stimulus.data.difficulty,
+			'target'     : this.stimulus.data.target,
+			'rt'         : null,
+			'score'      : null,
+			'outcome'    : null,
 		};
 
 		this.properties = {			
@@ -424,7 +486,7 @@ class Trial extends State {
 			'feedback_text'     : null,
 			'feedback_colour'   : null,
 			'end'               : null,
-		};;
+		};
 
 		// feedback information
 		this.feedback_colors = args.feedback_colors ?? {
@@ -452,7 +514,7 @@ class Trial extends State {
 	}
 
 
-	// super --------------------------------------------------------------------------------------
+	// super ---------------------------------------------------------------------------------------------------------------
 
 
 	onEnter() {
@@ -467,8 +529,7 @@ class Trial extends State {
 	onExit() {
 		super.onExit();
 		this.properties.end = tomJS.now;
-		this.data = Object.assign({}, this.data, this.stimulus.data);
-		if (tomJS.verbose) this.printTrialSummary();
+		tomJS.data.push(this.data);
 	}
 
 
@@ -478,7 +539,7 @@ class Trial extends State {
 	}
 
 
-	// fixation -----------------------------------------------------------------------------------
+	// fixation ------------------------------------------------------------------------------------------------------------
 
 
 	fixationEnter() {
@@ -500,7 +561,7 @@ class Trial extends State {
 	}
 
 
-	// stimulus -----------------------------------------------------------------------------------
+	// stimulus ------------------------------------------------------------------------------------------------------------
 
 
 	stimulusEnter() {
@@ -540,7 +601,7 @@ class Trial extends State {
 	}
 
 
-	// feedback -----------------------------------------------------------------------------------
+	// feedback ------------------------------------------------------------------------------------------------------------
 
 
 	feedbackEnter() {
@@ -564,7 +625,7 @@ class Trial extends State {
 	}
 
 
-	// functions ----------------------------------------------------------------------------------
+	// functions -----------------------------------------------------------------------------------------------------------
 
 
 	calculateRT() {
@@ -598,20 +659,6 @@ class Trial extends State {
 		else if (rt <= fst)   {this.data.outcome = 'Fast'}
 		else if (rsp == tgt)  {this.data.outcome = 'Correct'}
         else				  {this.data.outcome = 'Incorrect'};
-	}
-
-
-	printTrialSummary() {
-		console.log(
-			this.data['block'], 
-			this.data['trial'], 
-			this.data['condition'], 
-			this.data['rt'], 
-			this.data['score'], 
-			this.data['outcome'],
-			this.data['response'],
-			this.data['target'],
-		);
 	}
 
 
@@ -665,7 +712,7 @@ class VisibleFeedbackDeadline extends FeedbackDeadline {
 	}
 
 
-	// super --------------------------------------------------------------------------------------
+	// super ---------------------------------------------------------------------------------------------------------------
 
 
     onEnter() {
@@ -694,7 +741,7 @@ class VisibleFeedbackDeadline extends FeedbackDeadline {
 	}
 
 
-    // functions ----------------------------------------------------------------------------------
+    // functions -----------------------------------------------------------------------------------------------------------
 
 
     drawProgressBar() { 
@@ -716,7 +763,7 @@ class VisibleFeedbackDeadline extends FeedbackDeadline {
 }
 
 
-// slides =========================================================================================
+// slides ==================================================================================================================
 
 
 class Slide extends State {
@@ -733,7 +780,7 @@ class Slide extends State {
 	}
 
 
-	// super --------------------------------------------------------------------------------------
+	// super ---------------------------------------------------------------------------------------------------------------
 
 
 	onEnter() {
@@ -750,7 +797,7 @@ class Slide extends State {
 	}
 
 
-	// functions ----------------------------------------------------------------------------------
+	// functions -----------------------------------------------------------------------------------------------------------
 
 
 	checkUserInput() {
@@ -777,11 +824,11 @@ class Slide extends State {
 					break;
 				case 'pixelpatch':
 					if (!this.A) {
-						let tmp = new PixelPatch({'pp_aness':_content.A});
+						let tmp = new PixelPatch({'difficulty':_content.A});
 						this.A = tmp.image_data;
 					};
 					if (!this.B) {
-						let tmp = new PixelPatch({'pp_aness':_content.B});
+						let tmp = new PixelPatch({'difficulty':_content.B});
 						this.B = tmp.image_data;
 					};
 					const _image_data = (tomJS.dir == 'A') ? this.A : this.B ;
@@ -821,31 +868,34 @@ class Consent extends Slide {
 		this.exit_pressed = false;
 		this.exit_button  = null;
 		this.container    = null;
-		this.institute  = args.institute  ?? "Institut für Psychologie";
-		this.department = args.department ?? "Fachbereich 11";
-		this.group      = args.group      ?? "Psychologische Forschungsmethoden und Kognitive Psychologie";
+		this.institute  = args.institute  ?? bremen.institute;
+		this.department = args.department ?? bremen.department;
+		this.group      = args.group      ?? bremen.group;
 		this.contact    = args.contact    ?? "Contacts";
-		this.contacts   = args.contacts   ?? ["Tom Narraway: narraway@uni-bremen.de"];
+		this.contacts   = args.contacts   ?? ["Tom Narraway: "+bremen.email];
 		this.h0 = (args.h0 ?? "24")+ "px";
 		this.h1 = (args.h1 ?? "18")+ "px";
 		this.h2 = (args.h2 ?? "14")+ "px";
 	}
 
 
-	// override -----------------------------------------------------------------------------------
+	// override ------------------------------------------------------------------------------------------------------------
 
 
-	onUpdate() {
-		this.drawContent();		
+	onUpdate() {		
+		tomJS.context.fillStyle = "white";
+		tomJS.context.fillRect(0, 0, tomJS.width, tomJS.height);
 		if (tomJS.now < this.start + this.force_wait) return;
 	}
 
 
-	// super --------------------------------------------------------------------------------------
+	// super ---------------------------------------------------------------------------------------------------------------
 
 
 	onEnter() {
 		super.onEnter();
+		document.body.style.backgroundColor = "white";
+		document.body.style.color = "black";
 		this.createContainer();
 		this.createTopPanel();
 		this.createMain();
@@ -856,10 +906,12 @@ class Consent extends Slide {
 	onExit() {
 		super.onExit();
 		this.container.remove();
+		document.body.style.backgroundColor = tomJS.backgroundColor;
+		document.body.style.color = tomJS.color;
 	}
 
 
-	// functions ----------------------------------------------------------------------------------
+	// functions -----------------------------------------------------------------------------------------------------------
 
 
 	buttonClicked() {
@@ -885,6 +937,7 @@ class Consent extends Slide {
 		btn.onclick = this.buttonClicked;
 		btn.slide = this;
 		btn.style.marginTop = '4em';
+		btn.style.marginBottom = "32px";
 		btn.style.cursor    = 'pointer';
 		btn.style.padding   = '1em';
 		this.container.appendChild(btn);
@@ -991,6 +1044,7 @@ class Consent extends Slide {
 		div.style.flexDirection = "row";
 		div.style.width = "100%";
 		div.style.marginBottom = "32px";
+		div.style.marginTop = "32px";
 		const logo = this.createBremenLogo();
 		const info = this.createContactPanel();
 		div.append(logo, info);
@@ -1012,12 +1066,11 @@ class Countdown extends Slide {
 	}
 
 
-	// super --------------------------------------------------------------------------------------
+	// super ---------------------------------------------------------------------------------------------------------------
 
 
 	onEnter() {
 		super.onEnter();
-		console.log(this.start, this.lifetime);
 	}
 
 
@@ -1049,16 +1102,16 @@ class Demographics extends Slide {
 	}
 
 
-	// override -----------------------------------------------------------------------------------
+	// override ------------------------------------------------------------------------------------------------------------
 
 
-	onUpdate() {
+	onUpdate() {		
 		this.drawContent();
 		if (tomJS.now < this.start + this.force_wait) return;
 	}
 
 
-	// super --------------------------------------------------------------------------------------
+	// super ---------------------------------------------------------------------------------------------------------------
 
 
 	onEnter() {
@@ -1082,7 +1135,7 @@ class Demographics extends Slide {
 	}
 
 
-	// functions ----------------------------------------------------------------------------------
+	// functions -----------------------------------------------------------------------------------------------------------
 
 
 	buttonClicked() {
@@ -1182,53 +1235,146 @@ class Demographics extends Slide {
 class EndBlock extends Slide {
 
 
-	constructor(content = [], can_return = true, args = {}) {
+	constructor(content = [], can_return = false, args = {}) {
 		super(content, can_return, args);
-		this.score     = null
-        this.rt        = null
-        this.correct   = null
-        this.incorrect = null
-        this.fast      = null
-        this.slow      = null
-        this.censored  = null
+		this.score     = null;
+        this.rt        = null;
+        this.correct   = null;
+        this.incorrect = null;
+        this.fast      = null;
+        this.slow      = null;
+        this.censored  = null;
+		this.hits      = null;
+		this.miss      = null;
 	}
 
 
-	// super --------------------------------------------------------------------------------------
+	// super ---------------------------------------------------------------------------------------------------------------
 
 
 	onEnter () {
         super.onEnter();
-        tomJS.timeline[tomJS.time_pos].calculateBlockData();
-		this.score     = tomJS.timeline[tomJS.time_pos].block_data.score;
-        this.rt        = tomJS.timeline[tomJS.time_pos].block_data.rt;
-		this.correct   = tomJS.timeline[tomJS.time_pos].block_data.correct;
-        this.incorrect = tomJS.timeline[tomJS.time_pos].block_data.incorrect;
-        this.fast      = tomJS.timeline[tomJS.time_pos].block_data.fast;
-        this.slow      = tomJS.timeline[tomJS.time_pos].block_data.slow;
-        this.censored  = tomJS.timeline[tomJS.time_pos].block_data.censored;
+        this.calculateBlockData();
+		this.hits = this.correct + this.incorrect;
+		this.miss = this.fast + this.slow + this.censored;
 	}
 
 
     onExit () {
-        tomJS.saveData();
+        if (tomJS.save) tomJS.saveData();
         tomJS.block += 1;
         tomJS.trial = 0;
         super.onExit();
 	}
 
 
+	// functions  ----------------------------------------------------------------------------------------------------------
+
+
+	calculateBlockData() {
+		const i = tomJS.time_pos;
+		const d = tomJS.timeline[i].block_data;
+		const n = d.n;
+		// arrays to averages
+		this.rt = Math.round((d.rt.reduce((a,b)=>a+b,0)/n)*1000);
+		this.score = Math.round((d.score.reduce((a,b)=>a+b,0)/n)*100);
+		// counts to percentages
+		this.correct   = Math.round((d.correct/n)*100);
+		this.incorrect = Math.round((d.incorrect/n)*100);
+		this.fast      = Math.round((d.fast/n)*100);
+		this.slow      = Math.round((d.slow/n)*100);
+		this.censored  = Math.round((d.censored/n)*100);
+	}
+
+
 }
 
 
-// stimuli ========================================================================================
+class EndExperiment extends Slide {
+
+
+	constructor(content = [], can_return = false, args = {}) {
+		super(content, can_return, args);
+		// manifest
+		this.score     = null;
+        this.rt        = null;
+		// outcomes
+        this.correct   = null;
+        this.incorrect = null;
+        this.fast      = null;
+        this.slow      = null;
+        this.censored  = null;
+		// complex
+		this.hits = null;
+		this.miss = null;
+	}
+
+
+	// super ---------------------------------------------------------------------------------------------------------------
+
+
+	onEnter () {
+        super.onEnter();
+        this.calculateExperimentData();
+	}
+
+
+    onExit () {
+        if (tomJS.save) tomJS.saveData();
+        super.onExit();
+	}
+
+
+	// functions -----------------------------------------------------------------------------------------------------------
+
+
+	calculateExperimentData() {
+		const data = tomJS.data;
+		const n = data.length;
+		let score     = [];
+		let rt        = [];
+		let correct   = 0;
+		let incorrect = 0;
+		let fast      = 0;
+		let slow      = 0;
+		let censored  = 0;
+		for (let i = 0; i < n; i++) {
+			score.push(data[i].score);
+			rt.push(data[i].rt);
+			switch(data[i].outcome){
+				case 'Correct'   : correct++	; break;
+				case 'Incorrect' : incorrect++  ; break;
+				case 'Fast'      : fast++		; break;
+				case 'Slow'      : slow++		; break;
+				case 'Censored'  : censored++	; break;
+			}
+		};
+		// manifest
+		this.rt    = Math.round((rt.reduce((a,b)=>a+b,0)/n)*1000);
+		this.score = Math.round((score.reduce((a,b)=>a+b,0)/n)*100);
+		// outcomes
+		this.correct   = Math.round((correct/n)*100);
+		this.incorrect = Math.round((incorrect/n)*100);
+		this.fast      = Math.round((fast/n)*100);
+		this.slow      = Math.round((slow/n)*100);
+		this.censored  = Math.round((censored/n)*100);
+		// complex
+		this.hits = minMax(this.correct + this.incorrect, 0, 100);
+		this.miss = minMax(this.fast + this.slow + this.censored, 0, 100);
+	}
+
+}
+
+
+// stimuli =================================================================================================================
 
 
 class Stimulus {
 
 
-	constructor(args = {}) {
-		this.data = {};
+	constructor(args={}) {
+		this.data = {};		
+		this.properties = {};
 	}
 
 	drawStimulus() {
@@ -1254,35 +1400,36 @@ class Gabor extends Stimulus {
 
 
 	constructor(args = {}) {
-		if (!('target' in args)) tomJS.error('no target passed to gabor stimulus');
 		super(args);
-		this.data.target = args.target;
-		this.data.gp_contrast = args.gp_contrast ?? 0.5;
-		this.data.gp_opacity  = args.gp_opacity  ?? 1.0;
-		this.data.gp_ori      = args.gp_ori      ?? 25;
-		this.data.gp_x        = args.gp_x        ?? 0.5;
-		this.data.gp_y        = args.gp_y        ?? 0.5;
-		this.data.gp_sf       = args.gp_sf       ?? 15;
-		this.data.gp_size     = args.gp_size     ?? 0.5;
+		if (!('target' in args))     tomJS.error('no target passed to gabor');
+		if (!('difficulty' in args)) tomJS.error('no difficulty passed to gabor');
+		this.data.target     = args.target;
+		this.data.difficulty = args.difficulty;
+		this.properties.gp_opacity  = args.gp_opacity  ?? 1.0;
+		this.properties.gp_ori      = args.gp_ori      ?? 25;
+		this.properties.gp_x        = args.gp_x        ?? 0.5;
+		this.properties.gp_y        = args.gp_y        ?? 0.5;
+		this.properties.gp_sf       = args.gp_sf       ?? 15;
+		this.properties.gp_size     = args.gp_size     ?? 0.5;
 		this.image_data = this.prepareImageData();
 	}
 
 
-	// super --------------------------------------------------------------------------------------
+	// super ---------------------------------------------------------------------------------------------------------------
 
 
 	drawStimulus() {
 		super.drawStimulus();
-		const _s = Math.round(tomJS.size * this.data.gp_size);
+		const _s = Math.round(tomJS.size * this.properties.gp_size);
 		const img = tomJS.context.createImageData(_s, _s);
 		this.assignImageData(img.data);
-		let pos_x = tomJS.size * this.data.gp_x - (_s * 0.5);
-		let pos_y = tomJS.size * this.data.gp_y - (_s * 0.5);
+		let pos_x = tomJS.size * this.properties.gp_x - (_s * 0.5);
+		let pos_y = tomJS.size * this.properties.gp_y - (_s * 0.5);
 		tomJS.context.putImageData(img, pos_x, pos_y);
 	}
 
 
-	// functions ----------------------------------------------------------------------------------
+	// functions -----------------------------------------------------------------------------------------------------------
 
 
 	assignImageData(data) {
@@ -1296,10 +1443,10 @@ class Gabor extends Stimulus {
 
 
 	prepareImageData() {
-		const s = Math.round(tomJS.size * this.data.gp_size);
-		const ori = this.data.gp_ori;
-		const con = this.data.gp_contrast;
-		const sf  = this.data.gp_sf;
+		const s = Math.round(tomJS.size * this.properties.gp_size);
+		const con = this.data.difficulty;
+		const ori = this.properties.gp_ori;
+		const sf  = this.properties.gp_sf;
 		const lum = 127.5;
 		const phs = 0;
 		const sigma = 0.2 * s;
@@ -1308,7 +1455,7 @@ class Gabor extends Stimulus {
 		const theta = (ori * Math.PI * dir) / 180;
 		const cosT = Math.cos(theta), sinT = Math.sin(theta);
 		const k = 2 * Math.PI * sf / s;
-		const amp = lum * Math.max(0, Math.min(con, 1));		
+		const amp = lum * minMax(con, 0, 1);
 		let image_data = [];
 		for (let _y = 0; _y < s; _y++) {
 			const dy = _y - cy
@@ -1319,7 +1466,7 @@ class Gabor extends Stimulus {
 				const gauss = Math.exp(-(xPrime * xPrime + yPrime * yPrime) / (2 * sigma * sigma));
 				const carrier = Math.cos(k * xPrime + phs);
 				const L = lum + amp * carrier;
-				const v = Math.max(0, Math.min(255, L)) | 0;
+				const v = minMax(L, 0, 255) | 0;
 				image_data.push(v);							// R
 				image_data.push(v);							// G
 				image_data.push(v);							// B
@@ -1336,48 +1483,49 @@ class Gabor extends Stimulus {
 class TwoLines extends Stimulus {
 
 	
-	constructor(args = {}) {
-		if (!('target' in args)) tomJS.error('no target passed to two line stimulus');
+	constructor(args = {}) {		
 		super(args);
-        this.data.target        = args.target;
-		this.data.tl_color_L    = args.tl_color_L    ?? "white";
-		this.data.tl_color_R    = args.tl_color_R    ?? "white";
-        this.data.tl_difference = args.tl_difference ?? 10;			// pixels
-        this.data.tl_distance   = args.tl_distance   ?? 0.25;		// percent of canvas
-        this.data.tl_height     = args.tl_height     ?? 0.15;		// percent of canvas
-        this.data.tl_width      = args.tl_width      ?? 0.02;		// percent of canvas
-        this.data.tl_x          = args.tl_x          ?? 0.5;		// percent of canvas
-		this.data.tl_y          = args.tl_y          ?? 0.5;		// percent of canvas
-		this.data.tl_keep_fix   = args.tl_keep_fix   ?? true;
+		if (!('target' in args))     tomJS.error('no target passed to two lines');
+		if (!('difficulty' in args)) tomJS.error('no difficulty passed to two lines');
+		this.data.target     = args.target;
+		this.data.difficulty = args.difficulty;
+		this.properties.tl_color_L    = args.tl_color_L    ?? "white";
+		this.properties.tl_color_R    = args.tl_color_R    ?? "white";
+        this.properties.tl_distance   = args.tl_distance   ?? 0.25;		// percent of canvas
+        this.properties.tl_height     = args.tl_height     ?? 0.15;		// percent of canvas
+        this.properties.tl_width      = args.tl_width      ?? 0.02;		// percent of canvas
+        this.properties.tl_x          = args.tl_x          ?? 0.5;		// percent of canvas
+		this.properties.tl_y          = args.tl_y          ?? 0.5;		// percent of canvas
+		this.properties.tl_keep_fix   = args.tl_keep_fix   ?? true;
 	}
 
 
-	// super --------------------------------------------------------------------------------------
+	// super ---------------------------------------------------------------------------------------------------------------
 
 
 	drawStimulus() {
 		super.drawStimulus();
-		if (this.data.tl_keep_fix) tomJS.writeToCanvas('+');
+		if (this.properties.tl_keep_fix) tomJS.writeToCanvas('+');
 		this.drawOneLine('A');
 		this.drawOneLine('B');
 	}
 
 
-	// functions ----------------------------------------------------------------------------------
+	// functions -----------------------------------------------------------------------------------------------------------
 
 
-	drawOneLine(side, args={}){
-		const w = (tomJS.size * this.data.tl_width);
-		const adjust = (side === this.data.target) ? this.data.tl_difference : 0;
-		const h = (tomJS.size * this.data.tl_height) + adjust;
-		const pos_y = (tomJS.size * this.data.tl_y);
+	drawOneLine(side){
+		const w = (tomJS.size * this.properties.tl_width);
+		const adjust = (side === this.data.target) ? this.dapropertiesta.tl_difference : 0;
+		const h = (tomJS.size * this.properties.tl_height) + adjust;
+		const pos_y = (tomJS.size * this.properties.tl_y);
 		const offset_y = h * 0.5;
 		const y = pos_y - offset_y;
-		const pos_x = tomJS.size * this.data.tl_x;
-		const distance = tomJS.size * this.data.tl_distance;
+		const pos_x = tomJS.size * this.properties.tl_x;
+		const distance = tomJS.size * this.properties.tl_distance;
 		const offset_x = w * 0.5;
 		const x = (side === "A") ? pos_x - offset_x - distance : pos_x - offset_x + distance;
-		tomJS.context.fillStyle = (side === this.data.target) ? this.data.tl_color_L : this.data.tl_color_R ;
+		tomJS.context.fillStyle = (side === this.data.target) ? this.properties.tl_color_L : this.properties.tl_color_R ;
 		tomJS.context.fillRect(x, y, w, h);
 	}
 
@@ -1389,37 +1537,35 @@ class PixelPatch extends Stimulus {
 
 	
 	constructor(args = {}) {
-		if (!('pp_aness' in args) & (!'image_data' in args)) tomJS.error('no wy to generate pixel patch stimulus');
-		if (args.pp_aness == 0.5 | args.pp_aness == 0) tomJS.error('pixel patch must have some bias');				
+		if (!('pp_aness' in args) & (!'image_data' in args)) tomJS.error('no way to generate pixel patch stimulus');
 		super(args);
-		this.id = 'PixelPatch' + this.tag;
-		this.data.pp_aness      = args.pp_aness;
-		this.data.pp_color_A    = args.pp_color_A    ?? colours.black;
-		this.data.pp_color_B    = args.pp_color_B    ?? colours.white;
-        this.data.pp_size       = args.pp_size       ?? 0.3;	// percent of canvas
-		this.data.pp_rows       = args.pp_rows       ?? 50;		// count
-        this.data.pp_x          = args.pp_x          ?? 0.5;	// percent of canvas
-		this.data.pp_y          = args.pp_y          ?? 0.5;	// percent of canvas
-		this.data.target = (this.data.pp_aness > 0.5) ? 'A' : 'B';
+		this.data.difficulty = args.difficulty;
+		this.data.target     = (this.data.difficulty > 0.5) ? 'A' : 'B';
+		this.properties.pp_color_A    = args.pp_color_A    ?? colours.black;
+		this.properties.pp_color_B    = args.pp_color_B    ?? colours.white;
+        this.properties.pp_size       = args.pp_size       ?? 0.3;	// percent of canvas
+		this.properties.pp_rows       = args.pp_rows       ?? 50;		// count
+        this.properties.pp_x          = args.pp_x          ?? 0.5;	// percent of canvas
+		this.properties.pp_y          = args.pp_y          ?? 0.5;	// percent of canvas		
 		this.calculateImageSize();
 		this.image_data = args.image_data ?? this.prepareImageData();
 	}
 
-	// super --------------------------------------------------------------------------------------
+	// super ---------------------------------------------------------------------------------------------------------------
 
 
 	drawStimulus() {
-		const _gp = this.data.grid_pix;
+		const _gp = this.properties.grid_pix;
 		super.drawStimulus();
 		const img = tomJS.context.createImageData(_gp, _gp);
 		this.assignImageData(img.data);
-		let pos_x = tomJS.size * this.data.pp_x - (_gp * 0.5);
-		let pos_y = tomJS.size * this.data.pp_y - (_gp * 0.5);
+		let pos_x = tomJS.size * this.properties.pp_x - (_gp * 0.5);
+		let pos_y = tomJS.size * this.properties.pp_y - (_gp * 0.5);
 		tomJS.context.putImageData(img, pos_x, pos_y);
 	}
 
 
-	// functions ----------------------------------------------------------------------------------
+	// functions -----------------------------------------------------------------------------------------------------------
 
 
 	assignImageData(data) {
@@ -1433,22 +1579,22 @@ class PixelPatch extends Stimulus {
 
 
 	calculateImageSize() {
-		const _s = this.data.pp_size;
-		const _r = this.data.pp_rows;
-		const _a = this.data.pp_aness;
-		this.data.grid_pix = Math.round(tomJS.size * _s);
-		this.data.cell_pix = Math.round(this.data.grid_pix / _r);
-		this.data.grid_dim = Math.round(this.data.grid_pix / this.data.cell_pix);
-		this.data.a_cells  = Math.round(this.data.grid_dim * _a);
+		const _a = this.data.difficulty;
+		const _s = this.properties.pp_size;
+		const _r = this.properties.pp_rows;
+		this.properties.grid_pix = Math.round(tomJS.size * _s);
+		this.properties.cell_pix = Math.round(this.properties.grid_pix / _r);
+		this.properties.grid_dim = Math.round(this.properties.grid_pix / this.properties.cell_pix);
+		this.properties.a_cells  = Math.round(this.properties.grid_dim * _a);
 	}
 
 
 	prepareImageData() {
-		const A   = this.data.pp_color_A;
-		const B   = this.data.pp_color_B;
-		const _gd = this.data.grid_dim;
-		const _ac = this.data.a_cells;
-		const _cp = this.data.cell_pix;
+		const A   = this.properties.pp_color_A;
+		const B   = this.properties.pp_color_B;
+		const _gd = this.properties.grid_dim;
+		const _ac = this.properties.a_cells;
+		const _cp = this.properties.cell_pix;
 		let image_data = [];
 		for (let x = 0; x < _gd; x++) {
 			let row = Array(_ac).fill(A).concat(Array(_gd-_ac).fill(B));
@@ -1478,7 +1624,7 @@ class ProgressBar extends Stimulus {
 	}
 
 
-	// super --------------------------------------------------------------------------------------
+	// super ---------------------------------------------------------------------------------------------------------------
 
 
 	drawStimulus() {
@@ -1487,7 +1633,7 @@ class ProgressBar extends Stimulus {
 		this.drawOneBar('F');
 	}
 
-	// functions ----------------------------------------------------------------------------------
+	// functions -----------------------------------------------------------------------------------------------------------
 
 
 	drawOneBar(which){
@@ -1502,7 +1648,7 @@ class ProgressBar extends Stimulus {
 }
 
 
-// utils ==========================================================================================
+// utils ===================================================================================================================
 
 
 function fillArray(source, limit) {
@@ -1515,6 +1661,11 @@ function fillArray(source, limit) {
 		};
 	};
 	return array;
+}
+
+
+function minMax(number, min, max) {
+	return Math.max(Math.min(number, max), min);
 }
 
 
@@ -1565,7 +1716,7 @@ function sampleFromTruncatedExponential(mean, truncation, max) {
 	// Draw a random sample from a truncated exponential dsitribution.
 	let randomNumber = Math.random();
 	let rolledNumber = Math.ceil(Math.log(1 - randomNumber) / (-(1 / mean))) + truncation;
-	let cleanedNumber = Math.min(Math.max(parseInt(rolledNumber), truncation), max);
+	let cleanedNumber = minMax(parseInt(rolledNumber), max, truncation);
 	return cleanedNumber;
 }
 
@@ -1578,7 +1729,7 @@ function writeToBody(text) {
 }
 
 
-// util classes ===================================================================================
+// util classes ============================================================================================================
 
 
 class Keyboard {
@@ -1641,7 +1792,15 @@ class Keyboard {
 }
 
 
-// data ===========================================================================================
+// data ====================================================================================================================
+
+
+bremen = {
+	'institute'  : "Institut feur Psychologie",
+	'department' : "Fachbereich 11",
+	'group'      : "Psychologische Forschungsmethoden und Kognitive Psychologie",
+	'email'      : "narraway@uni-bremen.de",
+}
 
 
 colours = {
@@ -1670,10 +1829,10 @@ consent_form = [
 		"You will be asked to press buttons in response to simple visual stimuli."+
 		" For each decision we record how long you take to respond and if your response is correct or not."+
 		" The exact procedure will be explained to you during the experiment."+
-		" We will also ask to record for your age, gender, and dominant hand, but these details are optional."+
+		" We will also ask to record your age, gender, and dominant hand, but these details are optional."+
 		" The experiment takes approximately 60 minutes.",
 	"3. Reimbursement",
-		"You will be reimbursed at the rate of £9.50 per hour.",
+		"You will be reimbursed at the rate of 9.50 GBP per hour.",
 	"4. Obligations",
 		"The success of scientific studies depends significantly on your cooperation."+
 		" We therefore ask you to remain focused and to work according to the instructions throughout the entire study.",
