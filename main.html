@@ -21,14 +21,19 @@
 
     const contacts = ["Tom Narraway: narraway@uni-bremen.de", "Heinrich Liesefeld: heinrich.liesefeld@uni-bremen.de"];
     const args = { 'gather_demographics': true, 'verbose': true, 'contacts': contacts };
-
-    try {
-        jatos.onLoad(tomJS.bootTomJS(args, jatos));
-    } catch {
-        tomJS.bootTomJS(args);
-    };
     
-    while (!tomJS.booted) continue;
+    try {
+        console.log('a');
+        while (!jatos.isConnected()) console.log('waiting got JATOS to load...');
+        console.log('b');
+        tomjs.bootTomJS(args, jatos);
+        console.log('c');
+    }
+    catch {
+        console.log('d');
+        tomJS.bootTomJS(args)
+        };
+    console.log('e');
 
     const A = tomJS.key_a_upper;
     const B = tomJS.key_b_upper;

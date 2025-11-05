@@ -1,15 +1,12 @@
 
-
-
-
-
 class Experiment {	
 
 
-	version = '29-10-25 16:54';
+	version = '05-11-25 17:07';
 
 
 	constructor() {
+		this.jaots = null;
 		this.pilot = null;
 		this.verbose = null;
 		this.grid_lines = null;
@@ -81,11 +78,11 @@ class Experiment {
 	}
 
 
-	bootTomJS(args={}, j=null) {
+	bootTomJS(args={}, jatos=null) {
 
 		console.log('booting tomJS version '+this.version);
 
-		this.jatos = j;
+		this.jatos = jatos;
 
 		// debugging
 		this.pilot = args.pilot ?? false;
@@ -122,7 +119,6 @@ class Experiment {
 		this.key = '';
 		this.dir = '';
 		if (this.verbose) console.log(this.key_a, this.key_b, this.key_quit, this.key_back, this.resp_a, this.resp_b);
-		// TODO : make inputs not dependent on keyboard layout using keycodes and positions
 		
 		// demographics
         this.gather_demographics   = args.gather_demographics ?? true;
