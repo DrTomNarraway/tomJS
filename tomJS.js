@@ -2,45 +2,71 @@
 class Experiment {	
 
 
-	version = '05-11-25 17:07';
+	version = '0611251606';
 
 
 	constructor() {
-		this.jaots = null;
-		this.pilot = null;
-		this.verbose = null;
-		this.grid_lines = null;
-		this.save = null;
-		this.backgroundColor = null;
-		this.color = null;
-		this.subject = null;
-		this.height = null;
-		this.width = null;
-		this.size = null;
-		this.keyboard = null;
-		this.key_a = null;
-        this.key_b = null;
-        this.key_quit = null;
-        this.key_back = null;
-		this.key_a_upper = null;
-        this.key_b_upper = null;
-		this.resp_a = null;
-		this.resp_b = null;
-		this.key = null;
-		this.dir = null;		
-        this.gather_demographics = null;
-        this.demographics_language = null;
-		this.demographics = null;
-        this.now = null;
-        this.running = null;
-        this.timeline = null;
-        this.time_pos = null;
-        this.trial = null;
-        this.block = null;
-        this.trials = null;
-		this.blocks = null;
-		this.data = null;
-		this.booted = false;
+
+		console.log('booting tomJS version '+this.version);
+
+		// debug
+		this.debug = {};
+		this.debug.pilot = args.pilot ?? false;
+		this.debug.verbose = args.verbose ?? false;
+		this.debug.grid_lines = args.grid_lines ?? false;
+		this.debug.save = args.save ?? true;
+		this.debug.httpTimeout = args.httpTimeout ?? 30000;
+		if (this.debug.verbose) console.log('debug',this.debug);
+
+		// visual
+		this.visual = {};
+		this.visual.backgroundColor = args.backgroundColor ?? "black";
+		this.visual.color = args.color ?? "white";				
+		this.visual.height = window.innerHeight - 16;
+		this.visual.width  = window.innerWidth - 16;
+		this.visual.size   = Math.min(this.visual.height, this.visual.width); // find the smaller dimension
+		this.createCanvas();
+		if (this.debug.verbose) console.log('visual',this.visual);
+		
+		// controls
+		this.controls = {};
+		this.controls.keyboard  = new Keyboard();
+		this.controls.key_a     = args.key_a     ?? 'f';
+        this.controls.key_b     = args.key_b     ?? 'j';
+        this.controls.key_quit  = args.key_quit  ?? 'Escape';
+        this.controls.key_back  = args.key_back  ?? 'Backspace';
+		this.controls.key_a_upper = this.controls.key_a.toUpperCase();
+		this.controls.key_b_upper = this.controls.key_b.toUpperCase();
+		this.controls.resp_a    = args.resp_a    ?? 'A';
+		this.controls.resp_b    = args.resp_b    ?? 'B';
+		if (this.debug.verbose) console.log('controls',this.controls);
+
+		// current input data
+		this.key = '';
+		this.dir = '';
+		
+		// jatos
+		this.jatos = false;
+
+		// demographics
+        const gather_demographics = args.gather_demographics ?? true;
+		const language = args.language ?? 'en';
+		const subject = Math.round(Math.random()*999999);
+		const n = Math.round(Math.random()*999);
+		this.demographics = {'subject':subject, 'study':0, 'session':0, 'language':language, 'n':n,  'age':null, 'gender':null, 'hand':null};
+
+		// timeline
+        this.now = window.performance.now();
+        this.running  = true;
+        this.timeline = gather_demographics ? [new Consent(args), new Demographics(args)] : [new Consent(args)];
+        this.time_pos = 0;
+        this.trial  = 0;
+        this.block  = 0;
+        this.trials = 0;
+		this.blocks = 0;
+
+		// data
+		this.data = [];
 	}
 
 
@@ -78,123 +104,83 @@ class Experiment {
 	}
 
 
-	bootTomJS(args={}, jatos=null) {
-
-		console.log('booting tomJS version '+this.version);
-
-		this.jatos = jatos;
-
-		// debugging
-		this.pilot = args.pilot ?? false;
-		this.verbose = args.verbose ?? false;
-		this.grid_lines = args.grid_lines ?? false;
-		this.save = args.save ?? true;
-
-		// set body defaults
-		this.backgroundColor = args.backgroundColor ?? "black";
-		this.color = args.color ?? "white";		
-
-		// gather identifying information
-		if (this.jatos) this.subject = ('workerID' in this.jatos.urlQueryParameters) ? 
-			this.jatos.urlQueryParameters.workerID : Math.round(Math.random()*999999);
-		else this.subject = Math.round(Math.random()*999999);
-		if (this.verbose) console.log(this.subject);
-		
-		// create canvas
-		this.height = window.innerHeight - 16;
-		this.width  = window.innerWidth - 16;
-		this.size   = Math.min(this.height, this.width); // find the smaller dimension
-		this.createCanvas();
-		
-		// controls
-		this.keyboard  = new Keyboard();
-		this.key_a     = args.key_a     ?? 'f';
-        this.key_b     = args.key_b     ?? 'j';
-        this.key_quit  = args.key_quit  ?? 'Escape';
-        this.key_back  = args.key_back  ?? 'Backspace';
-		this.key_a_upper = this.key_a.toUpperCase();
-		this.key_b_upper = this.key_b.toUpperCase();
-		this.resp_a    = args.resp_a    ?? 'A';
-		this.resp_b    = args.resp_b    ?? 'B';
-		this.key = '';
-		this.dir = '';
-		if (this.verbose) console.log(this.key_a, this.key_b, this.key_quit, this.key_back, this.resp_a, this.resp_b);
-		
-		// demographics
-        this.gather_demographics   = args.gather_demographics ?? true;
-        this.demographics_language = args.demographics_language ?? 'en';
-		this.demographics          = {'age':null, 'gender':null, 'hand':null};
-		
-		// timing
-        this.now = window.performance.now();
-		
-		// timeline
-        this.running  = true;
-        this.timeline = (this.gather_demographics) ? [new Consent(args), new Demographics(args)] : [new Consent(args)];
-        this.time_pos = 0;
-
-        // timeline identifiers
-        this.trial  = 0;
-        this.block  = 0;
-        this.trials = 0;
-		this.blocks = 0;
-
-		// data
-		this.data = [];
-
-		// flag experiment as finished booting
-		this.booted = true;
-
+	connectToJatos(counterbalance=false) {
+		this.jatos = true;
+		this.demographics.n = jatos.studyResultId;
+		const url = jatos.urlQueryParameters ?? {};
+		if ('workerID'  in url) this.demographics.subject = url.workerID;
+		if (counterbalance) this.counterbalanceAB();
 	}
 
 
 	createCanvas() {
-		this.canvas = document.createElement('canvas');
-		this.canvas.id = "canvas";
-		this.canvas.height = this.size;
-		this.canvas.width  = this.size; // make canvas square
-		this.canvas.style.position = "absolute"; 
-		this.canvas.style.backgroundColor = this.backgroundColor;
-		this.canvas.style.color = this.colour;
-		this.canvas.style.left = (this.width - this.size + 16) / 2 + "px"; // position canvas in center
-		document.body.appendChild(this.canvas); // add canvas to window
-		this.context = this.canvas.getContext("2d");
+		this.visual.canvas = document.createElement('canvas');
+		this.visual.canvas.id = "canvas";
+		this.visual.canvas.height = this.visual.size;
+		this.visual.canvas.width  = this.visual.size; // make canvas square
+		this.visual.canvas.style.position = "absolute"; 
+		this.visual.canvas.style.backgroundColor = this.visual.backgroundColor;
+		this.visual.canvas.style.color = this.visual.colour;
+		this.visual.canvas.style.left = (this.visual.width - this.visual.size + 16) / 2 + "px"; // position canvas in center
+		document.body.appendChild(this.visual.canvas); // add canvas to window
+		this.visual.context = this.visual.canvas.getContext("2d");
+	}
+
+
+	counterbalanceAB() {
+		const mod = this.demographics.n % 2;
+		const A = (mod == 0) ? this.controls.key_a : this.controls.key_b;
+		const B = (A == this.controls.key_a) ? this.controls.key_b : this.controls.key_a;
+		this.controls.key_a     = A;
+        this.controls.key_b     = B;
+		this.controls.key_a_upper = A.toUpperCase();
+		this.controls.key_b_upper = B.toUpperCase();
 	}
 
 
 	drawGridLines() {
 		// horizontal
 		for (let i = 0; i < 5; i++) {
-			let w = this.size;
-			let h = this.size * 0.001;
-			let x = (this.size * 0.5) - (w * 0.5);
-			let y = (this.size * 0.5 * (i/2)) - (h * 0.5);
-			this.context.fillStyle = this.colour;
-			this.context.fillRect(x, y, w, h);
+			let w = this.visual.size;
+			let h = this.visual.size * 0.001;
+			let x = (this.visual.size * 0.5) - (w * 0.5);
+			let y = (this.visual.size * 0.5 * (i/2)) - (h * 0.5);
+			this.visual.context.fillStyle = this.visual.colour;
+			this.visual.context.fillRect(x, y, w, h);
 		}
 		// vertical
 		for (let i = 0; i < 5; i++) {
-			let w = this.size * 0.001;
-			let h = this.size;
-			let x = (this.size * 0.5 * (i/2)) - (w * 0.5);
-			let y = (this.size * 0.5) - (h * 0.5);
-			this.context.fillStyle = this.colour;
-			this.context.fillRect(x, y, w, h);
+			let w = this.visual.size * 0.001;
+			let h = this.visual.size;
+			let x = (this.visual.size * 0.5 * (i/2)) - (w * 0.5);
+			let y = (this.visual.size * 0.5) - (h * 0.5);
+			this.visual.context.fillStyle = this.visual.colour;
+			this.visual.context.fillRect(x, y, w, h);
 		}
 	}
 
 
 	endExperiment() {
 		if (this.jatos) jatos.startNextComponent();
-		else window.close();
+		else {
+			this.running = false;
+			this.resetCanvas();
+			this.writeToCanvas('You can close the window now :)');
+		};
 	}
 
 
 	error(message) {
 		this.running = false;
-		this.context.fillStyle = "red";
-		this.context.fillRect(0, 0, this.width, this.height);
-		this.writeToCanvas('ERROR: '+message);		
+		this.visual.context.fillStyle = "red";
+		this.visual.context.fillRect(0, 0, this.visual.size, this.visual.size);
+		this.writeToCanvas('ERROR: '+message);
+	}
+
+
+	flushKeys() {
+		this.key = '';
+		this.dir = '';
 	}
 
 	
@@ -203,7 +189,7 @@ class Experiment {
         let _new_position = this.time_pos + 1;
         if (_new_position > _end) {
             this.timeline[this.time_pos].onExit();
-            if (this.verbose) console.log('at end of timeline, ending experiment');
+            if (this.debug.verbose) console.log('at end of timeline, ending experiment');
             this.endExperiment();
 		} else {
             this.timeline[this.time_pos].onExit();
@@ -221,8 +207,8 @@ class Experiment {
 	
 	
 	resetCanvas () {
-		this.context.fillStyle = this.backgroundColor;
-		this.context.fillRect(0, 0, this.width, this.height);
+		this.visual.context.fillStyle = this.visual.backgroundColor;
+		this.visual.context.fillRect(0, 0, this.visual.size, this.visual.size);
 	}
 
 
@@ -238,7 +224,7 @@ class Experiment {
 	saveData() {
 		const csv = this.writeCSV();
 		if (this.jatos) jatos.submitResultData(csv);
-		console.log(csv);
+		if (this.debug.verbose) console.log(csv);
 	}
 
 	
@@ -253,7 +239,7 @@ class Experiment {
 		// run current state or move to next?
 		if (this.timeline[this.time_pos].ready_to_exit) this.nextState();
 		else this.timeline[this.time_pos].update();
-		if (this.grid_lines) this.drawGridLines();
+		if (this.debug.grid_lines) this.drawGridLines();
 	}
 
 
@@ -263,8 +249,9 @@ class Experiment {
 		let csv = 'subject,age,gender,hand,block,trial,condition,difficulty,rt,score,outcome,target,response\n';
 		for (let i = 0; i < n; i++) {
 			let x = d[i];
-			let r = [this.subject, this.demographics.age, this.demographics.gender, this.demographics.hand,
-				x.block, x.trial, x.condition, x.difficulty, x.rt, x.score, x.outcome, x.target, x.response];			
+			let r = [this.demographics.subject, this.demographics.age, this.demographics.gender, 
+				this.demographics.hand, x.block, x.trial, x.condition, x.difficulty, x.rt, 
+				x.score, x.outcome, x.target, x.response];
 			csv += r.toString() + '\n';
 		};
 		return csv;
@@ -275,18 +262,18 @@ class Experiment {
 		// Write text to the canvas with a relative position (0.5 being center).
 		let _upper = args.upper ?? false;
 		let _text = _upper ? text.toUpperCase() : text;
-		tomJS.context.fillStyle = args.colour ?? "white";
-		tomJS.context.textAlign = args.align  ?? "center";
-		let _pt = args.pt ?? 22;
+		tomJS.visual.context.fillStyle = args.colour ?? "white";
+		tomJS.visual.context.textAlign = args.align  ?? "center";
+		let _pt = args.pt ?? 18;
 		let _tf = args.font ?? "Georgia";
 		let _font = _pt+ "px " + _tf;
-		tomJS.context.font = _font;
+		tomJS.visual.context.font = _font;
 		let _x = args.x ?? 0.5;
 		let _y = args.y ?? 0.5;
-		let _pos_x = tomJS.size * _x;
-		let _pos_y = tomJS.size * _y + (0.334 * _pt);
-		let _width = tomJS.size ?? 1;
-		tomJS.context.fillText(_text, _pos_x, _pos_y, _width);
+		let _pos_x = tomJS.visual.size * _x;
+		let _pos_y = tomJS.visual.size * _y + (0.334 * _pt);
+		let _width = tomJS.visual.size ?? 1;
+		tomJS.visual.context.fillText(_text, _pos_x, _pos_y, _width);
 	}
 
 
@@ -310,6 +297,7 @@ class State {
 
 	onEnter() {
 		this.ready_to_exit = false;
+		tomJS.flushKeys();
 	}
 
 	onUpdate() {
@@ -590,7 +578,7 @@ class Trial extends State {
 
 	stimulusUpdate() {
 		this.stimulus.drawStimulus(this.args);
-		if (tomJS.keyboard.anyKeysPressed([tomJS.key_a, tomJS.key_b])) 
+		if (tomJS.controls.keyboard.anyKeysPressed([tomJS.controls.key_a, tomJS.controls.key_b])) 
 			this.stimulusExitResponse();
 		if (tomJS.now >= this.properties.stimulus_end) 
 			this.stimulusExitTime();
@@ -797,7 +785,9 @@ class Slide extends State {
 
 
 	checkUserInput() {
-		if (tomJS.keyboard.allKeysPressed(['f', 'j'])) this.ready_to_exit = true;
+		const _a = tomJS.controls.key_a;
+		const _b = tomJS.controls.key_b;
+		if (tomJS.controls.keyboard.allKeysPressed([_a, _b])) this.ready_to_exit = true;
 	}
 
 
@@ -827,7 +817,7 @@ class Slide extends State {
 						let tmp = new PixelPatch({'difficulty':_content.B});
 						this.B = tmp.image_data;
 					};
-					const _image_data = (tomJS.dir == 'A') ? this.A : this.B ;
+					const _image_data = (tomJS.dir == 'B') ? this.B : this.A ;
 					const _pp_args = {..._content,...{'image_data':_image_data}};
 					const _pp = new PixelPatch(_pp_args);
 					_pp.drawStimulus();
@@ -879,8 +869,8 @@ class Consent extends Slide {
 
 
 	onUpdate() {		
-		tomJS.context.fillStyle = "white";
-		tomJS.context.fillRect(0, 0, tomJS.width, tomJS.height);
+		tomJS.visual.context.fillStyle = "white";
+		tomJS.visual.context.fillRect(0, 0, tomJS.visual.size, tomJS.visual.size);
 		if (tomJS.now < this.start + this.force_wait) return;
 	}
 
@@ -902,8 +892,8 @@ class Consent extends Slide {
 	onExit() {
 		super.onExit();
 		this.container.remove();
-		document.body.style.backgroundColor = tomJS.backgroundColor;
-		document.body.style.color = tomJS.color;
+		document.body.style.backgroundColor = tomJS.visual.backgroundColor;
+		document.body.style.color = tomJS.visual.color;
 	}
 
 
@@ -1126,7 +1116,7 @@ class Demographics extends Slide {
 		tomJS.demographics.age    = this.age.value;
 		tomJS.demographics.gender = this.gender.value;
 		tomJS.demographics.hand   = this.hand.value;
-		if (tomJS.verbose) console.log(tomJS.demographics);
+		if (tomJS.debug.verbose) console.log('demographics',tomJS.demographics);
 		this.container.remove();
 	}
 
@@ -1257,7 +1247,7 @@ class EndBlock extends Slide {
 
 
     onExit () {
-        if (tomJS.save) tomJS.saveData();
+        if (tomJS.debug.save) tomJS.saveData();
         tomJS.block += 1;
         tomJS.trial = 0;
         super.onExit();
@@ -1316,7 +1306,7 @@ class EndExperiment extends Slide {
 
 
     onExit () {
-        if (tomJS.save) tomJS.saveData();
+        if (tomJS.debug.save) tomJS.saveData();
         super.onExit();
 	}
 
@@ -1368,7 +1358,7 @@ class EndExperiment extends Slide {
 class Stimulus {
 
 
-	constructor(args={}) {
+	constructor() {
 		this.data = {};		
 		this.properties = {};
 	}
@@ -1416,12 +1406,12 @@ class Gabor extends Stimulus {
 
 	drawStimulus() {
 		super.drawStimulus();
-		const _s = Math.round(tomJS.size * this.properties.gp_size);
-		const img = tomJS.context.createImageData(_s, _s);
+		const _s = Math.round(tomJS.visual.size * this.properties.gp_size);
+		const img = tomJS.visual.context.createImageData(_s, _s);
 		this.assignImageData(img.data);
-		let pos_x = tomJS.size * this.properties.gp_x - (_s * 0.5);
-		let pos_y = tomJS.size * this.properties.gp_y - (_s * 0.5);
-		tomJS.context.putImageData(img, pos_x, pos_y);
+		let pos_x = tomJS.visual.size * this.properties.gp_x - (_s * 0.5);
+		let pos_y = tomJS.visual.size * this.properties.gp_y - (_s * 0.5);
+		tomJS.visual.context.putImageData(img, pos_x, pos_y);
 	}
 
 
@@ -1553,11 +1543,11 @@ class PixelPatch extends Stimulus {
 	drawStimulus() {
 		const _gp = this.properties.grid_pix;
 		super.drawStimulus();
-		const img = tomJS.context.createImageData(_gp, _gp);
+		const img = tomJS.visual.context.createImageData(_gp, _gp);
 		this.assignImageData(img.data);
-		let pos_x = tomJS.size * this.properties.pp_x - (_gp * 0.5);
-		let pos_y = tomJS.size * this.properties.pp_y - (_gp * 0.5);
-		tomJS.context.putImageData(img, pos_x, pos_y);
+		let pos_x = tomJS.visual.size * this.properties.pp_x - (_gp * 0.5);
+		let pos_y = tomJS.visual.size * this.properties.pp_y - (_gp * 0.5);
+		tomJS.visual.context.putImageData(img, pos_x, pos_y);
 	}
 
 
@@ -1578,7 +1568,7 @@ class PixelPatch extends Stimulus {
 		const _a = this.data.difficulty;
 		const _s = this.properties.pp_size;
 		const _r = this.properties.pp_rows;
-		this.properties.grid_pix = Math.round(tomJS.size * _s);
+		this.properties.grid_pix = Math.round(tomJS.visual.size * _s);
 		this.properties.cell_pix = Math.round(this.properties.grid_pix / _r);
 		this.properties.grid_dim = Math.round(this.properties.grid_pix / this.properties.cell_pix);
 		this.properties.a_cells  = Math.round(this.properties.grid_dim * _a);
@@ -1633,18 +1623,28 @@ class ProgressBar extends Stimulus {
 
 
 	drawOneBar(which){
-		const w = tomJS.size * this.data.pb_width * ((which == 'F') ? this.data.pb_percent : 1);
-		const h = tomJS.size * this.data.pb_height * ((which == 'F') ? 0.95 : 1);
-		const x = (tomJS.size * this.data.pb_x) - (w * 0.5);
-		const y = (tomJS.size * this.data.pb_y) - (h * 0.5);
-		tomJS.context.fillStyle = (which == 'F') ? this.data.pb_color_F : this.data.pb_color_B;
-		tomJS.context.fillRect(x, y, w, h);
+		const w = tomJS.visual.size * this.data.pb_width * ((which == 'F') ? this.data.pb_percent : 1);
+		const h = tomJS.visual.size * this.data.pb_height * ((which == 'F') ? 0.95 : 1);
+		const x = (tomJS.visual.size * this.data.pb_x) - (w * 0.5);
+		const y = (tomJS.visual.size * this.data.pb_y) - (h * 0.5);
+		tomJS.visual.context.fillStyle = (which == 'F') ? this.data.pb_color_F : this.data.pb_color_B;
+		tomJS.visual.context.fillRect(x, y, w, h);
 	}
 
 }
 
 
 // utils ===================================================================================================================
+
+
+function arrayMax(array) {
+	return array.reduce((a,b)=>Math.max(a,b));
+}
+
+
+function arrayMin(array) {
+	return array.reduce((a,b)=>Math.min(a,b));
+}
 
 
 function fillArray(source, limit) {
@@ -1769,11 +1769,11 @@ class Keyboard {
 		this.keys[key] = true;
 		tomJS.key = key;
 		switch (key) {
-			case tomJS.key_a: 
-				tomJS.dir = tomJS.resp_a;
+			case tomJS.controls.key_a: 
+				tomJS.dir = tomJS.controls.resp_a;
 				break;
-			case tomJS.key_b: 
-				tomJS.dir = tomJS.resp_b;
+			case tomJS.controls.key_b: 
+				tomJS.dir = tomJS.controls.resp_b;
 				break;
 		};
 	}
