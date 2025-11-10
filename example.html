@@ -7,43 +7,47 @@
 <script>
 
     // define constants ====================================================================================================
-                
-    const BLOCK_REPS = 2;
-    const CONDITION  = [0.500, 1.000];
-    const DIFFICULTY = [0.40, 0.60];
-    const STIMULUS   = PixelPatch;
-    const TRIAL_REPS = 1;
-    const TRIAL_TYPE = VisibleFeedbackDeadline;    
+
+    const BLOCK_REPS  = 1;
+    const CONDITION   = [0.500, 1.000];
+    const DIFFICULTY  = [0.03, 0.50];
+    const ORIENTATION = 2;
+    const STIMULUS    = Gabor;
+    const TRIAL_REPS  = 1;
+    const TRIAL_TYPE  = VisibleFeedbackDeadline;
 
     // set up experiment ===================================================================================================
     
     const contacts = ["Tom Narraway: narraway@uni-bremen.de", "Heinrich Liesefeld: heinrich.liesefeld@uni-bremen.de"];
-    const args = { 'gather_demographics': true, 'verbose': true, 'contacts': contacts };
+    const args = { 'gather_demographics': true, 'verbose': true, 'contacts': contacts, 'fullscreen':false};
     
     const tomJS = new Experiment(args);
 
-    if (jatos.constructor != HTMLScriptElement) jatos.onConnected(tomJS.connectToJatos(true))
-    else tomJS.counterbalanceAB();
+    if (jatos.constructor != HTMLScriptElement) jatos.onConnected(tomJS.connectToJatos());
 
     const A = tomJS.controls.key_a_upper;
     const B = tomJS.controls.key_b_upper;
 
-    const min_cond = arrayMin(DIFFICULTY);
-    const max_cond = arrayMax(DIFFICULTY);
+    const max_cond = arrayMax(CONDITION);
+    const min_cond = arrayMin(CONDITION);
+    const max_diff = arrayMax(DIFFICULTY)
+    const min_diff = arrayMin(DIFFICULTY);
 
     // trial arguments =====================================================================================================
 
     const _blockwise = {
+        'difficulty': DIFFICULTY,
     };
     
     const _trialwise = {
-        'difficulty' : DIFFICULTY,
+        'target' : ['A', 'B'],        
         'condition'  : CONDITION,
     };
     
     const _additional = {
         'stimulus': STIMULUS,
-        'deadline_max' : arrayMax(CONDITION)
+        'deadline_max' : max_cond,
+        'gp_ori' : ORIENTATION,
     };
     
     // slides ==============================================================================================================
@@ -57,18 +61,17 @@
     
     const stimulus = new Slide([
         { 'class': 'text', 'text': 'On each trial you will see a stimulus like the one below. Press ' + A + ' if ', 'y': 0.15 },
-        { 'class': 'text', 'text': 'you think the stimulus has more black squares or press ' + B, 'y': 0.20 },
-        { 'class': 'text', 'text': 'if you think it is more white squares. Press '+A+' and '+B+' now to see examples.', 'y': 0.25 },
-        { 'class':'pixelpatch', 'A':max_cond, 'B':min_cond },
+        { 'class': 'text', 'text': 'you think the stimulus is rotated to the left, or press ' + B, 'y': 0.20 },
+        { 'class': 'text', 'text': 'if you think it is rotated to the right. Press ' + A + ' and ' + B + ' now to see examples.', 'y': 0.25 },
+        { 'class': 'gabor', 'target':'~dir~', 'difficulty':max_diff, 'gp_ori':ORIENTATION},
         { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
     ]);
 
-
-    const move_mouse = new Slide([
-        { 'class': 'text', 'text': 'Please move your mouse away from the screen then press ' + A + ' and ' + B + ' to start.'},
-    ]);
-    
-    const countdown = new Countdown(3.0);
+    const sat = new ExampleProgressBar([
+        { 'class': 'text', 'text': 'On each trial you you will see a bar at the top of the screen like the one below.', 'y': 0.25 },
+        { 'class': 'text', 'text': 'Please try to respond before the bar runs out.', 'y': 0.30 },
+        { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
+    ])
     
     const end_block = new EndBlock([
         { 'class': 'text', 'text': 'End of block. Please take a short break. ', 'y':0.25 },
@@ -86,9 +89,9 @@
     
     tomJS.appendToTimeline(welcome);
     tomJS.appendToTimeline(stimulus);
-    tomJS.appendToTimeline(move_mouse);
+    tomJS.appendToTimeline(sat);
     
-    tomJS.appendBlocks(TRIAL_TYPE, _blockwise, _trialwise, _additional, BLOCK_REPS, TRIAL_REPS, start_block=null, end_block, add_countdown=false);
+    tomJS.appendBlocks(TRIAL_TYPE, _blockwise, _trialwise, _additional, BLOCK_REPS, TRIAL_REPS, start_block=null, end_block, add_countdown=true);
     
     tomJS.replaceEndBlockWithEndExperiment(end_exp);
     

@@ -1,1 +1,34 @@
-<HTML>	<HEAD>	</HEAD>	<BODY>		<script src="jatos.js"></script>		<SCRIPT>					jatos.onLoad(function() {								jatos.endStudyAndRedirect("https://app.prolific.co/submissions/complete?cc=6A1BC8CD");			});		</SCRIPT>	</BODY></HTML>
+
+<html>
+<head></head>
+<body>
+	<script src="jatos.js"></script>
+	<script src="tomJS.js"></script>
+	<script>
+
+        const study_codes = {
+            'vfd': 'BE5A68E6',
+        }
+
+		jatos.onLoad(endStudy);
+
+		function endStudy() {
+            const study_name = jatos.studyAssets;            
+            if (study_name == 'example') {
+                writeToBody('In the real study you would now be automatically redirected to Prolific.');
+                const btn = document.createElement('button');
+                btn.id = "exit_button";
+                btn.textContent = "Click this to close window";
+                btn.onclick = jatos.endStudy;
+                document.body.appendChild(btn);
+            }
+            else {
+                const study_code = study_codes[study_name];
+                const link = "https://app.prolific.co/submissions/complete?cc=6" + study_code;
+                jatos.endStudyAndRedirect(link);
+            };
+		};
+
+	</script>
+</body>
+</html>

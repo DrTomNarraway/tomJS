@@ -2,20 +2,20 @@
 class Experiment {	
 
 
-	version = '0611251606';
+	version = '0711251356';
 
 
-	constructor() {
+	constructor(args={}) {
 
 		console.log('booting tomJS version '+this.version);
 
 		// debug
 		this.debug = {};
+		this.debug.fullscreen = args.fullscreen ?? true;
 		this.debug.pilot = args.pilot ?? false;
 		this.debug.verbose = args.verbose ?? false;
 		this.debug.grid_lines = args.grid_lines ?? false;
 		this.debug.save = args.save ?? true;
-		this.debug.httpTimeout = args.httpTimeout ?? 30000;
 		if (this.debug.verbose) console.log('debug',this.debug);
 
 		// visual
@@ -24,9 +24,10 @@ class Experiment {
 		this.visual.color = args.color ?? "white";				
 		this.visual.height = window.innerHeight - 16;
 		this.visual.width  = window.innerWidth - 16;
-		this.visual.size   = Math.min(this.visual.height, this.visual.width); // find the smaller dimension
+		this.visual.screen_size   = Math.min(this.visual.height, this.visual.width); // find the smaller dimension
+		this.visual.stimulus_size = this.visual.screen_size * 0.5;
 		this.createCanvas();
-		if (this.debug.verbose) console.log('visual',this.visual);
+		if (this.debug.verbose) console.log('visual', this.visual);
 		
 		// controls
 		this.controls = {};
@@ -47,6 +48,7 @@ class Experiment {
 		
 		// jatos
 		this.jatos = false;
+		this.study_name = args.study_name ?? false;
 
 		// demographics
         const gather_demographics = args.gather_demographics ?? true;
@@ -59,6 +61,7 @@ class Experiment {
         this.now = window.performance.now();
         this.running  = true;
         this.timeline = gather_demographics ? [new Consent(args), new Demographics(args)] : [new Consent(args)];
+		if (args.credit_card ?? true) this.timeline.push(new CreditCard(args));
         this.time_pos = 0;
         this.trial  = 0;
         this.block  = 0;
@@ -86,7 +89,7 @@ class Experiment {
 
 
 	appendBlock(trial_type, trialwise={}, additional={}, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
-		const _block = new Block(trial_type, trialwise, additional, trial_reps, start_slide, end_slide, countdown);
+		const _block = new Block(trial_type, trialwise, additional, trial_reps, start_slide, end_slide, add_countdown);
 		this.appendToTimeline(_block);
 	}
 
@@ -104,7 +107,7 @@ class Experiment {
 	}
 
 
-	connectToJatos(counterbalance=false) {
+	connectToJatos(counterbalance=false) {		
 		this.jatos = true;
 		this.demographics.n = jatos.studyResultId;
 		const url = jatos.urlQueryParameters ?? {};
@@ -114,14 +117,14 @@ class Experiment {
 
 
 	createCanvas() {
-		this.visual.canvas = document.createElement('canvas');
+		this.visual.canvas = document.createElement('canvas');		
 		this.visual.canvas.id = "canvas";
-		this.visual.canvas.height = this.visual.size;
-		this.visual.canvas.width  = this.visual.size; // make canvas square
+		this.visual.canvas.height = this.visual.screen_size;
+		this.visual.canvas.width  = this.visual.screen_size; // make canvas square
 		this.visual.canvas.style.position = "absolute"; 
 		this.visual.canvas.style.backgroundColor = this.visual.backgroundColor;
 		this.visual.canvas.style.color = this.visual.colour;
-		this.visual.canvas.style.left = (this.visual.width - this.visual.size + 16) / 2 + "px"; // position canvas in center
+		this.visual.canvas.style.left = (this.visual.width - this.visual.screen_size + 16) / 2 + "px"; // position canvas in center
 		document.body.appendChild(this.visual.canvas); // add canvas to window
 		this.visual.context = this.visual.canvas.getContext("2d");
 	}
@@ -141,19 +144,19 @@ class Experiment {
 	drawGridLines() {
 		// horizontal
 		for (let i = 0; i < 5; i++) {
-			let w = this.visual.size;
-			let h = this.visual.size * 0.001;
-			let x = (this.visual.size * 0.5) - (w * 0.5);
-			let y = (this.visual.size * 0.5 * (i/2)) - (h * 0.5);
+			let w = this.visual.screen_size;
+			let h = this.visual.screen_size * 0.001;
+			let x = (this.visual.screen_size * 0.5) - (w * 0.5);
+			let y = (this.visual.screen_size * 0.5 * (i/2)) - (h * 0.5);
 			this.visual.context.fillStyle = this.visual.colour;
 			this.visual.context.fillRect(x, y, w, h);
 		}
 		// vertical
 		for (let i = 0; i < 5; i++) {
-			let w = this.visual.size * 0.001;
-			let h = this.visual.size;
-			let x = (this.visual.size * 0.5 * (i/2)) - (w * 0.5);
-			let y = (this.visual.size * 0.5) - (h * 0.5);
+			let w = this.visual.screen_size * 0.001;
+			let h = this.visual.screen_size;
+			let x = (this.visual.screen_size * 0.5 * (i/2)) - (w * 0.5);
+			let y = (this.visual.screen_size * 0.5) - (h * 0.5);
 			this.visual.context.fillStyle = this.visual.colour;
 			this.visual.context.fillRect(x, y, w, h);
 		}
@@ -165,7 +168,7 @@ class Experiment {
 		else {
 			this.running = false;
 			this.resetCanvas();
-			this.writeToCanvas('You can close the window now :)');
+			this.writeToCanvas('You can close the window when you are ready :)');
 		};
 	}
 
@@ -173,7 +176,7 @@ class Experiment {
 	error(message) {
 		this.running = false;
 		this.visual.context.fillStyle = "red";
-		this.visual.context.fillRect(0, 0, this.visual.size, this.visual.size);
+		this.visual.context.fillRect(0, 0, this.visual.screen_size, this.visual.screen_size);
 		this.writeToCanvas('ERROR: '+message);
 	}
 
@@ -208,7 +211,7 @@ class Experiment {
 	
 	resetCanvas () {
 		this.visual.context.fillStyle = this.visual.backgroundColor;
-		this.visual.context.fillRect(0, 0, this.visual.size, this.visual.size);
+		this.visual.context.fillRect(0, 0, this.visual.screen_size, this.visual.screen_size);
 	}
 
 
@@ -270,9 +273,9 @@ class Experiment {
 		tomJS.visual.context.font = _font;
 		let _x = args.x ?? 0.5;
 		let _y = args.y ?? 0.5;
-		let _pos_x = tomJS.visual.size * _x;
-		let _pos_y = tomJS.visual.size * _y + (0.334 * _pt);
-		let _width = tomJS.visual.size ?? 1;
+		let _pos_x = tomJS.visual.screen_size * _x;
+		let _pos_y = tomJS.visual.screen_size * _y + (0.334 * _pt);
+		let _width = tomJS.visual.screen_size ?? 1;
 		tomJS.visual.context.fillText(_text, _pos_x, _pos_y, _width);
 	}
 
@@ -684,7 +687,6 @@ class FeedbackDeadline extends Trial {
 
 class VisibleFeedbackDeadline extends FeedbackDeadline {
 
-
 	constructor(args={}) {
 		if (!('condition'in args)) 
 			tomJS.error('no condition passed to visible feedback deadline trial');
@@ -695,9 +697,7 @@ class VisibleFeedbackDeadline extends FeedbackDeadline {
 		this.progress_bar = new ProgressBar(args);
 	}
 
-
 	// super ---------------------------------------------------------------------------------------------------------------
-
 
     onEnter() {
         super.onEnter();
@@ -705,12 +705,10 @@ class VisibleFeedbackDeadline extends FeedbackDeadline {
         this.progress_bar.set('pb_percent', percent);
 	}
 
-
     fixationUpdate() {
         this.drawProgressBar();
         super.fixationUpdate();
 	}
-
 
     stimulusUpdate() {
         this.updateProgressBar();
@@ -718,20 +716,16 @@ class VisibleFeedbackDeadline extends FeedbackDeadline {
         super.stimulusUpdate();
 	}
 
-    
     feedbackUpdate() {
         this.drawProgressBar();
         super.feedbackUpdate();
 	}
 
-
     // functions -----------------------------------------------------------------------------------------------------------
-
 
     drawProgressBar() { 
         this.progress_bar.drawStimulus();
 	}
-
 
     updateProgressBar() {
 		const start = this.properties.stimulus_on;
@@ -752,7 +746,6 @@ class VisibleFeedbackDeadline extends FeedbackDeadline {
 
 class Slide extends State {
 
-
 	constructor(content = [], can_return = true, args = {}) {
 		super();
 		this.id = 'Slide';
@@ -763,15 +756,12 @@ class Slide extends State {
 		this.force_wait = (args.force_wait ?? 1) * 1000; // pass in seconds for consistency
 	}
 
-
 	// super ---------------------------------------------------------------------------------------------------------------
-
 
 	onEnter() {
 		super.onEnter();
 		this.start = tomJS.now;
 	}
-
 
 	onUpdate() {
 		super.onUpdate();
@@ -780,16 +770,13 @@ class Slide extends State {
 		this.checkUserInput();
 	}
 
-
 	// functions -----------------------------------------------------------------------------------------------------------
-
 
 	checkUserInput() {
 		const _a = tomJS.controls.key_a;
 		const _b = tomJS.controls.key_b;
 		if (tomJS.controls.keyboard.allKeysPressed([_a, _b])) this.ready_to_exit = true;
 	}
-
 
 	drawContent() {
 		for (const _content of this.content) {
@@ -825,7 +812,6 @@ class Slide extends State {
 		};
 	}
 
-
 	parseText(_text) {
 		if (_text.includes('~')) {
 			let _split = _text.split('~');
@@ -840,13 +826,10 @@ class Slide extends State {
 		return _text;
 	}
 
-
 }
 
 
-
 class Consent extends Slide {
-
 
 	constructor(args = {}) {
 		super([], false, args);
@@ -864,19 +847,15 @@ class Consent extends Slide {
 		this.h2 = (args.h2 ?? "14")+ "px";
 	}
 
-
 	// override ------------------------------------------------------------------------------------------------------------
-
 
 	onUpdate() {		
 		tomJS.visual.context.fillStyle = "white";
-		tomJS.visual.context.fillRect(0, 0, tomJS.visual.size, tomJS.visual.size);
+		tomJS.visual.context.fillRect(0, 0, tomJS.visual.screen_size, tomJS.visual.screen_size);
 		if (tomJS.now < this.start + this.force_wait) return;
 	}
 
-
 	// super ---------------------------------------------------------------------------------------------------------------
-
 
 	onEnter() {
 		super.onEnter();
@@ -888,7 +867,6 @@ class Consent extends Slide {
 		this.createButton();
 	}
 
-
 	onExit() {
 		super.onExit();
 		this.container.remove();
@@ -896,14 +874,11 @@ class Consent extends Slide {
 		document.body.style.color = tomJS.visual.color;
 	}
 
-
 	// functions -----------------------------------------------------------------------------------------------------------
-
 
 	buttonClicked() {
 		this.slide.ready_to_exit = true;
 	}
-
 
 	createBremenLogo() {
 		const url = "https://www.uni-bremen.de/typo3conf/ext/package/Resources/Public/Images/logo_ub_2021.png";
@@ -914,7 +889,6 @@ class Consent extends Slide {
 		img.style.height = "150px";
 		return img;
 	}
-
 
 	createButton() {
 		const btn = document.createElement('button');
@@ -928,7 +902,6 @@ class Consent extends Slide {
 		btn.style.padding   = '1em';
 		this.container.appendChild(btn);
 	}
-
 
 	createContactPanel() {
 		const div = document.createElement('div');
@@ -973,7 +946,6 @@ class Consent extends Slide {
 		return div;
 	}
 
-
 	createContainer() {
 		const ctr = document.createElement('div');		
 		ctr.id = "container";
@@ -995,8 +967,6 @@ class Consent extends Slide {
 		this.container = ctr;
 		document.body.appendChild(ctr);
 	}
-
-
 
 	createMain(){
 		const div = document.createElement('div');
@@ -1021,7 +991,6 @@ class Consent extends Slide {
 		// join
 		this.container.append(div);
 	}
-
 	
 	createTopPanel() {
 		const div = document.createElement('div');
@@ -1037,13 +1006,10 @@ class Consent extends Slide {
 		this.container.append(div);
 	}
 
-
 }
 
 
-
 class Countdown extends Slide {
-
 
 	constructor(lifetime, content = [], can_return = false, args = {}) {
 		super(content, can_return, args);
@@ -1051,27 +1017,173 @@ class Countdown extends Slide {
 		this.lifetime = lifetime * 1000;
 	}
 
-
 	// super ---------------------------------------------------------------------------------------------------------------
 
-
-	onEnter() {
-		super.onEnter();
-	}
-
-
 	onUpdate() {
-        tomJS.writeToCanvas(Math.round((this.start + this.lifetime - tomJS.now) / 1000));
+		let time = Math.ceil((this.start + this.lifetime - tomJS.now) / 1000);
+		if (time <= 1) time = 1;
+        tomJS.writeToCanvas(time);
         if (tomJS.now >= this.start + this.lifetime) this.ready_to_exit = true;
 		super.onUpdate();
 	}
 
+}
+
+
+class CreditCard extends Slide {
+
+	constructor(args = {}) {
+		super([], false, args);
+		this.id = 'CreditCard';
+		this.cc_width = 85.60;
+		this.cc_height = 53.98;
+		this.scale = 1;
+		this.value = 100;
+	}
+
+	// super ---------------------------------------------------------------------------------------------------------------
+
+	onEnter() {
+		this.createContainer();
+		this.createWallet();
+		this.createCreditCard();
+		this.createControls();
+		createButton("Down", "-1", this.onDownClick, this, this.controls);
+		this.createSlider();
+		createButton("Up", "+1", this.onUpClick, this, this.controls);
+		createButton("Exit", "Confirm", this.onExitClick, this, this.container);
+		super.onEnter();
+	}
+
+	onExit() {
+		super.onExit();
+		tomJS.visual.credit_card_px = [this.real_width, this.real_height];
+		tomJS.visual.stimulus_size = Math.max(this.real_width, this.real_height);
+		if (tomJS.debug.verbose) console.log('visual',tomJS.visual);
+		this.container.remove();
+	}
+
+	// functions -----------------------------------------------------------------------------------------------------------
+
+	createCreditCard() {
+		const credit_card = document.createElement('div');
+		credit_card.id = "CreditCard";
+		credit_card.style.backgroundColor = "grey";
+		credit_card.style.width = this.cc_width + "mm";
+		credit_card.style.height = this.cc_height + "mm";
+		credit_card.style.margin = "auto";
+		credit_card.style.borderRadius = "5%";
+		this.wallet.append(credit_card);
+		this.credit_card = credit_card;
+		credit_card.state = this;
+	}
+
+	createContainer() {
+		const container = document.createElement('div');		
+		container.id			        = "Container";
+		container.style.width		    = "95%";
+		container.style.height		    = "95%";
+		container.style.justifyContent  = "flex-end";
+		container.style.alignItems      = "center";
+		container.style.display         = "flex";
+		container.style.flexDirection   = "column";
+		container.style.flexWrap        = "wrap";
+		container.style.textAlign       = "right";
+		container.style.fontFamily      = "Georgia";
+		container.style.position        = "absolute";
+		container.style.top             = "0%";
+		container.style.left            = "50%";
+		container.style.transform       = "translate(-50%, -0%)";
+		container.style.backgroundColor = "black";
+		document.body.appendChild(container);
+		container.state = this;
+		this.container = container;
+	}
+
+	createControls() {
+		const controls = document.createElement('div');		
+		controls.id = "Controls";
+		controls.style.height = "10%";
+		controls.style.width = "95%";
+		controls.style.display = "flex";
+		controls.style.justifyContent = "center";
+		controls.style.alignItems = "center";
+		controls.style.padding = "1%";
+		this.container.appendChild(controls);
+		controls.state = this;
+		this.controls = controls;
+	}
+
+	createSlider() {
+		const slider = document.createElement('input');
+		slider.id = "Slider";
+		slider.type = "range";
+		slider.step = 1;
+		slider.min = 50;
+		slider.max = 250;
+		slider.value = 100;
+		slider.style.height = "100%";
+		slider.style.width = this.cc_width + "mm";
+		slider.style.marginLeft = "10%";
+		slider.style.marginRight = "10%";
+		slider.style.backgroundColor = "white";
+		slider.oninput = this.onSlide;
+		this.controls.append(slider);
+		this.slider = slider;
+		slider.state = this;
+	}
+
+	createWallet() {
+		const wallet = document.createElement('div');
+		wallet.id = "Wallet";
+		wallet.style.display = "flex";
+		wallet.style.width = (this.cc_width * 2.5) + "mm";
+		wallet.style.height = (this.cc_height * 2.5) + "mm";
+		wallet.style.justifyContent  = "center";
+		wallet.style.alignItems  = "center";
+		this.container.append(wallet);
+		this.wallet = wallet;
+		wallet.state = this;
+	}
+
+	onDownClick() {
+		// this is the button
+		this.state.value -= 1
+		this.state.value = minMax(this.state.value, 50, 250);
+		this.state.slider.value = this.state.value;
+		this.state.setCreditCardScale();
+	}
+
+	onExitClick() {
+		// this is the button
+		this.state.ready_to_exit = true;
+	}
+
+	onUpClick() {
+		// this is the button
+		this.state.value += 1
+		this.state.value = minMax(this.state.value, 50, 250);
+		this.state.slider.value = this.state.value;
+		this.state.setCreditCardScale();
+	}
+
+	onSlide() {
+		// this is the slider
+		this.state.value = this.value;
+		this.state.setCreditCardScale();
+		this.state.real_width = Math.round(this.state.cc_width * this.state.scale);
+		this.state.real_height = Math.round(this.state.cc_height * this.state.scale);
+	}
+
+	setCreditCardScale() {
+		this.scale = this.slider.value / 100;
+		this.credit_card.style.transform = `scale(${this.scale})`;
+	}
 
 }
 
 
 class Demographics extends Slide {
-
 
 	constructor(args={}) {
 		super([], false, args);
@@ -1084,32 +1196,29 @@ class Demographics extends Slide {
 		this.heading = args.heading ?? "Welcome to the experiment.";
 		this.instructions = args.instructions ?? "The following information is optional."+
 			" Pless press \"Submit\" when you are ready to continue. "+
-			" Please do not refresh the page at any time.";			
+			" Please do not refresh the page at any time.";		
+		this.bottom_text = "Pressing the button below will start the experiment and your browser will enter fullscreen mode."
 	}
 
-
 	// override ------------------------------------------------------------------------------------------------------------
-
 
 	onUpdate() {		
 		this.drawContent();
 		if (tomJS.now < this.start + this.force_wait) return;
 	}
 
-
 	// super ---------------------------------------------------------------------------------------------------------------
 
-
-	onEnter() {
+	onEnter() {		
 		super.onEnter();
 		this.createContainer();
 		this.createHeading();
 		this.age = this.createField(demographics_prompts.age.en, 'number');
 		this.gender = this.createField(demographics_prompts.gender.en, 'select', demographics_choices.gender.en);
 		this.hand = this.createField(demographics_prompts.hand.en, 'select', demographics_choices.hand.en);
+		this.createBottomText();
 		this.createButton();
 	}
-
 
 	onExit() {
 		super.onExit();
@@ -1117,17 +1226,24 @@ class Demographics extends Slide {
 		tomJS.demographics.gender = this.gender.value;
 		tomJS.demographics.hand   = this.hand.value;
 		if (tomJS.debug.verbose) console.log('demographics',tomJS.demographics);
+		if (tomJS.debug.fullscreen) tomJS.visual.canvas.requestFullscreen();
 		this.container.remove();
 	}
 
-
 	// functions -----------------------------------------------------------------------------------------------------------
-
 
 	buttonClicked() {
 		this.slide.ready_to_exit = true;
 	}
 
+	createBottomText() {
+		const btext = document.createElement('label');
+		btext.textContent = this.bottom_text;
+		btext.style.width = '100vh';
+		btext.style.marginTop = '4em';
+		btext.style.textAlign = "center";
+		this.container.appendChild(btext);
+	}
 
 	createButton() {
 		const btn = document.createElement('button');
@@ -1135,13 +1251,12 @@ class Demographics extends Slide {
 		btn.textContent = "Submit";
 		btn.onclick = this.buttonClicked;
 		btn.slide = this;
-		btn.style.marginTop = '4em';
+		btn.style.marginTop = '2em';
 		btn.style.cursor    = 'pointer';
 		btn.style.display   = 'flex';
 		btn.style.padding   = '1em';
 		this.container.appendChild(btn);
 	}
-
 
 	createContainer() {
 		const ctr = document.createElement('div');		
@@ -1161,7 +1276,6 @@ class Demographics extends Slide {
 		this.container = ctr;
 		document.body.appendChild(ctr);
 	}
-
 
 	createField(label, type, options = []) {
 		// create wrapper div
@@ -1197,7 +1311,6 @@ class Demographics extends Slide {
 		return input;
 	}
 
-
 	createHeading() {
 		// heading
 		const hed = document.createElement('label');
@@ -1214,7 +1327,6 @@ class Demographics extends Slide {
 		this.container.appendChild(ins);
 	}
 	
-
 }
 
 
@@ -1240,9 +1352,7 @@ class EndBlock extends Slide {
 
 	onEnter () {
         super.onEnter();
-        this.calculateBlockData();
-		this.hits = this.correct + this.incorrect;
-		this.miss = this.fast + this.slow + this.censored;
+        this.calculateBlockData();		
 	}
 
 
@@ -1270,6 +1380,9 @@ class EndBlock extends Slide {
 		this.fast      = Math.round((d.fast/n)*100);
 		this.slow      = Math.round((d.slow/n)*100);
 		this.censored  = Math.round((d.censored/n)*100);
+		// complex
+		this.hits = minMax(this.correct + this.incorrect, 0, 100);
+		this.miss = minMax(this.fast + this.slow + this.censored, 0, 100);
 	}
 
 
@@ -1345,8 +1458,51 @@ class EndExperiment extends Slide {
 		this.slow      = Math.round((slow/n)*100);
 		this.censored  = Math.round((censored/n)*100);
 		// complex
-		this.hits = minMax(this.correct + this.incorrect, 0, 100);
-		this.miss = minMax(this.fast + this.slow + this.censored, 0, 100);
+		const hits = this.correct + this.incorrect;
+		this.hits  = minMax(hits, 0, 100);
+		const miss = this.fast + this.slow + this.censored
+		this.miss  = minMax(miss, 0, 100);
+	}
+
+}
+
+
+class ExampleProgressBar extends Slide {
+
+	constructor(content = [], can_return = false, args = {}) {
+		super(content, can_return, args);
+		this.min = args.deadline_min ?? 0.200;
+        this.max = args.deadline_max ?? 3.000;
+		args.pb_x = args.pb_x ?? 0.5;
+		args.pb_y = args.pb_y ?? 0.5;
+		this.progress_bar = new ProgressBar(args);
+		this.start = null
+	}
+
+	// super --------------------------------------------------------------------------------------
+
+	onEnter() {
+        super.onEnter();
+        this.progress_bar.set('pb_percent', 1);
+	}
+	
+	onUpdate() {
+		super.onUpdate();
+		this.updateProgressBar();
+		this.progress_bar.drawStimulus();
+	}
+
+	// functions ----------------------------------------------------------------------------------
+
+	updateProgressBar() {
+		const start = this.start;
+		const now = tomJS.now;
+		const condition = this.max * 1000;
+		const duration = this.max * 1000;
+		const progress = (now - start) + (duration - condition);
+		const percent = 1 - Math.min(progress / duration, 1);
+        if (percent >= 0.01) this.progress_bar.set('pb_percent', percent);
+		else this.start = tomJS.now;
 	}
 
 }
@@ -1391,32 +1547,28 @@ class Gabor extends Stimulus {
 		if (!('difficulty' in args)) tomJS.error('no difficulty passed to gabor');
 		this.data.target     = args.target;
 		this.data.difficulty = args.difficulty;
-		this.properties.gp_opacity  = args.gp_opacity  ?? 1.0;
-		this.properties.gp_ori      = args.gp_ori      ?? 25;
-		this.properties.gp_x        = args.gp_x        ?? 0.5;
-		this.properties.gp_y        = args.gp_y        ?? 0.5;
+		this.properties.gp_opacity  = args.gp_opacity  ?? 1.0;  // as percentage
+		this.properties.gp_ori      = args.gp_ori      ?? 25;	// in degrees
+		this.properties.gp_x        = args.gp_x        ?? 0.5;	// in screen units
+		this.properties.gp_y        = args.gp_y        ?? 0.5;	// in screen units
 		this.properties.gp_sf       = args.gp_sf       ?? 15;
-		this.properties.gp_size     = args.gp_size     ?? 0.5;
+		this.properties.gp_size     = args.gp_size     ?? 1.0;	// in stimulus units
 		this.image_data = this.prepareImageData();
 	}
 
-
 	// super ---------------------------------------------------------------------------------------------------------------
-
 
 	drawStimulus() {
 		super.drawStimulus();
-		const _s = Math.round(tomJS.visual.size * this.properties.gp_size);
+		const _s = Math.round(tomJS.visual.stimulus_size * this.properties.gp_size);
 		const img = tomJS.visual.context.createImageData(_s, _s);
 		this.assignImageData(img.data);
-		let pos_x = tomJS.visual.size * this.properties.gp_x - (_s * 0.5);
-		let pos_y = tomJS.visual.size * this.properties.gp_y - (_s * 0.5);
+		let pos_x = tomJS.visual.screen_size * this.properties.gp_x - (_s * 0.5);
+		let pos_y = tomJS.visual.screen_size * this.properties.gp_y - (_s * 0.5);
 		tomJS.visual.context.putImageData(img, pos_x, pos_y);
 	}
 
-
 	// functions -----------------------------------------------------------------------------------------------------------
-
 
 	assignImageData(data) {
 		for (let i = 0; i < data.length; i += 4) {
@@ -1427,9 +1579,8 @@ class Gabor extends Stimulus {
 		};
 	}
 
-
 	prepareImageData() {
-		const s = Math.round(tomJS.size * this.properties.gp_size);
+		const s = Math.round(tomJS.visual.stimulus_size * this.properties.gp_size);
 		const con = this.data.difficulty;
 		const ori = this.properties.gp_ori;
 		const sf  = this.properties.gp_sf;
@@ -1462,14 +1613,13 @@ class Gabor extends Stimulus {
 		return new Uint8ClampedArray(image_data);
 	}
 
-
 }
 
 
 class TwoLines extends Stimulus {
 
 	
-	constructor(args = {}) {		
+	constructor(args = {}) {
 		super(args);
 		if (!('target' in args))     tomJS.error('no target passed to two lines');
 		if (!('difficulty' in args)) tomJS.error('no difficulty passed to two lines');
@@ -1501,14 +1651,14 @@ class TwoLines extends Stimulus {
 
 
 	drawOneLine(side){
-		const w = (tomJS.size * this.properties.tl_width);
+		const w = (tomJS.stimulus_size * this.properties.tl_width);
 		const adjust = (side === this.data.target) ? this.dapropertiesta.tl_difference : 0;
-		const h = (tomJS.size * this.properties.tl_height) + adjust;
-		const pos_y = (tomJS.size * this.properties.tl_y);
+		const h = (tomJS.stimulus_size * this.properties.tl_height) + adjust;
+		const pos_y = (tomJS.stimulus_size * this.properties.tl_y);
 		const offset_y = h * 0.5;
 		const y = pos_y - offset_y;
-		const pos_x = tomJS.size * this.properties.tl_x;
-		const distance = tomJS.size * this.properties.tl_distance;
+		const pos_x = tomJS.stimulus_size * this.properties.tl_x;
+		const distance = tomJS.stimulus_size * this.properties.tl_distance;
 		const offset_x = w * 0.5;
 		const x = (side === "A") ? pos_x - offset_x - distance : pos_x - offset_x + distance;
 		tomJS.context.fillStyle = (side === this.data.target) ? this.properties.tl_color_L : this.properties.tl_color_R ;
@@ -1545,8 +1695,8 @@ class PixelPatch extends Stimulus {
 		super.drawStimulus();
 		const img = tomJS.visual.context.createImageData(_gp, _gp);
 		this.assignImageData(img.data);
-		let pos_x = tomJS.visual.size * this.properties.pp_x - (_gp * 0.5);
-		let pos_y = tomJS.visual.size * this.properties.pp_y - (_gp * 0.5);
+		let pos_x = tomJS.visual.screen_size * this.properties.pp_x - (_gp * 0.5);
+		let pos_y = tomJS.visual.screen_size * this.properties.pp_y - (_gp * 0.5);
 		tomJS.visual.context.putImageData(img, pos_x, pos_y);
 	}
 
@@ -1568,7 +1718,7 @@ class PixelPatch extends Stimulus {
 		const _a = this.data.difficulty;
 		const _s = this.properties.pp_size;
 		const _r = this.properties.pp_rows;
-		this.properties.grid_pix = Math.round(tomJS.visual.size * _s);
+		this.properties.grid_pix = Math.round(tomJS.visual.stimulus_size * _s);
 		this.properties.cell_pix = Math.round(this.properties.grid_pix / _r);
 		this.properties.grid_dim = Math.round(this.properties.grid_pix / this.properties.cell_pix);
 		this.properties.a_cells  = Math.round(this.properties.grid_dim * _a);
@@ -1623,10 +1773,10 @@ class ProgressBar extends Stimulus {
 
 
 	drawOneBar(which){
-		const w = tomJS.visual.size * this.data.pb_width * ((which == 'F') ? this.data.pb_percent : 1);
-		const h = tomJS.visual.size * this.data.pb_height * ((which == 'F') ? 0.95 : 1);
-		const x = (tomJS.visual.size * this.data.pb_x) - (w * 0.5);
-		const y = (tomJS.visual.size * this.data.pb_y) - (h * 0.5);
+		const w = tomJS.visual.stimulus_size * this.data.pb_width * ((which == 'F') ? this.data.pb_percent : 1);
+		const h = tomJS.visual.stimulus_size * this.data.pb_height * ((which == 'F') ? 0.95 : 1);
+		const x = (tomJS.visual.stimulus_size * this.data.pb_x) - (w * 0.5);
+		const y = (tomJS.visual.stimulus_size * this.data.pb_y) - (h * 0.5);
 		tomJS.visual.context.fillStyle = (which == 'F') ? this.data.pb_color_F : this.data.pb_color_B;
 		tomJS.visual.context.fillRect(x, y, w, h);
 	}
@@ -1644,6 +1794,19 @@ function arrayMax(array) {
 
 function arrayMin(array) {
 	return array.reduce((a,b)=>Math.min(a,b));
+}
+
+
+function createButton(id, textContent, onClick, state, parent, args={}) {
+	const button = document.createElement('button');
+	button.id = id;
+	button.textContent = textContent;
+	button.onclick = onClick;
+	button.style.cursor = args.cursor ?? 'pointer';
+	button.style.padding = args.padding ?? '1%';
+	button.state = state;
+	state[id] = button;
+	parent.append(button);
 }
 
 
@@ -1672,6 +1835,40 @@ function returnAllCombinationsFromDict(_dict) {
 		out = out.flatMap(obj => values.map(v => ({ ...obj, [key]: v })));
 	};
 	return out;
+}
+
+
+function returnButton(parent, onClick, args={}) {
+	const button = document.createElement('button');
+	button.id = args.id ?? "Button";
+	button.textContent = args.textContent ?? "Agree";
+	button.style.marginTop = args.marginTop ?? '1%';
+	button.style.cursor = args.cursor ?? 'pointer';
+	button.style.padding = args.padding ?? '1%';
+	button.parent = parent;
+	button.onclick = onClick;
+	return button;
+}
+
+
+function returnContainer(parent, args={}) {
+	const container = document.createElement('div');
+	container.id = args.id ?? "Container";
+	container.style.width = args.width ?? "95%";
+	container.style.height = args.height ?? "95%";
+	container.style.justifyContent = args.justifyContent ?? "center";
+	container.style.alignItems = args.alignItems ?? "center";
+	container.style.display = args.display ?? "flex";
+	container.style.flexDirection = args.flexDirection ?? "column";
+	container.style.flexWrap = args.flexWrap ?? "wrap";
+	container.style.position = args.position ?? "absolute";
+	container.style.top = args.top ?? "50%";
+	container.style.left = args.left ?? "50%";
+	container.style.transform = args.transform ?? "translate(-50%, -50%)";
+	container.style.backgroundColor = args.backgroundColor ?? "black";
+	container.style.marginTop = args.marginTop ?? "1%";
+	container.parent = parent;
+	return container;
 }
 
 
@@ -1826,16 +2023,17 @@ consent_form = [
 		" For each decision we record how long you take to respond and if your response is correct or not."+
 		" The exact procedure will be explained to you during the experiment."+
 		" We will also ask to record your age, gender, and dominant hand, but these details are optional."+
-		" The experiment takes approximately 60 minutes.",
+		" The experiment takes approximately 60 minutes and will force your browser into fullscreen mode.",
 	"3. Reimbursement",
-		"You will be reimbursed at the rate of 9.50 GBP per hour.",
+		"You will be reimbursed at the rate of 9.50 GBP per hour on thee condition that you meet your obligations.",
 	"4. Obligations",
 		"The success of scientific studies depends significantly on your cooperation."+
-		" We therefore ask you to remain focused and to work according to the instructions throughout the entire study.",
+		" We therefore ask you to remain focused and to work according to the instructions throughout the entire study." +
+		" Failure to respond correctly on at least 60% of trials is considered a failure of your obligations.",
 	"5. Voluntary participation and possibility of dropping out",
 		"Your participation in the study is voluntary. "+
 		" You may withdraw from the study at any time and without giving reasons, without incurring any disadvantages."+
-		" If you withdraw, you are entitled to a pro rata compensation for your time spent.",
+		" If you withdraw but are otherwise eligible for payment, you are entitled to a pro rata compensation for your time.",
 	"6. Confidentiality and anonymity",
 		"Data collected as part of this study is connected to a randomly assigned ID-number and therefore cannot be traced back to you.",
 	"7. Data protection",
