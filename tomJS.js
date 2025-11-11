@@ -2,7 +2,7 @@
 class Experiment {	
 
 
-	version = '0711251356';
+	version = '1111251250';
 
 
 	constructor(args={}) {
@@ -20,14 +20,22 @@ class Experiment {
 
 		// visual
 		this.visual = {};
+		this.visual.fontFamily = args.fontFamily ?? "Arial";
+		this.visual.fontSize = args.fontSize ?? "16px";
+		this.visual.h0 = args.h0 ?? "28px";
+		this.visual.h1 = args.h1 ?? "20px";
 		this.visual.backgroundColor = args.backgroundColor ?? "black";
 		this.visual.color = args.color ?? "white";				
 		this.visual.height = window.innerHeight - 16;
 		this.visual.width  = window.innerWidth - 16;
 		this.visual.screen_size   = Math.min(this.visual.height, this.visual.width); // find the smaller dimension
-		this.visual.stimulus_size = this.visual.screen_size * 0.5;
+		this.visual.stimulus_size = this.visual.screen_size;
 		this.createCanvas();
 		if (this.debug.verbose) console.log('visual', this.visual);
+
+		// apply visual settings to document
+		document.body.style.fontFamily = this.visual.fontFamily;
+		document.body.style.fontSize = this.visual.fontSize;
 		
 		// controls
 		this.controls = {};
@@ -263,18 +271,18 @@ class Experiment {
 	
 	writeToCanvas (text, args={}) {
 		// Write text to the canvas with a relative position (0.5 being center).
-		let _upper = args.upper ?? false;
-		let _text = _upper ? text.toUpperCase() : text;
+		const _upper = args.upper ?? false;
+		const _text = _upper ? text.toUpperCase() : text;
 		tomJS.visual.context.fillStyle = args.colour ?? "white";
 		tomJS.visual.context.textAlign = args.align  ?? "center";
-		let _pt = args.pt ?? 18;
-		let _tf = args.font ?? "Georgia";
-		let _font = _pt+ "px " + _tf;
+		const _pt = args.fontSize ?? tomJS.visual.fontSize;
+		const _tf = args.fontFamily ?? tomJS.visual.fontFamily;
+		const _font = _pt + " " + _tf;
 		tomJS.visual.context.font = _font;
 		let _x = args.x ?? 0.5;
 		let _y = args.y ?? 0.5;
 		let _pos_x = tomJS.visual.screen_size * _x;
-		let _pos_y = tomJS.visual.screen_size * _y + (0.334 * _pt);
+		let _pos_y = tomJS.visual.screen_size * _y;
 		let _width = tomJS.visual.screen_size ?? 1;
 		tomJS.visual.context.fillText(_text, _pos_x, _pos_y, _width);
 	}
@@ -842,9 +850,6 @@ class Consent extends Slide {
 		this.group      = args.group      ?? bremen.group;
 		this.contact    = args.contact    ?? "Contacts";
 		this.contacts   = args.contacts   ?? ["Tom Narraway: "+bremen.email];
-		this.h0 = (args.h0 ?? "24")+ "px";
-		this.h1 = (args.h1 ?? "18")+ "px";
-		this.h2 = (args.h2 ?? "14")+ "px";
 	}
 
 	// override ------------------------------------------------------------------------------------------------------------
@@ -864,7 +869,7 @@ class Consent extends Slide {
 		this.createContainer();
 		this.createTopPanel();
 		this.createMain();
-		this.createButton();
+		createButton("exit", "Consent", this.onExitClicked, this, this.container);
 	}
 
 	onExit() {
@@ -876,8 +881,8 @@ class Consent extends Slide {
 
 	// functions -----------------------------------------------------------------------------------------------------------
 
-	buttonClicked() {
-		this.slide.ready_to_exit = true;
+	onExitClicked() {
+		this.state.ready_to_exit = true;
 	}
 
 	createBremenLogo() {
@@ -888,19 +893,6 @@ class Consent extends Slide {
 		img.style.width = "418px";
 		img.style.height = "150px";
 		return img;
-	}
-
-	createButton() {
-		const btn = document.createElement('button');
-		btn.id = "exit_button";
-		btn.textContent = "I Consent";
-		btn.onclick = this.buttonClicked;
-		btn.slide = this;
-		btn.style.marginTop = '4em';
-		btn.style.marginBottom = "32px";
-		btn.style.cursor    = 'pointer';
-		btn.style.padding   = '1em';
-		this.container.appendChild(btn);
 	}
 
 	createContactPanel() {
@@ -914,33 +906,30 @@ class Consent extends Slide {
 		// institute
 		let ins = document.createElement('label');
 		ins.textContent = this.institute;
-		ins.style.marginTop = "1em";
-		ins.style.fontSize = this.h0;			
+		ins.style.fontSize = tomJS.visual.h0;			
 		div.append(ins);
 		// department
 		let dep = document.createElement('label');
 		dep.textContent = this.department;
 		dep.style.marginTop = "1em";
-		dep.style.fontSize = this.h1,	
+		dep.style.fontSize = tomJS.visual.h1,	
 		div.append(dep);
 		// group
 		let grp = document.createElement('label');
 		grp.textContent = this.group;
-		grp.style.marginTop = "1em";
-		grp.style.fontSize = this.h2;			
+		grp.style.marginTop = "1em";		
 		div.append(grp);
 		// contact
 		let ctc = document.createElement('label');
 		ctc.textContent = this.contact;
 		ctc.style.marginTop = "1em";
-		ctc.style.fontSize = this.h1;			
+		ctc.style.fontSize = tomJS.visual.h1;	
 		div.append(ctc);
 		// contacts
 		for (let i = 0; i < this.contacts.length; i++) {
 			let tmp = document.createElement('label');
 			tmp.textContent = this.contacts[i];
-			tmp.style.marginTop = "1em";
-			tmp.style.fontSize = this.h2;			
+			tmp.style.marginTop = "1em";	
 			div.append(tmp);
 		};
 		return div;
@@ -956,7 +945,7 @@ class Consent extends Slide {
 		ctr.style.flexDirection   = "column";
 		ctr.style.flexWrap        = "wrap";
 		ctr.style.textAlign       = "right";
-		ctr.style.fontFamily      = "Georgia";
+		ctr.style.fontFamily      = tomJS.visual.fontFamily;
 		ctr.style.position        = "absolute";
 		ctr.style.top             = "0%";
 		ctr.style.left            = "50%";
@@ -981,11 +970,7 @@ class Consent extends Slide {
 			tmp.textContent = consent_form[i];
 			tmp.style.width = "100%";
 			tmp.style.marginBottom = "1em";
-			if (i % 2 == 0) { 
-				tmp.style.fontSize = this.h1;
-			} else {
-				tmp.style.fontSize = this.h2;
-			};
+			if (i % 2 == 0) tmp.style.fontSize = tomJS.visual.h1;
 			div.append(tmp);
 		}
 		// join
@@ -1035,16 +1020,21 @@ class CreditCard extends Slide {
 	constructor(args = {}) {
 		super([], false, args);
 		this.id = 'CreditCard';
-		this.cc_width = 85.60;
+		this.cc_width  = 85.60;
 		this.cc_height = 53.98;
-		this.scale = 1;
+		this.min   = 0;
+		this.max   = null;
 		this.value = 100;
+		this.instructions = args.instructions ?? "Please hold an ID-1 card (e.g. credit card or driving license) to" +
+			" the screen and match the width of the rectangle to the card.";
 	}
 
 	// super ---------------------------------------------------------------------------------------------------------------
 
 	onEnter() {
+		this.max = tomJS.visual.screen_size;
 		this.createContainer();
+		createLabel("instructions", this.instructions, this, this.container);
 		this.createWallet();
 		this.createCreditCard();
 		this.createControls();
@@ -1057,9 +1047,8 @@ class CreditCard extends Slide {
 
 	onExit() {
 		super.onExit();
-		tomJS.visual.credit_card_px = [this.real_width, this.real_height];
-		tomJS.visual.stimulus_size = Math.max(this.real_width, this.real_height);
-		if (tomJS.debug.verbose) console.log('visual',tomJS.visual);
+		tomJS.visual.stimulus_size = Math.round(this.value);
+		if (tomJS.debug.verbose) console.log(tomJS.visual);
 		this.container.remove();
 	}
 
@@ -1069,7 +1058,7 @@ class CreditCard extends Slide {
 		const credit_card = document.createElement('div');
 		credit_card.id = "CreditCard";
 		credit_card.style.backgroundColor = "grey";
-		credit_card.style.width = this.cc_width + "mm";
+		credit_card.style.width  = this.value + "px";
 		credit_card.style.height = this.cc_height + "mm";
 		credit_card.style.margin = "auto";
 		credit_card.style.borderRadius = "5%";
@@ -1081,19 +1070,19 @@ class CreditCard extends Slide {
 	createContainer() {
 		const container = document.createElement('div');		
 		container.id			        = "Container";
-		container.style.width		    = "95%";
-		container.style.height		    = "95%";
-		container.style.justifyContent  = "flex-end";
+		container.style.width		    = "100%";
+		container.style.height		    = "100%";
+		container.style.justifyContent  = "center";
 		container.style.alignItems      = "center";
 		container.style.display         = "flex";
 		container.style.flexDirection   = "column";
 		container.style.flexWrap        = "wrap";
 		container.style.textAlign       = "right";
-		container.style.fontFamily      = "Georgia";
+		container.style.fontFamily      = tomJS.visual.fontFamily;
 		container.style.position        = "absolute";
-		container.style.top             = "0%";
+		container.style.top             = "50%";
 		container.style.left            = "50%";
-		container.style.transform       = "translate(-50%, -0%)";
+		container.style.transform       = "translate(-50%, -50%)";
 		container.style.backgroundColor = "black";
 		document.body.appendChild(container);
 		container.state = this;
@@ -1108,7 +1097,6 @@ class CreditCard extends Slide {
 		controls.style.display = "flex";
 		controls.style.justifyContent = "center";
 		controls.style.alignItems = "center";
-		controls.style.padding = "1%";
 		this.container.appendChild(controls);
 		controls.state = this;
 		this.controls = controls;
@@ -1119,11 +1107,11 @@ class CreditCard extends Slide {
 		slider.id = "Slider";
 		slider.type = "range";
 		slider.step = 1;
-		slider.min = 50;
-		slider.max = 250;
-		slider.value = 100;
+		slider.min = this.min;
+		slider.max = this.max;
+		slider.value = this.value;
 		slider.style.height = "100%";
-		slider.style.width = this.cc_width + "mm";
+		slider.style.width = "50%";
 		slider.style.marginLeft = "10%";
 		slider.style.marginRight = "10%";
 		slider.style.backgroundColor = "white";
@@ -1137,10 +1125,12 @@ class CreditCard extends Slide {
 		const wallet = document.createElement('div');
 		wallet.id = "Wallet";
 		wallet.style.display = "flex";
-		wallet.style.width = (this.cc_width * 2.5) + "mm";
-		wallet.style.height = (this.cc_height * 2.5) + "mm";
+		wallet.style.width = "100%";
+		wallet.style.height = "30%";
 		wallet.style.justifyContent  = "center";
 		wallet.style.alignItems  = "center";
+		wallet.style.marginTop = "2%";
+		wallet.style.marginBottom = "2%";
 		this.container.append(wallet);
 		this.wallet = wallet;
 		wallet.state = this;
@@ -1149,7 +1139,7 @@ class CreditCard extends Slide {
 	onDownClick() {
 		// this is the button
 		this.state.value -= 1
-		this.state.value = minMax(this.state.value, 50, 250);
+		this.state.value = minMax(this.state.value, this.state.min, this.state.max);
 		this.state.slider.value = this.state.value;
 		this.state.setCreditCardScale();
 	}
@@ -1162,7 +1152,7 @@ class CreditCard extends Slide {
 	onUpClick() {
 		// this is the button
 		this.state.value += 1
-		this.state.value = minMax(this.state.value, 50, 250);
+		this.state.value = minMax(this.state.value, this.state.min, this.state.max);
 		this.state.slider.value = this.state.value;
 		this.state.setCreditCardScale();
 	}
@@ -1171,13 +1161,12 @@ class CreditCard extends Slide {
 		// this is the slider
 		this.state.value = this.value;
 		this.state.setCreditCardScale();
-		this.state.real_width = Math.round(this.state.cc_width * this.state.scale);
-		this.state.real_height = Math.round(this.state.cc_height * this.state.scale);
 	}
 
 	setCreditCardScale() {
-		this.scale = this.slider.value / 100;
-		this.credit_card.style.transform = `scale(${this.scale})`;
+		const scale = this.slider.value / 100;
+		this.mm_width = Math.round(this.cc_width * scale);
+		this.credit_card.style.width = this.mm_width + "px";
 	}
 
 }
@@ -1193,10 +1182,10 @@ class Demographics extends Slide {
 		this.hand = null;
 		this.exit_pressed = false;
 		this.exit_button = null;
-		this.heading = args.heading ?? "Welcome to the experiment.";
+		this.heading = args.heading ?? "Demographics Information";
 		this.instructions = args.instructions ?? "The following information is optional."+
 			" Pless press \"Submit\" when you are ready to continue. "+
-			" Please do not refresh the page at any time.";		
+			" Please do not refresh the page at any time.";
 		this.bottom_text = "Pressing the button below will start the experiment and your browser will enter fullscreen mode."
 	}
 
@@ -1217,7 +1206,7 @@ class Demographics extends Slide {
 		this.gender = this.createField(demographics_prompts.gender.en, 'select', demographics_choices.gender.en);
 		this.hand = this.createField(demographics_prompts.hand.en, 'select', demographics_choices.hand.en);
 		this.createBottomText();
-		this.createButton();
+		createButton("exit", "Submit", this.onExitClicked, this, this.container, {'marginTop':"3%"});
 	}
 
 	onExit() {
@@ -1232,30 +1221,17 @@ class Demographics extends Slide {
 
 	// functions -----------------------------------------------------------------------------------------------------------
 
-	buttonClicked() {
-		this.slide.ready_to_exit = true;
+	onExitClicked() {
+		this.state.ready_to_exit = true;
 	}
 
 	createBottomText() {
 		const btext = document.createElement('label');
 		btext.textContent = this.bottom_text;
-		btext.style.width = '100vh';
+		btext.style.width = '100%';
 		btext.style.marginTop = '4em';
 		btext.style.textAlign = "center";
 		this.container.appendChild(btext);
-	}
-
-	createButton() {
-		const btn = document.createElement('button');
-		btn.id = "exit_button";
-		btn.textContent = "Submit";
-		btn.onclick = this.buttonClicked;
-		btn.slide = this;
-		btn.style.marginTop = '2em';
-		btn.style.cursor    = 'pointer';
-		btn.style.display   = 'flex';
-		btn.style.padding   = '1em';
-		this.container.appendChild(btn);
 	}
 
 	createContainer() {
@@ -1268,7 +1244,7 @@ class Demographics extends Slide {
 		ctr.style.flexDirection  = "row";
 		ctr.style.flexWrap       = "wrap";
 		ctr.style.textAlign      = "right";
-		ctr.style.fontFamily     = "Georgia";
+		ctr.style.fontFamily     = tomJS.visual.fontFamily;
 		ctr.style.position       = "absolute";
 		ctr.style.top            = "50%";
 		ctr.style.left           = "50%";
@@ -1316,7 +1292,7 @@ class Demographics extends Slide {
 		const hed = document.createElement('label');
 		hed.textContent = this.heading;	
 		hed.style.textAlign = "center";
-		hed.style.fontSize = "28px"
+		hed.style.fontSize = tomJS.visual.h0;
 		this.container.appendChild(hed);
 		// instructions
 		const ins = document.createElement('label');
@@ -1553,6 +1529,7 @@ class Gabor extends Stimulus {
 		this.properties.gp_y        = args.gp_y        ?? 0.5;	// in screen units
 		this.properties.gp_sf       = args.gp_sf       ?? 15;
 		this.properties.gp_size     = args.gp_size     ?? 1.0;	// in stimulus units
+		this.properties.gp_px = Math.round(tomJS.visual.stimulus_size * this.properties.gp_size);
 		this.image_data = this.prepareImageData();
 	}
 
@@ -1560,7 +1537,7 @@ class Gabor extends Stimulus {
 
 	drawStimulus() {
 		super.drawStimulus();
-		const _s = Math.round(tomJS.visual.stimulus_size * this.properties.gp_size);
+		const _s = this.properties.gp_px;
 		const img = tomJS.visual.context.createImageData(_s, _s);
 		this.assignImageData(img.data);
 		let pos_x = tomJS.visual.screen_size * this.properties.gp_x - (_s * 0.5);
@@ -1580,7 +1557,7 @@ class Gabor extends Stimulus {
 	}
 
 	prepareImageData() {
-		const s = Math.round(tomJS.visual.stimulus_size * this.properties.gp_size);
+		const s   = this.properties.gp_px;
 		const con = this.data.difficulty;
 		const ori = this.properties.gp_ori;
 		const sf  = this.properties.gp_sf;
@@ -1775,8 +1752,8 @@ class ProgressBar extends Stimulus {
 	drawOneBar(which){
 		const w = tomJS.visual.stimulus_size * this.data.pb_width * ((which == 'F') ? this.data.pb_percent : 1);
 		const h = tomJS.visual.stimulus_size * this.data.pb_height * ((which == 'F') ? 0.95 : 1);
-		const x = (tomJS.visual.stimulus_size * this.data.pb_x) - (w * 0.5);
-		const y = (tomJS.visual.stimulus_size * this.data.pb_y) - (h * 0.5);
+		const x = (tomJS.visual.screen_size * this.data.pb_x) - (w * 0.5);
+		const y = (tomJS.visual.screen_size * this.data.pb_y) - (h * 0.5);
 		tomJS.visual.context.fillStyle = (which == 'F') ? this.data.pb_color_F : this.data.pb_color_B;
 		tomJS.visual.context.fillRect(x, y, w, h);
 	}
@@ -1802,11 +1779,32 @@ function createButton(id, textContent, onClick, state, parent, args={}) {
 	button.id = id;
 	button.textContent = textContent;
 	button.onclick = onClick;
-	button.style.cursor = args.cursor ?? 'pointer';
-	button.style.padding = args.padding ?? '1%';
+	button.style.cursor       = args.cursor       ?? 'pointer';
+	button.style.padding      = args.padding      ?? '1%';
+	button.style.fontFamily   = args.fontFamily   ?? tomJS.visual.fontFamily;
+	button.style.fontSize     = args.fontSize     ?? tomJS.visual.fontSize;
+	button.style.marginBottom = args.marginBottom ?? "1%";
+	button.style.marginLeft   = args.marginLeft   ?? "0";
+	button.style.marginRight  = args.marginRight  ?? "0";
+	button.style.marginTop    = args.marginTop    ?? '1%';
 	button.state = state;
 	state[id] = button;
 	parent.append(button);
+}
+
+
+function createLabel(id, content, state, parent, args={}) {
+	const label = document.createElement('label');
+	label.textContent = content;
+	label.style.fontFamily   = args.fontFamily   ?? tomJS.visual.fontFamily;
+	label.style.fontSize     = args.fontSize     ?? tomJS.visual.fontSize;
+	label.style.marginBottom = args.marginBottom ?? "1%";
+	label.style.marginLeft   = args.marginLeft   ?? "0";
+	label.style.marginRight  = args.marginRight  ?? "0";
+	label.style.marginTop    = args.marginTop    ?? '1%';
+	label.state = state;
+	state[id] = label;
+	parent.append(label);
 }
 
 
@@ -1835,40 +1833,6 @@ function returnAllCombinationsFromDict(_dict) {
 		out = out.flatMap(obj => values.map(v => ({ ...obj, [key]: v })));
 	};
 	return out;
-}
-
-
-function returnButton(parent, onClick, args={}) {
-	const button = document.createElement('button');
-	button.id = args.id ?? "Button";
-	button.textContent = args.textContent ?? "Agree";
-	button.style.marginTop = args.marginTop ?? '1%';
-	button.style.cursor = args.cursor ?? 'pointer';
-	button.style.padding = args.padding ?? '1%';
-	button.parent = parent;
-	button.onclick = onClick;
-	return button;
-}
-
-
-function returnContainer(parent, args={}) {
-	const container = document.createElement('div');
-	container.id = args.id ?? "Container";
-	container.style.width = args.width ?? "95%";
-	container.style.height = args.height ?? "95%";
-	container.style.justifyContent = args.justifyContent ?? "center";
-	container.style.alignItems = args.alignItems ?? "center";
-	container.style.display = args.display ?? "flex";
-	container.style.flexDirection = args.flexDirection ?? "column";
-	container.style.flexWrap = args.flexWrap ?? "wrap";
-	container.style.position = args.position ?? "absolute";
-	container.style.top = args.top ?? "50%";
-	container.style.left = args.left ?? "50%";
-	container.style.transform = args.transform ?? "translate(-50%, -50%)";
-	container.style.backgroundColor = args.backgroundColor ?? "black";
-	container.style.marginTop = args.marginTop ?? "1%";
-	container.parent = parent;
-	return container;
 }
 
 

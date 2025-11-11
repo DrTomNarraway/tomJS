@@ -12,6 +12,7 @@
     const CONDITION   = [0.500, 1.000];
     const DIFFICULTY  = [0.03, 0.50];
     const ORIENTATION = 2;
+    const SIZE        = 0.5;
     const STIMULUS    = Gabor;
     const TRIAL_REPS  = 1;
     const TRIAL_TYPE  = VisibleFeedbackDeadline;
@@ -48,6 +49,7 @@
         'stimulus': STIMULUS,
         'deadline_max' : max_cond,
         'gp_ori' : ORIENTATION,
+        'gp_size' : SIZE,
     };
     
     // slides ==============================================================================================================
@@ -63,7 +65,7 @@
         { 'class': 'text', 'text': 'On each trial you will see a stimulus like the one below. Press ' + A + ' if ', 'y': 0.15 },
         { 'class': 'text', 'text': 'you think the stimulus is rotated to the left, or press ' + B, 'y': 0.20 },
         { 'class': 'text', 'text': 'if you think it is rotated to the right. Press ' + A + ' and ' + B + ' now to see examples.', 'y': 0.25 },
-        { 'class': 'gabor', 'target':'~dir~', 'difficulty':max_diff, 'gp_ori':ORIENTATION},
+        { 'class': 'gabor', 'target':'~dir~', 'gp_size' : SIZE, 'difficulty':max_diff, 'gp_ori':ORIENTATION},
         { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
     ]);
 
