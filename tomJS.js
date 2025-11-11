@@ -2,7 +2,7 @@
 class Experiment {	
 
 
-	version = '11.11.25 15:30';
+	version = '11.11.25 15:51';
 
 
 	constructor(args={}) {
@@ -59,7 +59,6 @@ class Experiment {
 		this.study_name = args.study_name ?? false;
 
 		// demographics
-        const gather_demographics = args.gather_demographics ?? true;
 		const language = args.language ?? 'en';
 		const subject = Math.round(Math.random()*999999);
 		const n = Math.round(Math.random()*999);
@@ -68,8 +67,9 @@ class Experiment {
 		// timeline
         this.now = window.performance.now();
         this.running  = true;
-        this.timeline = gather_demographics ? [new Consent(args), new Demographics(args)] : [new Consent(args)];
+        this.timeline = [new Consent(args)];
 		if (args.credit_card ?? true) this.timeline.push(new CreditCard(args));
+		if (args.gather_demographics ?? true) this.timeline.push(new Demographics(args)); 
         this.time_pos = 0;
         this.trial  = 0;
         this.block  = 0;
@@ -128,6 +128,7 @@ class Experiment {
 		this.visual.canvas.style.backgroundColor = this.visual.backgroundColor;
 		this.visual.canvas.style.color = this.visual.colour;
 		this.visual.canvas.style.left = (this.visual.width - this.visual.screen_size + 16) / 2 + "px"; // position canvas in center
+		this.visual.canvas.style.cursor = "none";
 		document.body.appendChild(this.visual.canvas); // add canvas to window
 		this.visual.context = this.visual.canvas.getContext("2d");
 	}
@@ -1253,7 +1254,8 @@ class Demographics extends Slide {
 		this.instructions = args.instructions ?? "The following information is optional."+
 			" Pless press \"Submit\" when you are ready to continue. "+
 			" Please do not refresh the page at any time.";
-		this.bottom_text = "Pressing the button below will start the experiment and your browser will enter fullscreen mode."
+		this.bottom_text = "Pressing the button below will start the experiment, your browser will enter fullscreen mode," +
+			" and your cursor will be hidden while within the experiment window.";
 	}
 
 	// override ------------------------------------------------------------------------------------------------------------
@@ -1304,11 +1306,12 @@ class Demographics extends Slide {
 	createContainer() {
 		const ctr = document.createElement('div');		
 		ctr.id = "container";
-		ctr.style.width          = "100vh";
+		ctr.style.width          = "100%";
+		ctr.style.height         = "100%";
 		ctr.style.justifyContent = "center";
 		ctr.style.alignItems     = "center";
 		ctr.style.display        = "flex";
-		ctr.style.flexDirection  = "row";
+		ctr.style.flexDirection  = "column";
 		ctr.style.flexWrap       = "wrap";
 		ctr.style.textAlign      = "right";
 		ctr.style.fontFamily     = tomJS.visual.fontFamily;
@@ -2045,7 +2048,7 @@ class Keyboard {
 
 
 bremen = {
-	'institute'  : "Institut für Psychologie",
+	'institute'  : "Institut fuer Psychologie",
 	'department' : "Fachbereich 11",
 	'group'      : "Psychologische Forschungsmethoden und Kognitive Psychologie",
 	'email'      : "narraway@uni-bremen.de",
