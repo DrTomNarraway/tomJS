@@ -11,11 +11,16 @@
     const BLOCK_REPS  = 1;
     const CONDITION   = [0.500, 1.000];
     const DIFFICULTY  = [0.03, 0.50];
+    const DURATION    = 3.000;
+    const FAST        = 0.000;
+    const GO_COLOUR   = "DodgerBlue";
     const ORIENTATION = 2;
-    const SIZE        = 0.5;
+    const SLOW        = 0.350;
+    const SIGNAL      = 2.000;
+    const SIZE        = 1;
     const STIMULUS    = Gabor;
     const TRIAL_REPS  = 1;
-    const TRIAL_TYPE  = VisibleFeedbackDeadline;
+    const TRIAL_TYPE  = VisualResponseSignal;
 
     // set up experiment ===================================================================================================
     
@@ -31,7 +36,7 @@
 
     const max_cond = arrayMax(CONDITION);
     const min_cond = arrayMin(CONDITION);
-    const max_diff = arrayMax(DIFFICULTY)
+    const max_diff = arrayMax(DIFFICULTY);
     const min_diff = arrayMin(DIFFICULTY);
 
     // trial arguments =====================================================================================================
@@ -47,9 +52,13 @@
     
     const _additional = {
         'stimulus': STIMULUS,
-        'deadline_max' : max_cond,
         'gp_ori' : ORIENTATION,
         'gp_size' : SIZE,
+        'response_signal' : SIGNAL,
+        'stimulus_fast' : FAST,
+        'stimulus_slow' : SLOW,
+        'go_color' : GO_COLOUR,
+        'stimulus_duration' : DURATION,
     };
     
     // slides ==============================================================================================================
@@ -65,25 +74,25 @@
         { 'class': 'text', 'text': 'On each trial you will see a stimulus like the one below. Press ' + A + ' if ', 'y': 0.15 },
         { 'class': 'text', 'text': 'you think the stimulus is rotated to the left, or press ' + B, 'y': 0.20 },
         { 'class': 'text', 'text': 'if you think it is rotated to the right. Press ' + A + ' and ' + B + ' now to see examples.', 'y': 0.25 },
-        { 'class': 'gabor', 'target':'~dir~', 'gp_size' : SIZE, 'difficulty':max_diff, 'gp_ori':ORIENTATION},
+        { 'class': 'gabor', 'target':'~dir~', 'gp_size' : 0.5, 'difficulty':max_diff, 'gp_ori':ORIENTATION},
         { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
     ]);
 
-    const sat = new ExampleProgressBar([
+    const sat = new ExampleVisualResponseSignal([
         { 'class': 'text', 'text': 'On each trial you you will see a bar at the top of the screen like the one below.', 'y': 0.25 },
-        { 'class': 'text', 'text': 'Please try to respond before the bar runs out.', 'y': 0.30 },
+        { 'class': 'text', 'text': 'You must respond while the bar is blue.', 'y': 0.30 },
         { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
-    ])
+    ], {'max':DURATION});
     
     const end_block = new EndBlock([
         { 'class': 'text', 'text': 'End of block. Please take a short break. ', 'y':0.25 },
-        { 'class': 'text', 'text': 'You responded before the deadline on ^hits^% of trials this block.' },
+        { 'class': 'text', 'text': 'You responded while the bar was blue on ^hits^% of trials this block.' },
         { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
     ]);         
     
     const end_exp = new EndExperiment([
         { 'class': 'text', 'text': 'End of Experiment. Thank you for your help.', 'y': 0.25 },
-        { 'class': 'text', 'text': 'You responded before the deadline on ^hits^% of trials this experiment.' },
+        { 'class': 'text', 'text': 'You responded while the bar was blue on ^hits^% of trials this experiment.' },
         { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to end the experiment.', 'y': 0.75 },
     ]);
 

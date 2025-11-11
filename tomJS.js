@@ -2,11 +2,11 @@
 class Experiment {	
 
 
-	version = '1111251250';
+	version = '11.11.25 15:30';
 
 
 	constructor(args={}) {
-
+		
 		console.log('booting tomJS version '+this.version);
 
 		// debug
@@ -29,7 +29,7 @@ class Experiment {
 		this.visual.height = window.innerHeight - 16;
 		this.visual.width  = window.innerWidth - 16;
 		this.visual.screen_size   = Math.min(this.visual.height, this.visual.width); // find the smaller dimension
-		this.visual.stimulus_size = this.visual.screen_size;
+		this.visual.stimulus_size = this.visual.screen_size * 0.5;
 		this.createCanvas();
 		if (this.debug.verbose) console.log('visual', this.visual);
 
@@ -77,17 +77,16 @@ class Experiment {
 		this.blocks = 0;
 
 		// data
+		this.headings = 'subject,age,gender,hand,block,trial,condition,difficulty,rt,score,outcome,target,response,screen_px,stimulus_px';
 		this.data = [];
+		
 	}
 
-
 	// functions -----------------------------------------------------------------------------------------------------------
-
 	
 	appendToTimeline (new_state) {
 		this.timeline.push(new_state);
 	}
-
 	
 	appendOneTrial (trial_class, args={}) {
         let _new_trial = new trial_class(args);
@@ -95,12 +94,10 @@ class Experiment {
         this.trials += 1;
 	}
 
-
 	appendBlock(trial_type, trialwise={}, additional={}, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
 		const _block = new Block(trial_type, trialwise, additional, trial_reps, start_slide, end_slide, add_countdown);
 		this.appendToTimeline(_block);
 	}
-
 
 	appendBlocks(trial_type, blockwise={}, trialwise={}, additional={}, block_reps=1, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
 		let _b_cells  = returnTotalDictLength(blockwise);
@@ -114,7 +111,6 @@ class Experiment {
 		};
 	}
 
-
 	connectToJatos(counterbalance=false) {		
 		this.jatos = true;
 		this.demographics.n = jatos.studyResultId;
@@ -122,7 +118,6 @@ class Experiment {
 		if ('workerID'  in url) this.demographics.subject = url.workerID;
 		if (counterbalance) this.counterbalanceAB();
 	}
-
 
 	createCanvas() {
 		this.visual.canvas = document.createElement('canvas');		
@@ -137,7 +132,6 @@ class Experiment {
 		this.visual.context = this.visual.canvas.getContext("2d");
 	}
 
-
 	counterbalanceAB() {
 		const mod = this.demographics.n % 2;
 		const A = (mod == 0) ? this.controls.key_a : this.controls.key_b;
@@ -147,7 +141,6 @@ class Experiment {
 		this.controls.key_a_upper = A.toUpperCase();
 		this.controls.key_b_upper = B.toUpperCase();
 	}
-
 
 	drawGridLines() {
 		// horizontal
@@ -170,7 +163,6 @@ class Experiment {
 		}
 	}
 
-
 	endExperiment() {
 		if (this.jatos) jatos.startNextComponent();
 		else {
@@ -180,7 +172,6 @@ class Experiment {
 		};
 	}
 
-
 	error(message) {
 		this.running = false;
 		this.visual.context.fillStyle = "red";
@@ -188,12 +179,10 @@ class Experiment {
 		this.writeToCanvas('ERROR: '+message);
 	}
 
-
 	flushKeys() {
 		this.key = '';
 		this.dir = '';
 	}
-
 	
 	nextState () {
         let _end = this.timeline.length - 1;
@@ -209,19 +198,16 @@ class Experiment {
 		};
 	}
 
-
 	replaceEndBlockWithEndExperiment(end_slide) {		
 		const i = this.timeline.length - 1;
 		const j = this.timeline[i].timeline.length - 1;
 		this.timeline[i].timeline[j] = end_slide;
 	}
 	
-	
 	resetCanvas () {
 		this.visual.context.fillStyle = this.visual.backgroundColor;
 		this.visual.context.fillRect(0, 0, this.visual.screen_size, this.visual.screen_size);
 	}
-
 
 	run = () => {
 		if (!this.running) return;
@@ -231,20 +217,17 @@ class Experiment {
 		requestAnimationFrame(this.run);
 	}
 
-
 	saveData() {
 		const csv = this.writeCSV();
 		if (this.jatos) jatos.submitResultData(csv);
 		if (this.debug.verbose) console.log(csv);
 	}
 
-	
 	start () {
 		this.resetCanvas();
 		this.timeline[0].onEnter();
 		requestAnimationFrame(this.run);
 	}
-
 	
 	update () {
 		// run current state or move to next?
@@ -253,22 +236,21 @@ class Experiment {
 		if (this.debug.grid_lines) this.drawGridLines();
 	}
 
-
 	writeCSV() {
 		const d = this.data;
 		const n = d.length;
-		let csv = 'subject,age,gender,hand,block,trial,condition,difficulty,rt,score,outcome,target,response\n';
+		let csv = this.headings + "\n";
 		for (let i = 0; i < n; i++) {
 			let x = d[i];
 			let r = [this.demographics.subject, this.demographics.age, this.demographics.gender, 
 				this.demographics.hand, x.block, x.trial, x.condition, x.difficulty, x.rt, 
-				x.score, x.outcome, x.target, x.response];
+				x.score, x.outcome, x.target, x.response,
+				this.visual.screen_size, this.visual.stimulus_size];
 			csv += r.toString() + '\n';
 		};
 		return csv;
 	}
 
-	
 	writeToCanvas (text, args={}) {
 		// Write text to the canvas with a relative position (0.5 being center).
 		const _upper = args.upper ?? false;
@@ -286,7 +268,6 @@ class Experiment {
 		let _width = tomJS.visual.screen_size ?? 1;
 		tomJS.visual.context.fillText(_text, _pos_x, _pos_y, _width);
 	}
-
 
 }
 
@@ -516,8 +497,7 @@ class Trial extends State {
 		super.onEnter();
 		this.properties.start = tomJS.now;
 		this.queueFirstSubstate();
-		this.claculateStartAndEndTimes('fixation');
-		this.claculateStartAndEndTimes('stimulus');
+		this.claculateStartAndEndTimes('fixation');		
 	}
 
 
@@ -545,6 +525,7 @@ class Trial extends State {
 
 	fixationExit() {
 		this.properties.fixation_off = tomJS.now;
+		this.claculateStartAndEndTimes('stimulus');
 		this.stimulusEnter();
 	}
 
@@ -744,6 +725,94 @@ class VisibleFeedbackDeadline extends FeedbackDeadline {
 		const percent = 1 - Math.min(progress / duration, 1);
         if (percent >= 0.01) this.progress_bar.set('pb_percent', percent);
 		else this.progress_bar.set('pb_color_F', "grey");
+	}
+
+}
+
+
+class VisualResponseSignal extends Trial {
+
+	constructor(args={}) {
+
+		if (!('condition'in args)) tomJS.error('no condition passed to visual response signal trial');
+		super(args);
+
+		if (tomJS.headings.split(",")[tomJS.headings.split(",").length-1] != "rtt") tomJS.headings += ",rtt"
+
+		this.properties.go_color = args.go_color ?? "DodgerBlue";
+
+		this.properties.response_signal = args.response_signal ?? 2.000;
+
+		this.properties.earliest = this.properties.response_signal - this.properties.stimulus_fast;
+		this.properties.latest   = this.properties.response_signal + this.properties.stimulus_slow;
+
+		this.properties.fixation_duration = this.properties.response_signal - this.data.condition;
+		this.properties.stimulus_duration = this.properties.stimulus_duration - this.properties.fixation_duration;
+
+		this.progress_bar = new ProgressBar(args);
+
+		const d = (this.properties.stimulus_duration + this.properties.fixation_duration);
+		this.properties.p_earl = 1 - (this.properties.earliest / d);
+		this.properties.p_late = 1 - (this.properties.latest / d);
+
+	}
+
+	// super ---------------------------------------------------------------------------------------------------------------
+
+	calculateRT() {
+		super.calculateRT();
+		const rg = this.properties.response_given;
+		const on = this.properties.start + this.properties.response_signal;
+		this.data.rtt = Math.round((rg - on), 5) / 1000;
+	}
+
+	fixationUpdate() {
+		this.updateProgressBar();
+        this.drawProgressBar();
+        super.fixationUpdate();
+	}
+
+    stimulusUpdate() {
+        this.updateProgressBar();
+        this.drawProgressBar();
+        super.stimulusUpdate();
+	}
+
+    feedbackUpdate() {
+        this.drawProgressBar();
+        super.feedbackUpdate();
+	}
+
+	// override ------------------------------------------------------------------------------------------------------------
+
+	determineOutcome() {
+		const rsp = this.data.response;
+		const rt  = this.data.rtt;
+		const tgt = this.data.target;
+		const fst = this.properties.earliest;
+		const slw = this.properties.latest;
+		if		(rsp == null) {this.data.outcome = 'Censored'}
+		else if (rt <= fst)   {this.data.outcome = 'Fast'}
+		else if (rt >= slw)   {this.data.outcome = 'Slow'}
+		else if (rsp == tgt)  {this.data.outcome = 'Correct'}
+        else				  {this.data.outcome = 'Incorrect'};
+	}
+
+	// functions -----------------------------------------------------------------------------------------------------------
+
+	drawProgressBar() { 
+        this.progress_bar.drawStimulus();
+	}
+
+    updateProgressBar() {
+		const start = this.properties.fixation_on;
+		const now   = tomJS.now;
+		const duration = (this.properties.stimulus_duration + this.properties.fixation_duration) * 1000;
+		const progress = now - start;
+		const percent  = 1 - Math.min(progress / duration, 1);
+        if (percent >= 0.01) this.progress_bar.set('pb_percent', percent);		
+		if (percent <= this.properties.p_earl) this.progress_bar.set('pb_color_F', this.properties.go_color);
+		if (percent <= this.properties.p_late) this.progress_bar.set('pb_color_F', "white");
 	}
 
 }
@@ -1024,7 +1093,7 @@ class CreditCard extends Slide {
 		this.cc_height = 53.98;
 		this.min   = 0;
 		this.max   = null;
-		this.value = 100;
+		this.value = 385;
 		this.instructions = args.instructions ?? "Please hold an ID-1 card (e.g. credit card or driving license) to" +
 			" the screen and match the width of the rectangle to the card.";
 	}
@@ -1138,7 +1207,7 @@ class CreditCard extends Slide {
 
 	onDownClick() {
 		// this is the button
-		this.state.value -= 1
+		this.state.value -= 1;
 		this.state.value = minMax(this.state.value, this.state.min, this.state.max);
 		this.state.slider.value = this.state.value;
 		this.state.setCreditCardScale();
@@ -1151,7 +1220,7 @@ class CreditCard extends Slide {
 
 	onUpClick() {
 		// this is the button
-		this.state.value += 1
+		this.state.value += 1;
 		this.state.value = minMax(this.state.value, this.state.min, this.state.max);
 		this.state.slider.value = this.state.value;
 		this.state.setCreditCardScale();
@@ -1164,9 +1233,7 @@ class CreditCard extends Slide {
 	}
 
 	setCreditCardScale() {
-		const scale = this.slider.value / 100;
-		this.mm_width = Math.round(this.cc_width * scale);
-		this.credit_card.style.width = this.mm_width + "px";
+		this.credit_card.style.width = this.value + "px";
 	}
 
 }
@@ -1447,8 +1514,8 @@ class ExampleProgressBar extends Slide {
 
 	constructor(content = [], can_return = false, args = {}) {
 		super(content, can_return, args);
-		this.min = args.deadline_min ?? 0.200;
-        this.max = args.deadline_max ?? 3.000;
+		this.min = args.min ?? 0.200;
+        this.max = args.max ?? 3.000;
 		args.pb_x = args.pb_x ?? 0.5;
 		args.pb_y = args.pb_y ?? 0.5;
 		this.progress_bar = new ProgressBar(args);
@@ -1479,6 +1546,31 @@ class ExampleProgressBar extends Slide {
 		const percent = 1 - Math.min(progress / duration, 1);
         if (percent >= 0.01) this.progress_bar.set('pb_percent', percent);
 		else this.start = tomJS.now;
+	}
+
+}
+
+
+class ExampleVisualResponseSignal extends ExampleProgressBar {
+
+	constructor(content = [], can_return = false, args = {}) {
+		super(content, can_return, args);
+		this.early = args.early ?? 0.35;
+		this.late = args.slate ?? 0.20;
+		this.colour = args.colour ?? "DodgerBlue";
+	}
+
+	updateProgressBar() {
+		const start = this.start;
+		const now = tomJS.now;
+		const condition = this.max * 1000;
+		const duration = this.max * 1000;
+		const progress = (now - start) + (duration - condition);
+		const percent = 1 - Math.min(progress / duration, 1);
+        if (percent >= 0.01) this.progress_bar.set('pb_percent', percent);		
+		if (percent <= this.early) this.progress_bar.set('pb_color_F', this.colour);
+		if (percent <= this.late) this.progress_bar.set('pb_color_F', "white");
+		if (percent == 0) this.start = tomJS.now;
 	}
 
 }
@@ -1953,7 +2045,7 @@ class Keyboard {
 
 
 bremen = {
-	'institute'  : "Institut feur Psychologie",
+	'institute'  : "Institut für Psychologie",
 	'department' : "Fachbereich 11",
 	'group'      : "Psychologische Forschungsmethoden und Kognitive Psychologie",
 	'email'      : "narraway@uni-bremen.de",
@@ -1989,7 +2081,7 @@ consent_form = [
 		" We will also ask to record your age, gender, and dominant hand, but these details are optional."+
 		" The experiment takes approximately 60 minutes and will force your browser into fullscreen mode.",
 	"3. Reimbursement",
-		"You will be reimbursed at the rate of 9.50 GBP per hour on thee condition that you meet your obligations.",
+		"You will be reimbursed at the rate of 9.50 GBP per hour on the condition that you meet your obligations.",
 	"4. Obligations",
 		"The success of scientific studies depends significantly on your cooperation."+
 		" We therefore ask you to remain focused and to work according to the instructions throughout the entire study." +
@@ -1997,7 +2089,7 @@ consent_form = [
 	"5. Voluntary participation and possibility of dropping out",
 		"Your participation in the study is voluntary. "+
 		" You may withdraw from the study at any time and without giving reasons, without incurring any disadvantages."+
-		" If you withdraw but are otherwise eligible for payment, you are entitled to a pro rata compensation for your time.",
+		" If you withdraw but are otherwise eligible for payment, you are entitled to pro rata compensation for your time.",
 	"6. Confidentiality and anonymity",
 		"Data collected as part of this study is connected to a randomly assigned ID-number and therefore cannot be traced back to you.",
 	"7. Data protection",
