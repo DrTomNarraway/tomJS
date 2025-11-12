@@ -9,14 +9,11 @@
     // define constants ====================================================================================================
 
     const BLOCK_REPS  = 1;
-    const CONDITION   = [0.500, 1.000];
+    const CONDITION   = [0.400, 0.750];
     const DIFFICULTY  = [0.03, 0.50];
-    const DURATION    = 3.000;
     const FAST        = 0.000;
-    const GO_COLOUR   = "DodgerBlue";
     const ORIENTATION = 2;
     const SLOW        = 0.350;
-    const SIGNAL      = 2.000;
     const SIZE        = 1;
     const STIMULUS    = Gabor;
     const TRIAL_REPS  = 1;
@@ -54,11 +51,8 @@
         'stimulus': STIMULUS,
         'gp_ori' : ORIENTATION,
         'gp_size' : SIZE,
-        'response_signal' : SIGNAL,
         'stimulus_fast' : FAST,
         'stimulus_slow' : SLOW,
-        'go_color' : GO_COLOUR,
-        'stimulus_duration' : DURATION,
     };
     
     // slides ==============================================================================================================
@@ -82,7 +76,7 @@
         { 'class': 'text', 'text': 'On each trial you you will see a bar at the top of the screen like the one below.', 'y': 0.25 },
         { 'class': 'text', 'text': 'You must respond while the bar is blue.', 'y': 0.30 },
         { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
-    ], {'max':DURATION});
+    ], {'max':2.000});
     
     const end_block = new EndBlock([
         { 'class': 'text', 'text': 'End of block. Please take a short break. ', 'y':0.25 },

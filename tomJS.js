@@ -2,7 +2,7 @@
 class Experiment {	
 
 
-	version = '11.11.25 15:51';
+	version = '12.11.25 12:40';
 
 
 	constructor(args={}) {
@@ -59,10 +59,8 @@ class Experiment {
 		this.study_name = args.study_name ?? false;
 
 		// demographics
-		const language = args.language ?? 'en';
 		const subject = Math.round(Math.random()*999999);
-		const n = Math.round(Math.random()*999);
-		this.demographics = {'subject':subject, 'study':0, 'session':0, 'language':language, 'n':n,  'age':null, 'gender':null, 'hand':null};
+		this.demographics = {'subject':subject, 'age':null, 'gender':null, 'hand':null};
 
 		// timeline
         this.now = window.performance.now();
@@ -77,7 +75,8 @@ class Experiment {
 		this.blocks = 0;
 
 		// data
-		this.headings = 'subject,age,gender,hand,block,trial,condition,difficulty,rt,score,outcome,target,response,screen_px,stimulus_px';
+		this.headings = ['subject','age','gender','hand','block','trial','condition','difficulty','rt','score','outcome',
+			'target','response','screen_size','stimulus_size'];
 		this.data = [];
 		
 	}
@@ -221,7 +220,6 @@ class Experiment {
 	saveData() {
 		const csv = this.writeCSV();
 		if (this.jatos) jatos.submitResultData(csv);
-		if (this.debug.verbose) console.log(csv);
 	}
 
 	start () {
@@ -238,17 +236,17 @@ class Experiment {
 	}
 
 	writeCSV() {
-		const d = this.data;
-		const n = d.length;
-		let csv = this.headings + "\n";
-		for (let i = 0; i < n; i++) {
-			let x = d[i];
-			let r = [this.demographics.subject, this.demographics.age, this.demographics.gender, 
-				this.demographics.hand, x.block, x.trial, x.condition, x.difficulty, x.rt, 
-				x.score, x.outcome, x.target, x.response,
-				this.visual.screen_size, this.visual.stimulus_size];
-			csv += r.toString() + '\n';
+		const data = this.data;
+		const demo = this.demographics;
+		const visu = this.visual;
+		let csv = '';
+		for (let r of data) {
+			const x = {...r, ...demo, ...visu};
+			let y = [];
+			for (let h of tomJS.headings) y.push(x[h]);
+			csv += y.toString() + '\n';
 		};
+		if (tomJS.debug.verbose) console.log(csv);
 		return csv;
 	}
 
@@ -256,7 +254,7 @@ class Experiment {
 		// Write text to the canvas with a relative position (0.5 being center).
 		const _upper = args.upper ?? false;
 		const _text = _upper ? text.toUpperCase() : text;
-		tomJS.visual.context.fillStyle = args.colour ?? "white";
+		tomJS.visual.context.fillStyle = args.colour ?? tomJS.visual.color;
 		tomJS.visual.context.textAlign = args.align  ?? "center";
 		const _pt = args.fontSize ?? tomJS.visual.fontSize;
 		const _tf = args.fontFamily ?? tomJS.visual.fontFamily;
@@ -467,18 +465,18 @@ class Trial extends State {
 
 		// feedback information
 		this.feedback_colors = args.feedback_colors ?? {
-			'Correct': "white", 
-			'Incorrect': "white", 
-			'Fast': "white", 
-			'Slow': "white", 
-			'Censored': "white" 
+			'Correct': 'white', 
+			'Incorrect': 'white', 
+			'Fast': 'white', 
+			'Slow': 'white', 
+			'Censored': 'white'
 		};
 		this.feedback_texts  = args.feedback_texts  ?? { 
 			'Correct': 'Correct', 
 			'Incorrect': 'Incorrect', 
 			'Fast': 'Too Fast', 
-			'Slow': ' Too Slow', 
-			'Censored': 'Too Slow' 
+			'Slow': 'Too Slow', 
+			'Censored': 'Too Slow'
 		};
 
 		// ensure too slow response does not override stimulus duration, unless desired
@@ -738,33 +736,38 @@ class VisualResponseSignal extends Trial {
 		if (!('condition'in args)) tomJS.error('no condition passed to visual response signal trial');
 		super(args);
 
-		if (tomJS.headings.split(",")[tomJS.headings.split(",").length-1] != "rtt") tomJS.headings += ",rtt"
+		if (tomJS.headings.findIndex(x=>x=='rtt')==-1) tomJS.headings.push('rtt');
 
-		this.properties.go_color = args.go_color ?? "DodgerBlue";
+		this.properties.signal_color = args.signal_color ?? "DodgerBlue";
+		this.properties.response_signal = args.response_signal ?? 1.000;
+		this.properties.trial_duration = args.trial_duration ?? 2.000;
 
-		this.properties.response_signal = args.response_signal ?? 2.000;
-
-		this.properties.earliest = this.properties.response_signal - this.properties.stimulus_fast;
-		this.properties.latest   = this.properties.response_signal + this.properties.stimulus_slow;
-
+		this.properties.earl = this.properties.response_signal - this.properties.stimulus_fast;
+		this.properties.late = this.properties.response_signal + this.properties.stimulus_slow;
+		
 		this.properties.fixation_duration = this.properties.response_signal - this.data.condition;
-		this.properties.stimulus_duration = this.properties.stimulus_duration - this.properties.fixation_duration;
+		this.properties.stimulus_duration = this.properties.trial_duration - this.properties.fixation_duration;
+
+		this.properties.p_earl = 1 - (this.properties.earl / this.properties.trial_duration);
+		this.properties.p_late = 1 - (this.properties.late / this.properties.trial_duration);
 
 		this.progress_bar = new ProgressBar(args);
-
-		const d = (this.properties.stimulus_duration + this.properties.fixation_duration);
-		this.properties.p_earl = 1 - (this.properties.earliest / d);
-		this.properties.p_late = 1 - (this.properties.latest / d);
-
 	}
 
 	// super ---------------------------------------------------------------------------------------------------------------
 
+	onEnter() {		
+		super.onEnter();
+		this.properties.signal_at = this.properties.start + (this.properties.response_signal * 1000);
+		this.properties.r_earl    = this.properties.signal_at - this.properties.stimulus_fast;
+		this.properties.r_late    = this.properties.signal_at + this.properties.stimulus_slow;
+	}
+
 	calculateRT() {
 		super.calculateRT();
 		const rg = this.properties.response_given;
-		const on = this.properties.start + this.properties.response_signal;
-		this.data.rtt = Math.round((rg - on), 5) / 1000;
+		const rs = this.properties.signal_at;
+		this.data.rtt = Math.round((rg - rs), 5) / 1000;
 	}
 
 	fixationUpdate() {
@@ -788,13 +791,13 @@ class VisualResponseSignal extends Trial {
 
 	determineOutcome() {
 		const rsp = this.data.response;
-		const rt  = this.data.rtt;
+		const rtt  = this.data.rtt;
 		const tgt = this.data.target;
-		const fst = this.properties.earliest;
-		const slw = this.properties.latest;
+		const slw = this.properties.stimulus_slow;
+		const fst = this.properties.stimulus_fast;
 		if		(rsp == null) {this.data.outcome = 'Censored'}
-		else if (rt <= fst)   {this.data.outcome = 'Fast'}
-		else if (rt >= slw)   {this.data.outcome = 'Slow'}
+		else if (rtt >= slw)  {this.data.outcome = 'Slow'}
+		else if (rtt <= fst)  {this.data.outcome = 'Fast'}
 		else if (rsp == tgt)  {this.data.outcome = 'Correct'}
         else				  {this.data.outcome = 'Incorrect'};
 	}
@@ -806,14 +809,15 @@ class VisualResponseSignal extends Trial {
 	}
 
     updateProgressBar() {
-		const start = this.properties.fixation_on;
+		const start = this.properties.fixation_start;
 		const now   = tomJS.now;
-		const duration = (this.properties.stimulus_duration + this.properties.fixation_duration) * 1000;
+		const duration = this.properties.trial_duration * 1000;
 		const progress = now - start;
 		const percent  = 1 - Math.min(progress / duration, 1);
         if (percent >= 0.01) this.progress_bar.set('pb_percent', percent);		
-		if (percent <= this.properties.p_earl) this.progress_bar.set('pb_color_F', this.properties.go_color);
+		if (percent <= this.properties.p_earl) this.progress_bar.set('pb_color_F', this.properties.signal_color);
 		if (percent <= this.properties.p_late) this.progress_bar.set('pb_color_F', "white");
+		if (percent == 0) this.progress_bar.set('pb_color_F', "grey");
 	}
 
 }
@@ -1398,12 +1402,12 @@ class EndBlock extends Slide {
 
 	onEnter () {
         super.onEnter();
-        this.calculateBlockData();		
+        this.calculateBlockData();
+		if (tomJS.debug.save) tomJS.saveData();
 	}
 
 
-    onExit () {
-        if (tomJS.debug.save) tomJS.saveData();
+    onExit () {        
         tomJS.block += 1;
         tomJS.trial = 0;
         super.onExit();
