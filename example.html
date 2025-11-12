@@ -9,24 +9,26 @@
     // define constants ====================================================================================================
 
     const BLOCK_REPS  = 1;
-    const CONDITION   = [0.400, 0.750];
-    const DIFFICULTY  = [0.03, 0.50];
-    const FAST        = 0.000;
-    const ORIENTATION = 2;
-    const SLOW        = 0.350;
-    const SIZE        = 1;
-    const STIMULUS    = Gabor;
+    const CONDITION   = [0.300, 0.500, 0.900]; // seconds
+    const DIFFICULTY  = [0.51, 0.55, 0.60]; // percentage
+    const FAST        = 0.000; // seconds
+    const SIZE        = 2;
+    const SLOW        = 0.300; // seconds
+    const STIMULUS    = PixelPatch;
     const TRIAL_REPS  = 1;
     const TRIAL_TYPE  = VisualResponseSignal;
+    const WAIT        = 10.000; // seconds
 
     // set up experiment ===================================================================================================
     
     const contacts = ["Tom Narraway: narraway@uni-bremen.de", "Heinrich Liesefeld: heinrich.liesefeld@uni-bremen.de"];
-    const args = { 'contacts': contacts };
+    const args = { 'contacts':contacts, 'fullscreen':false, 'verbose':true };
     
     const tomJS = new Experiment(args);
 
     if (jatos.constructor != HTMLScriptElement) jatos.onConnected(tomJS.connectToJatos());
+
+    tomJS.counterbalanceAB();
 
     const A = tomJS.controls.key_a_upper;
     const B = tomJS.controls.key_b_upper;
@@ -38,56 +40,53 @@
 
     // trial arguments =====================================================================================================
 
-    const _blockwise = {
-        'difficulty': DIFFICULTY,
-    };
+    const _blockwise = {};
     
     const _trialwise = {
-        'target' : ['A', 'B'],        
-        'condition'  : CONDITION,
+        'condition':CONDITION,
+        'difficulty':DIFFICULTY,
     };
     
     const _additional = {
-        'stimulus': STIMULUS,
-        'gp_ori' : ORIENTATION,
-        'gp_size' : SIZE,
-        'stimulus_fast' : FAST,
-        'stimulus_slow' : SLOW,
+        'pp_size' : SIZE,
+        'stimulus':STIMULUS,
+        'stimulus_fast':FAST,
+        'stimulus_slow':SLOW,
     };
     
     // slides ==============================================================================================================
     
     const welcome = new Slide([
-        { 'class': 'text', 'text': 'Please press ' + A + ' and then ' + B + ' a few times to make sure your ', 'y': 0.25 },
-        { 'class': 'text', 'text': 'keyboard is being read by the experiment correctly.', 'y': 0.30 },
-        { 'class': 'text', 'text': '~key~' , 'upper':true},
-        { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
+        { 'class':'text', 'text':'Please press ' + A + ' and then ' + B + ' a few times to make sure your ', 'y':0.25 },
+        { 'class':'text', 'text':'keyboard is being read by the experiment correctly.', 'y':0.30 },
+        { 'class':'text', 'text':'~key~' , 'upper':true},
+        { 'class':'text', 'text':'Press ' + A + ' and ' + B + ' to continue.', 'y':0.75 },
     ]);
     
     const stimulus = new Slide([
-        { 'class': 'text', 'text': 'On each trial you will see a stimulus like the one below. Press ' + A + ' if ', 'y': 0.15 },
-        { 'class': 'text', 'text': 'you think the stimulus is rotated to the left, or press ' + B, 'y': 0.20 },
-        { 'class': 'text', 'text': 'if you think it is rotated to the right. Press ' + A + ' and ' + B + ' now to see examples.', 'y': 0.25 },
-        { 'class': 'gabor', 'target':'~dir~', 'gp_size' : 0.5, 'difficulty':max_diff, 'gp_ori':ORIENTATION},
-        { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
-    ]);
+        { 'class':'text', 'text':'On each trial you will see a stimulus like the one below. Press ' + A + ' if ', 'y':0.15 },
+        { 'class':'text', 'text':'you think the stimulus has more white pixels, or press ' + B, 'y':0.20 },
+        { 'class':'text', 'text':'if you think it is has more black ones. Press ' + A + ' or ' + B + ' now to see examples.', 'y':0.25 },
+        { 'class':'pixelpatch', 'A':max_diff, 'B':min_diff, 'pp_size':SIZE },
+        { 'class':'text', 'text':'Press ' + A + ' and ' + B + ' to continue.', 'y':0.75 },
+    ], { 'force_wait':WAIT });
 
     const sat = new ExampleVisualResponseSignal([
-        { 'class': 'text', 'text': 'On each trial you you will see a bar at the top of the screen like the one below.', 'y': 0.25 },
-        { 'class': 'text', 'text': 'You must respond while the bar is blue.', 'y': 0.30 },
-        { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
-    ], {'max':2.000});
+        { 'class':'text', 'text':'On each trial you you will see a bar at the top of the screen like the one below.', 'y':0.25 },
+        { 'class':'text', 'text':'You must respond while the bar is blue.', 'y':0.30 },
+        { 'class':'text', 'text':'Press ' + A + ' and ' + B + ' to continue.', 'y':0.75 },
+    ], { 'force_wait':WAIT });
     
     const end_block = new EndBlock([
-        { 'class': 'text', 'text': 'End of block. Please take a short break. ', 'y':0.25 },
-        { 'class': 'text', 'text': 'You responded while the bar was blue on ^hits^% of trials this block.' },
-        { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
-    ]);         
+        { 'class':'text', 'text':'End of block. Please take a short break. ', 'y':0.25 },
+        { 'class':'text', 'text':'You responded while the bar was blue on ^hits^% of trials this block.' },
+        { 'class':'text', 'text':'Press ' + A + ' and ' + B + ' to continue.', 'y':0.75 },
+    ], { 'force_wait':WAIT });         
     
     const end_exp = new EndExperiment([
-        { 'class': 'text', 'text': 'End of Experiment. Thank you for your help.', 'y': 0.25 },
-        { 'class': 'text', 'text': 'You responded while the bar was blue on ^hits^% of trials this experiment.' },
-        { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to end the experiment.', 'y': 0.75 },
+        { 'class':'text', 'text':'End of Experiment. Thank you for your help.', 'y':0.25 },
+        { 'class':'text', 'text':'You responded while the bar was blue on ^hits^% of trials this experiment.' },
+        { 'class':'text', 'text':'Press ' + A + ' and ' + B + ' to end the experiment.', 'y':0.75 },
     ]);
 
     // timeline ============================================================================================================

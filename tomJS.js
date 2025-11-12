@@ -2,7 +2,7 @@
 class Experiment {	
 
 
-	version = '12.11.25 12:40';
+	version = '12.11.25 14:46';
 
 
 	constructor(args={}) {
@@ -29,7 +29,7 @@ class Experiment {
 		this.visual.height = window.innerHeight - 16;
 		this.visual.width  = window.innerWidth - 16;
 		this.visual.screen_size   = Math.min(this.visual.height, this.visual.width); // find the smaller dimension
-		this.visual.stimulus_size = this.visual.screen_size * 0.5;
+		this.visual.stimulus_size = Math.round(this.visual.screen_size * 0.5);
 		this.createCanvas();
 		if (this.debug.verbose) console.log('visual', this.visual);
 
@@ -66,8 +66,8 @@ class Experiment {
         this.now = window.performance.now();
         this.running  = true;
         this.timeline = [new Consent(args)];
-		if (args.credit_card ?? true) this.timeline.push(new CreditCard(args));
-		if (args.gather_demographics ?? true) this.timeline.push(new Demographics(args)); 
+		if (args.credit_card  ?? true) this.timeline.push(new CreditCard(args));
+		if (args.demographics ?? true) this.timeline.push(new Demographics(args)); 
         this.time_pos = 0;
         this.trial  = 0;
         this.block  = 0;
@@ -164,6 +164,7 @@ class Experiment {
 	}
 
 	endExperiment() {
+		if (this.debug.fullscreen) document.exitFullscreen();
 		if (this.jatos) jatos.startNextComponent();
 		else {
 			this.running = false;
@@ -886,8 +887,7 @@ class Slide extends State {
 						let tmp = new PixelPatch({'difficulty':_content.B});
 						this.B = tmp.image_data;
 					};
-					const _image_data = (tomJS.dir == 'B') ? this.B : this.A ;
-					const _pp_args = {..._content,...{'image_data':_image_data}};
+					const _pp_args = {..._content,...{'image_data':(tomJS.dir == 'B') ? this.B : this.A}};
 					const _pp = new PixelPatch(_pp_args);
 					_pp.drawStimulus();
 			};
@@ -1629,7 +1629,7 @@ class Gabor extends Stimulus {
 		this.properties.gp_sf       = args.gp_sf       ?? 15;
 		this.properties.gp_size     = args.gp_size     ?? 1.0;	// in stimulus units
 		this.properties.gp_px = Math.round(tomJS.visual.stimulus_size * this.properties.gp_size);
-		this.image_data = this.prepareImageData();
+		this.image_data = args.auto_calculate ? this.prepareImageData() : null;
 	}
 
 	// super ---------------------------------------------------------------------------------------------------------------
@@ -1638,22 +1638,13 @@ class Gabor extends Stimulus {
 		super.drawStimulus();
 		const _s = this.properties.gp_px;
 		const img = tomJS.visual.context.createImageData(_s, _s);
-		this.assignImageData(img.data);
+		assignImageData(this.image_data, img.data);
 		let pos_x = tomJS.visual.screen_size * this.properties.gp_x - (_s * 0.5);
 		let pos_y = tomJS.visual.screen_size * this.properties.gp_y - (_s * 0.5);
 		tomJS.visual.context.putImageData(img, pos_x, pos_y);
 	}
 
 	// functions -----------------------------------------------------------------------------------------------------------
-
-	assignImageData(data) {
-		for (let i = 0; i < data.length; i += 4) {
-			data[i+0] = this.image_data[i+0];	// R
-			data[i+1] = this.image_data[i+1];	// G
-			data[i+2] = this.image_data[i+2];	// B
-			data[i+3] = this.image_data[i+3];	// A
-		};
-	}
 
 	prepareImageData() {
 		const s   = this.properties.gp_px;
@@ -1747,76 +1738,64 @@ class TwoLines extends Stimulus {
 
 class PixelPatch extends Stimulus {
 
-	
 	constructor(args = {}) {
 		if (!('pp_aness' in args) & (!'image_data' in args)) tomJS.error('no way to generate pixel patch stimulus');
 		super(args);
 		this.data.difficulty = args.difficulty;
 		this.data.target     = (this.data.difficulty > 0.5) ? 'A' : 'B';
-		this.properties.pp_color_A    = args.pp_color_A    ?? colours.black;
-		this.properties.pp_color_B    = args.pp_color_B    ?? colours.white;
-        this.properties.pp_size       = args.pp_size       ?? 0.3;	// percent of canvas
-		this.properties.pp_rows       = args.pp_rows       ?? 50;		// count
-        this.properties.pp_x          = args.pp_x          ?? 0.5;	// percent of canvas
-		this.properties.pp_y          = args.pp_y          ?? 0.5;	// percent of canvas		
+		this.properties.pp_color_A  = args.pp_color_A ?? colours.black;
+		this.properties.pp_color_B  = args.pp_color_B ?? colours.white;
+        this.properties.pp_cells    = args.pp_cells   ?? 64;	// cells per row / column
+		this.properties.pp_size     = args.pp_size    ?? 1;	    // pixels per cell
+        this.properties.pp_x        = args.pp_x       ?? 0.5;	// in screen units
+		this.properties.pp_y        = args.pp_y       ?? 0.5;	// in screen units
 		this.calculateImageSize();
 		this.image_data = args.image_data ?? this.prepareImageData();
 	}
 
-	// super ---------------------------------------------------------------------------------------------------------------
-
+	// super ---------------------------------------------------------------------------------------------------------------	
 
 	drawStimulus() {
-		const _gp = this.properties.grid_pix;
+		const g = this.properties.grid_pixels;
 		super.drawStimulus();
-		const img = tomJS.visual.context.createImageData(_gp, _gp);
-		this.assignImageData(img.data);
-		let pos_x = tomJS.visual.screen_size * this.properties.pp_x - (_gp * 0.5);
-		let pos_y = tomJS.visual.screen_size * this.properties.pp_y - (_gp * 0.5);
+		const img = tomJS.visual.context.createImageData(g, g);
+		assignImageData(this.image_data, img.data);
+		let pos_x = tomJS.visual.screen_size * this.properties.pp_x - Math.round(g * 0.5);
+		let pos_y = tomJS.visual.screen_size * this.properties.pp_y - Math.round(g * 0.5);
 		tomJS.visual.context.putImageData(img, pos_x, pos_y);
 	}
 
-
 	// functions -----------------------------------------------------------------------------------------------------------
-
-
-	assignImageData(data) {
-		for (let i = 0; i < data.length; i += 4) {
-			data[i+0] = this.image_data[i+0];	// R
-			data[i+1] = this.image_data[i+1];	// G
-			data[i+2] = this.image_data[i+2];	// B
-			data[i+3] = this.image_data[i+3];	// A
-		};
-	}
-
-
+	
 	calculateImageSize() {
-		const _a = this.data.difficulty;
-		const _s = this.properties.pp_size;
-		const _r = this.properties.pp_rows;
-		this.properties.grid_pix = Math.round(tomJS.visual.stimulus_size * _s);
-		this.properties.cell_pix = Math.round(this.properties.grid_pix / _r);
-		this.properties.grid_dim = Math.round(this.properties.grid_pix / this.properties.cell_pix);
-		this.properties.a_cells  = Math.round(this.properties.grid_dim * _a);
+		const c = this.properties.pp_cells;
+		const d = this.data.difficulty;
+		const s = this.properties.pp_size;
+		const g = Math.round(c * s);
+		const a = Math.ceil(g * d);
+		const b = g - a;
+		this.properties.grid_pixels = g;
+		this.properties.a_cells     = a;
+		this.properties.b_cells     = b;
+		console.log(c, d, s, g, a, b);
 	}
-
 
 	prepareImageData() {
-		const A   = this.properties.pp_color_A;
-		const B   = this.properties.pp_color_B;
-		const _gd = this.properties.grid_dim;
-		const _ac = this.properties.a_cells;
-		const _cp = this.properties.cell_pix;
+		const _A = this.properties.pp_color_A;
+		const _B = this.properties.pp_color_B;
+		const _g = this.properties.grid_pixels;
+		const _c = this.properties.pp_size;
+		const _a = this.properties.a_cells;
+		const _b = this.properties.b_cells;
 		let image_data = [];
-		for (let x = 0; x < _gd; x++) {
-			let row = Array(_ac).fill(A).concat(Array(_gd-_ac).fill(B));
+		for (let x = 0; x < _g; x++) {
+			let row = Array(_a).fill(_A).concat(Array(_b).fill(_B));
 			row = returnShuffledArray(row);
-			row = row.flatMap(c => Array(_cp).fill(c));
-			for (let y = 0; y < _cp; y++) image_data = image_data.concat(row.flat());
+			row = row.flatMap(z => Array(_c).fill(z));
+			for (let y = 0; y < _c; y++) image_data = image_data.concat(row.flat());
 		};
 		return new Uint8ClampedArray(image_data);
 	}
-
 
 }
 
@@ -1870,6 +1849,17 @@ function arrayMax(array) {
 
 function arrayMin(array) {
 	return array.reduce((a,b)=>Math.min(a,b));
+}
+
+
+function assignImageData(source, sink) {
+	if (source.length != sink.length) return null;
+	for (let i = 0; i < sink.length; i += 4) {
+		sink[i+0] = source[i+0];	// R
+		sink[i+1] = source[i+1];	// G
+		sink[i+2] = source[i+2];	// B
+		sink[i+3] = source[i+3];	// A
+	};
 }
 
 
