@@ -3,12 +3,16 @@
   "WorkspaceRootPath": "C:\\Users\\tomax\\Documents\\Dr Tom Narraway\\tomJS\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\tomax\\Documents\\Dr Tom Narraway\\tomJS\\example.html||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:example.html||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\tomax\\Documents\\Dr Tom Narraway\\tomJS\\tomJS.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:tomJS.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\tomax\\Documents\\Dr Tom Narraway\\tomJS\\example.html||{40D31677-CBC0-4297-A9EF-89D907823A98}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:example.html||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\tomax\\Documents\\Dr Tom Narraway\\tomJS\\exit.html||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:exit.html||{40D31677-CBC0-4297-A9EF-89D907823A98}"
     }
   ],
   "DocumentGroupContainers": [
@@ -18,32 +22,45 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 1,
+          "SelectedChildIndex": 0,
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 0,
               "Title": "example.html",
               "DocumentMoniker": "C:\\Users\\tomax\\Documents\\Dr Tom Narraway\\tomJS\\example.html",
               "RelativeDocumentMoniker": "example.html",
               "ToolTip": "C:\\Users\\tomax\\Documents\\Dr Tom Narraway\\tomJS\\example.html",
               "RelativeToolTip": "example.html",
-              "ViewState": "AgIAAC4AAAAAAAAAAAAuwEcAAAAeAAAAAAAAAA==",
+              "ViewState": "AgIAAAkAAAAAAAAAAAAAAB0AAAAEAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001512|",
               "WhenOpened": "2025-11-12T09:40:11.681Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 1,
               "Title": "tomJS.js",
               "DocumentMoniker": "C:\\Users\\tomax\\Documents\\Dr Tom Narraway\\tomJS\\tomJS.js",
               "RelativeDocumentMoniker": "tomJS.js",
               "ToolTip": "C:\\Users\\tomax\\Documents\\Dr Tom Narraway\\tomJS\\tomJS.js",
               "RelativeToolTip": "tomJS.js",
-              "ViewState": "AgIAAGkDAAAAAAAAAAA0wH0DAAAEAAAAAAAAAA==",
+              "ViewState": "AgIAAGIAAAAAAAAAAAA0wHwAAAACAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
               "WhenOpened": "2025-11-12T09:40:10.642Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "exit.html",
+              "DocumentMoniker": "C:\\Users\\tomax\\Documents\\Dr Tom Narraway\\tomJS\\exit.html",
+              "RelativeDocumentMoniker": "exit.html",
+              "ToolTip": "C:\\Users\\tomax\\Documents\\Dr Tom Narraway\\tomJS\\exit.html",
+              "RelativeToolTip": "exit.html",
+              "ViewState": "AgIAAAAAAAAAAAAAAADwvyIAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001512|",
+              "WhenOpened": "2025-11-13T12:43:46.186Z",
               "EditorCaption": ""
             }
           ]

@@ -1,9 +1,7 @@
 
 class Experiment {	
 
-
-	version = '12.11.25 14:46';
-
+	version = '13.11.25 16:48';
 
 	constructor(args={}) {
 		
@@ -59,8 +57,12 @@ class Experiment {
 		this.study_name = args.study_name ?? false;
 
 		// demographics
-		const subject = Math.round(Math.random()*999999);
-		this.demographics = {'subject':subject, 'age':null, 'gender':null, 'hand':null};
+		this.demographics = {};
+		this.demographics.subject = Math.round(Math.random()*999999);
+		this.demographics.age = null;
+		this.demographics.gender = null;
+		this.demographics.hand = null;
+		this.demographics.n = Math.round(Math.random() * 2);
 
 		// timeline
         this.now = window.performance.now();
@@ -110,12 +112,16 @@ class Experiment {
 		};
 	}
 
-	connectToJatos(counterbalance=false) {		
-		this.jatos = true;
-		this.demographics.n = jatos.studyResultId;
+	connectToJatos(counterbalance=false) {
+		// this. is the window
+		tomJS.jatos = true;
 		const url = jatos.urlQueryParameters ?? {};
-		if ('workerID'  in url) this.demographics.subject = url.workerID;
-		if (counterbalance) this.counterbalanceAB();
+		const wrk = 'workerID' in url;
+		const jts = jatos.studyResultId;
+		tomJS.demographics.subject = wrk ? url.workerID : jts;
+		tomJS.demographics.n = Math.round(jts);
+		if (counterbalance) tomJS.counterbalanceAB();
+		console.log('Connected to JATOS.');
 	}
 
 	createCanvas() {
@@ -240,7 +246,7 @@ class Experiment {
 		const data = this.data;
 		const demo = this.demographics;
 		const visu = this.visual;
-		let csv = '';
+		let csv = this.headings.toString() + '\n';
 		for (let r of data) {
 			const x = {...r, ...demo, ...visu};
 			let y = [];
@@ -308,7 +314,6 @@ class State {
 
 class Block extends State {
 
-
 	constructor(trial_type, trialwise={}, additional={}, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
 		super();
 
@@ -335,20 +340,16 @@ class Block extends State {
         this.time_pos      = 0;		
 	}
 
-	
 	// super ---------------------------------------------------------------------------------------------------------------
-
 
 	onEnter() {
 		super.onEnter();
 		this.timeline[0].onEnter();
 	}
 
-
 	onExit() {
 		super.onExit();
 	}
-
 
 	onUpdate() {
 		super.onUpdate();
@@ -356,9 +357,7 @@ class Block extends State {
 		else this.timeline[this.time_pos].update();
 	}
 
-
 	// functions -----------------------------------------------------------------------------------------------------------	
-
 
 	pushOutcome(outcome) {
 		switch(outcome){
@@ -369,7 +368,6 @@ class Block extends State {
 			case 'Censored'  : this.block_data.censored++	; break;
 		}
 	}
-
 
 	generateTimeline(trial_type, trialwise, additional, trial_reps, start_slide, end_slide, add_countdown) {
 		let _timeline = [];
@@ -388,7 +386,6 @@ class Block extends State {
 		if (end_slide != null) _timeline.push(end_slide);
 		return _timeline;
 	}
-
 
 	nextState () {
         let _end = this.timeline.length - 1;
@@ -837,6 +834,7 @@ class Slide extends State {
 		this.can_return = can_return;
 		this.start = null;
 		this.force_wait = (args.force_wait ?? 1) * 1000; // pass in seconds for consistency
+		this.realizeContent();
 	}
 
 	// super ---------------------------------------------------------------------------------------------------------------
@@ -869,9 +867,8 @@ class Slide extends State {
 					tomJS.writeToCanvas(_text, _content);
 					break;
 				case 'gabor':
-					const _gb_args = {..._content,...{'target':this.parseText(_content.target)}};
-					const _gb = new Gabor(_gb_args);
-					_gb.drawStimulus();
+					if (tomJS.dir == 'A') this.gp_L.drawStimulus()
+					else this.gp_R.drawStimulus();
 					break;
 				case 'twolines':
 					const _tl_args = {..._content,...{'target':this.parseText(_content.target)}};
@@ -879,17 +876,9 @@ class Slide extends State {
 					_tl.drawStimulus();
 					break;
 				case 'pixelpatch':
-					if (!this.A) {
-						let tmp = new PixelPatch({'difficulty':_content.A});
-						this.A = tmp.image_data;
-					};
-					if (!this.B) {
-						let tmp = new PixelPatch({'difficulty':_content.B});
-						this.B = tmp.image_data;
-					};
-					const _pp_args = {..._content,...{'image_data':(tomJS.dir == 'B') ? this.B : this.A}};
-					const _pp = new PixelPatch(_pp_args);
-					_pp.drawStimulus();
+					if (tomJS.dir == 'A') this.pp_A.drawStimulus()
+					else this.pp_B.drawStimulus();
+					break;
 			};
 		};
 	}
@@ -906,6 +895,21 @@ class Slide extends State {
 			_text = _split[0] + _eval + _split[2];
 		};
 		return _text;
+	}
+
+	realizeContent() {
+		for (let c of this.content) {
+			switch(c.class) {
+				case 'gabor':
+					this.gp_L = new Gabor({...c, ...{'target':"A"}});
+					this.gp_R = new Gabor({...c, ...{'target':"B"}});
+					break;
+				case 'pixelpatch':
+					this.pp_A = new PixelPatch({...c, ...{'difficulty':c.A}});
+					this.pp_B = new PixelPatch({...c, ...{'difficulty':c.B}});
+					break;
+			};
+		};
 	}
 
 }
@@ -1094,34 +1098,37 @@ class CreditCard extends Slide {
 	constructor(args = {}) {
 		super([], false, args);
 		this.id = 'CreditCard';
-		this.cc_width  = 85.60;
-		this.cc_height = 53.98;
-		this.min   = 0;
-		this.max   = null;
-		this.value = 385;
+		this.cc_width  = "85.60 mm";
+		this.cc_height = "53.98 mm";
+		this.px_width  = 385;
+		this.px_height = 245;
+		this.min   = 50;
+		this.max   = 200;
+		this.value = 100;
 		this.instructions = args.instructions ?? "Please hold an ID-1 card (e.g. credit card or driving license) to" +
-			" the screen and match the width of the rectangle to the card.";
+			" the screen and surround your card with the white border such that no grey is visible.";
 	}
 
 	// super ---------------------------------------------------------------------------------------------------------------
 
 	onEnter() {
-		this.max = tomJS.visual.screen_size;
 		this.createContainer();
 		createLabel("instructions", this.instructions, this, this.container);
 		this.createWallet();
 		this.createCreditCard();
 		this.createControls();
-		createButton("Down", "-1", this.onDownClick, this, this.controls);
+		const _up_down_args = {'width':'5vmin', 'height':'5vmin'};
+		createButton("Down", "-", ()=>{this.onUpDownClick(this, -1)}, this, this.controls, _up_down_args);
 		this.createSlider();
-		createButton("Up", "+1", this.onUpClick, this, this.controls);
+		createButton("Up", "+", ()=>{this.onUpDownClick(this, 1)}, this, this.controls, _up_down_args);
 		createButton("Exit", "Confirm", this.onExitClick, this, this.container);
 		super.onEnter();
 	}
 
 	onExit() {
 		super.onExit();
-		tomJS.visual.stimulus_size = Math.round(this.value);
+		const _s = this.px_width * (this.slider.value / 100);
+		tomJS.visual.stimulus_size = Math.round(_s);
 		if (tomJS.debug.verbose) console.log(tomJS.visual);
 		this.container.remove();
 	}
@@ -1132,17 +1139,20 @@ class CreditCard extends Slide {
 		const credit_card = document.createElement('div');
 		credit_card.id = "CreditCard";
 		credit_card.style.backgroundColor = "grey";
-		credit_card.style.width  = this.value + "px";
-		credit_card.style.height = this.cc_height + "mm";
+		credit_card.style.width  = this.px_width  + "px";
+		credit_card.style.height = this.px_height + "px";
 		credit_card.style.margin = "auto";
-		credit_card.style.borderRadius = "5%";
+		credit_card.style.borderRadius = "7%";
+		credit_card.style.borderWidth = "1vmin";
+		credit_card.style.borderColor = "white";
+		credit_card.style.borderStyle = "solid";
 		this.wallet.append(credit_card);
 		this.credit_card = credit_card;
 		credit_card.state = this;
 	}
 
 	createContainer() {
-		const container = document.createElement('div');		
+		const container = document.createElement('div');	
 		container.id			        = "Container";
 		container.style.width		    = "100%";
 		container.style.height		    = "100%";
@@ -1166,8 +1176,6 @@ class CreditCard extends Slide {
 	createControls() {
 		const controls = document.createElement('div');		
 		controls.id = "Controls";
-		controls.style.height = "10%";
-		controls.style.width = "95%";
 		controls.style.display = "flex";
 		controls.style.justifyContent = "center";
 		controls.style.alignItems = "center";
@@ -1184,10 +1192,9 @@ class CreditCard extends Slide {
 		slider.min = this.min;
 		slider.max = this.max;
 		slider.value = this.value;
-		slider.style.height = "100%";
-		slider.style.width = "50%";
-		slider.style.marginLeft = "10%";
-		slider.style.marginRight = "10%";
+		slider.style.width = "50vmin";
+		slider.style.marginLeft = "10vmin";
+		slider.style.marginRight = "10vmin";
 		slider.style.backgroundColor = "white";
 		slider.oninput = this.onSlide;
 		this.controls.append(slider);
@@ -1200,22 +1207,12 @@ class CreditCard extends Slide {
 		wallet.id = "Wallet";
 		wallet.style.display = "flex";
 		wallet.style.width = "100%";
-		wallet.style.height = "30%";
+		wallet.style.height = this.px_height * 2.10 + "px";
 		wallet.style.justifyContent  = "center";
 		wallet.style.alignItems  = "center";
-		wallet.style.marginTop = "2%";
-		wallet.style.marginBottom = "2%";
 		this.container.append(wallet);
 		this.wallet = wallet;
 		wallet.state = this;
-	}
-
-	onDownClick() {
-		// this is the button
-		this.state.value -= 1;
-		this.state.value = minMax(this.state.value, this.state.min, this.state.max);
-		this.state.slider.value = this.state.value;
-		this.state.setCreditCardScale();
 	}
 
 	onExitClick() {
@@ -1223,22 +1220,24 @@ class CreditCard extends Slide {
 		this.state.ready_to_exit = true;
 	}
 
-	onUpClick() {
+	onUpDownClick(s, x) {
 		// this is the button
-		this.state.value += 1;
-		this.state.value = minMax(this.state.value, this.state.min, this.state.max);
-		this.state.slider.value = this.state.value;
-		this.state.setCreditCardScale();
+		const n = Math.round(s.slider.value) + x;
+		const m = minMax(n, s.min, s.max);
+		s.slider.value = m;
+		s.setCreditCardScale();
 	}
 
 	onSlide() {
 		// this is the slider
-		this.state.value = this.value;
 		this.state.setCreditCardScale();
 	}
 
 	setCreditCardScale() {
-		this.credit_card.style.width = this.value + "px";
+		const c = this.credit_card;
+		const s = (this.slider.value / 100);
+		c.style.width  = Math.round(this.px_width  * s) + "px";
+		c.style.height = Math.round(this.px_height * s) + "px";
 	}
 
 }
@@ -1256,8 +1255,7 @@ class Demographics extends Slide {
 		this.exit_button = null;
 		this.heading = args.heading ?? "Demographics Information";
 		this.instructions = args.instructions ?? "The following information is optional."+
-			" Pless press \"Submit\" when you are ready to continue. "+
-			" Please do not refresh the page at any time.";
+			" Pless press \"Submit\" when you are ready to continue. ";
 		this.bottom_text = "Pressing the button below will start the experiment, your browser will enter fullscreen mode," +
 			" and your cursor will be hidden while within the experiment window.";
 	}
@@ -1274,19 +1272,18 @@ class Demographics extends Slide {
 	onEnter() {		
 		super.onEnter();
 		this.createContainer();
-		this.createHeading();
-		this.age = this.createField(demographics_prompts.age.en, 'number');
-		this.gender = this.createField(demographics_prompts.gender.en, 'select', demographics_choices.gender.en);
-		this.hand = this.createField(demographics_prompts.hand.en, 'select', demographics_choices.hand.en);
-		this.createBottomText();
-		createButton("exit", "Submit", this.onExitClicked, this, this.container, {'marginTop':"3%"});
+		createLabel("Heading", this.heading, this, this.container, {'fontSize':tomJS.visual.h0});
+		createLabel("Instructions", this.instructions, this, this.container);
+		this.createFields();
+		createLabel("BottomText", this.bottom_text, this, this.container);
+		createButton("exit", "Submit", this.onExitClicked, this, this.container);
 	}
 
 	onExit() {
 		super.onExit();
-		tomJS.demographics.age    = this.age.value;
-		tomJS.demographics.gender = this.gender.value;
-		tomJS.demographics.hand   = this.hand.value;
+		tomJS.demographics.age    = this.Age.value;
+		tomJS.demographics.gender = this.Gender.value;
+		tomJS.demographics.hand   = this.Hand.value;
 		if (tomJS.debug.verbose) console.log('demographics',tomJS.demographics);
 		if (tomJS.debug.fullscreen) tomJS.visual.canvas.requestFullscreen();
 		this.container.remove();
@@ -1295,16 +1292,8 @@ class Demographics extends Slide {
 	// functions -----------------------------------------------------------------------------------------------------------
 
 	onExitClicked() {
+		// this. is the button
 		this.state.ready_to_exit = true;
-	}
-
-	createBottomText() {
-		const btext = document.createElement('label');
-		btext.textContent = this.bottom_text;
-		btext.style.width = '100%';
-		btext.style.marginTop = '4em';
-		btext.style.textAlign = "center";
-		this.container.appendChild(btext);
 	}
 
 	createContainer() {
@@ -1327,54 +1316,58 @@ class Demographics extends Slide {
 		document.body.appendChild(ctr);
 	}
 
-	createField(label, type, options = []) {
+	createField(id, type, textContent, options=[], args={}) {
 		// create wrapper div
 		const div = document.createElement('div');
-		div.id = label;
-		div.style.width = "100vh";
-		div.style.marginTop = "2em";
+		div.id = id + "Wrapper";
+		div.style.width = args.width ?? "100%";
+		div.style.justifyContent = "center";
+		div.style.alignItems     = "center";
+		div.style.display        = "flex";
 		// create label
-		const lbl = document.createElement('label');
-		lbl.textContent = label;
-		lbl.style.textAlign = "right";
-		lbl.style.width = "50vh";
+		createLabel(id+"Label", textContent, this, div, {'width':'50vmin', 'marginRight':'3vh'});
 		// create input options
-		let input;		
-		if (type === 'select') {
-			input = document.createElement('select');
-			options.forEach(opt => {
-				const o = document.createElement('option');
-				o.value = opt;
-				o.textContent = opt === '' ? 'Select...' : opt;
-			input.appendChild(o);
-			});
-		} else {
-			input = document.createElement('input');
-			input.type = type;
-		}
-		input.style.width = "50vh";
-		input.style.marginLeft = "2em";
+		let input;
+		switch(type) {
+			case 'select':
+				input = document.createElement('select');
+				options.forEach(opt => {
+					const o = document.createElement('option');
+					o.id = id + opt;
+					o.value = opt;
+					o.textContent = opt === '' ? 'Select...' : opt;
+				input.appendChild(o);
+				});
+				break;
+			case 'number':
+				input = document.createElement('input');
+				input.type = type;
+				input.max = args.max ?? 99;
+				input.min = args.min ?? 1;
+				break;
+		};
+		input.id = id;
+		input.style.width = "50vmin";
+		this[id] = input;
 		// stich together
-		div.append(lbl, input);
-		this.container.append(div);
-		// connect to slide
-		return input;
+		div.append(input);
+		this.fields.append(div);
 	}
 
-	createHeading() {
-		// heading
-		const hed = document.createElement('label');
-		hed.textContent = this.heading;	
-		hed.style.textAlign = "center";
-		hed.style.fontSize = tomJS.visual.h0;
-		this.container.appendChild(hed);
-		// instructions
-		const ins = document.createElement('label');
-		ins.textContent = this.instructions;
-		ins.style.width = '100vh';
-		ins.style.marginTop = '2em';
-		ins.style.textAlign = "center";
-		this.container.appendChild(ins);
+	createFields() {
+		// create wrapper div
+		const fields = document.createElement('div');
+		fields.id = "Fields";
+		fields.style.width = args.width ?? "100%";
+		fields.style.justifyContent = "center";
+		fields.style.alignItems     = "center";
+		fields.style.display        = "flex";
+		fields.style.flexDirection = "column";
+		this.container.append(fields);
+		this.fields = fields;
+		this.createField("Age", 'number', demographics_prompts.age.en);
+		this.createField("Gender", 'select', demographics_prompts.gender.en, demographics_choices.gender.en);
+		this.createField("Hand", 'select', demographics_prompts.hand.en, demographics_choices.hand.en);
 	}
 	
 }
@@ -1615,7 +1608,6 @@ class Stimulus {
 
 class Gabor extends Stimulus {
 
-
 	constructor(args = {}) {
 		super(args);
 		if (!('target' in args))     tomJS.error('no target passed to gabor');
@@ -1629,7 +1621,7 @@ class Gabor extends Stimulus {
 		this.properties.gp_sf       = args.gp_sf       ?? 15;
 		this.properties.gp_size     = args.gp_size     ?? 1.0;	// in stimulus units
 		this.properties.gp_px = Math.round(tomJS.visual.stimulus_size * this.properties.gp_size);
-		this.image_data = args.auto_calculate ? this.prepareImageData() : null;
+		this.prepareImageData();
 	}
 
 	// super ---------------------------------------------------------------------------------------------------------------
@@ -1677,7 +1669,7 @@ class Gabor extends Stimulus {
 				image_data.push(Math.round(255 * gauss));	// A
 			}
 		}
-		return new Uint8ClampedArray(image_data);
+		this.image_data = new Uint8ClampedArray(image_data);
 	}
 
 }
@@ -1739,7 +1731,7 @@ class TwoLines extends Stimulus {
 class PixelPatch extends Stimulus {
 
 	constructor(args = {}) {
-		if (!('pp_aness' in args) & (!'image_data' in args)) tomJS.error('no way to generate pixel patch stimulus');
+		if (!('difficulty' in args)) tomJS.error('no way to generate pixel patch stimulus');
 		super(args);
 		this.data.difficulty = args.difficulty;
 		this.data.target     = (this.data.difficulty > 0.5) ? 'A' : 'B';
@@ -1750,51 +1742,55 @@ class PixelPatch extends Stimulus {
         this.properties.pp_x        = args.pp_x       ?? 0.5;	// in screen units
 		this.properties.pp_y        = args.pp_y       ?? 0.5;	// in screen units
 		this.calculateImageSize();
-		this.image_data = args.image_data ?? this.prepareImageData();
+		this.prepareImageData();
 	}
 
 	// super ---------------------------------------------------------------------------------------------------------------	
 
 	drawStimulus() {
-		const g = this.properties.grid_pixels;
+		const _g = this.properties.grid_pixels;
 		super.drawStimulus();
-		const img = tomJS.visual.context.createImageData(g, g);
-		assignImageData(this.image_data, img.data);
-		let pos_x = tomJS.visual.screen_size * this.properties.pp_x - Math.round(g * 0.5);
-		let pos_y = tomJS.visual.screen_size * this.properties.pp_y - Math.round(g * 0.5);
-		tomJS.visual.context.putImageData(img, pos_x, pos_y);
+		const _img = tomJS.visual.context.createImageData(_g, _g);
+		assignImageData(this.image_data, _img.data);
+		let _pos_x = tomJS.visual.screen_size * this.properties.pp_x - Math.round(_g * 0.5);
+		let _pos_y = tomJS.visual.screen_size * this.properties.pp_y - Math.round(_g * 0.5);
+		tomJS.visual.context.putImageData(_img, _pos_x, _pos_y);
 	}
 
 	// functions -----------------------------------------------------------------------------------------------------------
 	
+	calculateCellDistribution() {
+		const _d = this.data.difficulty;
+		const _c = this.properties.pp_cells;
+		const _a = Math.ceil(_c * _d);
+		const _b = _c - _a;
+		this.properties.a_cells = _a;
+		this.properties.b_cells = _b;
+	}
+
 	calculateImageSize() {
-		const c = this.properties.pp_cells;
-		const d = this.data.difficulty;
-		const s = this.properties.pp_size;
-		const g = Math.round(c * s);
-		const a = Math.ceil(g * d);
-		const b = g - a;
-		this.properties.grid_pixels = g;
-		this.properties.a_cells     = a;
-		this.properties.b_cells     = b;
-		console.log(c, d, s, g, a, b);
+		const _c = this.properties.pp_cells;
+		const _s = this.properties.pp_size;
+		const _g = _c * _s;
+		this.properties.grid_pixels = _g;
 	}
 
 	prepareImageData() {
+		this.calculateCellDistribution();
 		const _A = this.properties.pp_color_A;
 		const _B = this.properties.pp_color_B;
-		const _g = this.properties.grid_pixels;
-		const _c = this.properties.pp_size;
+		const _c = this.properties.pp_cells;
+		const _s = this.properties.pp_size;
 		const _a = this.properties.a_cells;
 		const _b = this.properties.b_cells;
-		let image_data = [];
-		for (let x = 0; x < _g; x++) {
-			let row = Array(_a).fill(_A).concat(Array(_b).fill(_B));
-			row = returnShuffledArray(row);
-			row = row.flatMap(z => Array(_c).fill(z));
-			for (let y = 0; y < _c; y++) image_data = image_data.concat(row.flat());
+		let _i = [];
+		for (let x = 0; x < _c; x++) {
+			const _row = Array(_a).fill(_A).concat(Array(_b).fill(_B)); // create a row of pixels
+			const _shf = returnShuffledArray(_row); // randomly shuffle the order of the pixels			
+			const _ext = _shf.flatMap(z => Array(_s).fill(z)); // extend the row horizontally
+			for (let y = 0; y < _s; y++) _i = _i.concat(_ext.flat()); // repeat the row vertically
 		};
-		return new Uint8ClampedArray(image_data);
+		this.image_data = new Uint8ClampedArray(_i);
 	}
 
 }
@@ -1853,7 +1849,8 @@ function arrayMin(array) {
 
 
 function assignImageData(source, sink) {
-	if (source.length != sink.length) return null;
+	if (source.length != sink.length) console.log('ERROR: source and sink are not the same length.',
+		Math.sqrt(source.length), Math.sqrt(sink.length));
 	for (let i = 0; i < sink.length; i += 4) {
 		sink[i+0] = source[i+0];	// R
 		sink[i+1] = source[i+1];	// G
@@ -1876,9 +1873,37 @@ function createButton(id, textContent, onClick, state, parent, args={}) {
 	button.style.marginLeft   = args.marginLeft   ?? "0";
 	button.style.marginRight  = args.marginRight  ?? "0";
 	button.style.marginTop    = args.marginTop    ?? '1%';
+	button.style.width        = args.width        ?? null;
+	button.style.height       = args.height       ?? null;
 	button.state = state;
 	state[id] = button;
 	parent.append(button);
+}
+
+
+function createContainer(id, state, parent, args={}) {
+	const ctr = document.createElement('div');		
+	ctr.id = id;
+	ctr.style.width          = args.width          ?? "100%";
+	ctr.style.height         = args.height         ?? "100%";
+	ctr.style.justifyContent = args.justifyContent ?? "center";
+	ctr.style.alignItems     = args.alignItems     ?? "center";
+	ctr.style.display        = args.display        ?? "flex";
+	ctr.style.flexDirection  = args.flexDirection  ?? "column";
+	ctr.style.flexWrap       = args.flexWrap       ?? "wrap";
+	ctr.style.textAlign      = args.textAlign      ?? "right";
+	ctr.style.fontFamily     = args.fontFamil      ?? tomJS.visual.fontFamily;
+	ctr.style.position       = args.position       ?? "absolute";
+	ctr.style.top            = args.top            ?? "50%";
+	ctr.style.left           = args.left           ?? "50%";
+	ctr.style.transform      = args.transform      ?? "translate(-50%, -50%)";
+	ctr.style.marginBottom   = args.marginBottom   ?? "1%";
+	ctr.style.marginLeft     = args.marginLeft     ?? "0";
+	ctr.style.marginRight    = args.marginRight    ?? "0";
+	ctr.style.marginTop      = args.marginTop      ?? '1%';
+	ctr.state = state;
+	state[id] = ctr;
+	parent.append(ctr)
 }
 
 
@@ -1887,6 +1912,7 @@ function createLabel(id, content, state, parent, args={}) {
 	label.textContent = content;
 	label.style.fontFamily   = args.fontFamily   ?? tomJS.visual.fontFamily;
 	label.style.fontSize     = args.fontSize     ?? tomJS.visual.fontSize;
+	label.style.width        = args.width        ?? null;
 	label.style.marginBottom = args.marginBottom ?? "1%";
 	label.style.marginLeft   = args.marginLeft   ?? "0";
 	label.style.marginRight  = args.marginRight  ?? "0";
@@ -2072,10 +2098,11 @@ consent_form = [
 		"In this study, we investigate the cognitive representations of motor action planning." +
 		" We aim to determine how our experiment affects the speed and accuracy of your responses.",
 	"2. Study Procedure",
-		"You will be asked to press buttons in response to simple visual stimuli."+
+		"First you will use an ID-1 sized card to set the size of the stimuli on your screen."+
+		" Then we ask for your age, gender, and dominant hand, but these details are optional."+
+		" You will be asked to perform a decision making task in response to simple visual stimuli."+
 		" For each decision we record how long you take to respond and if your response is correct or not."+
-		" The exact procedure will be explained to you during the experiment."+
-		" We will also ask to record your age, gender, and dominant hand, but these details are optional."+
+		" The exact procedure will be explained to you during the experiment."+		
 		" The experiment takes approximately 60 minutes and will force your browser into fullscreen mode.",
 	"3. Reimbursement",
 		"You will be reimbursed at the rate of 9.50 GBP per hour on the condition that you meet your obligations.",
@@ -2083,13 +2110,13 @@ consent_form = [
 		"The success of scientific studies depends significantly on your cooperation."+
 		" We therefore ask you to remain focused and to work according to the instructions throughout the entire study." +
 		" Failure to respond correctly on at least 60% of trials is considered a failure of your obligations.",
-	"5. Voluntary participation and possibility of dropping out",
+	"5. Voluntary Participation and Possibility of Dropping Out",
 		"Your participation in the study is voluntary. "+
 		" You may withdraw from the study at any time and without giving reasons, without incurring any disadvantages."+
 		" If you withdraw but are otherwise eligible for payment, you are entitled to pro rata compensation for your time.",
-	"6. Confidentiality and anonymity",
+	"6. Confidentiality and Anonymity",
 		"Data collected as part of this study is connected to a randomly assigned ID-number and therefore cannot be traced back to you.",
-	"7. Data protection",
+	"7. Data Protection",
 		"The collection and processing of your personal data described above is carried out without collecting any identifying information."+
 		" This means that no one can link your data to you after collection."+
 		" Accordingly, your data cannot be deleted after collection."+
