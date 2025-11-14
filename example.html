@@ -22,12 +22,13 @@
     // set up experiment ===================================================================================================
     
     const args = { 
-        'contacts':["Tom Narraway: narraway@uni-bremen.de", "Heinrich Liesefeld: heinrich.liesefeld@uni-bremen.de"],
+        'contacts' : ["Tom Narraway: narraway@uni-bremen.de", "Heinrich Liesefeld: heinrich.liesefeld@uni-bremen.de"],
+        'verbose' : true,
     };
     
     const tomJS = new Experiment(args);
 
-    if (jatos.constructor != HTMLScriptElement) jatos.onConnected(tomJS.connectToJatos);
+    if (jatos.constructor != HTMLScriptElement) jatos.onConnected(()=>{tomJS.connectToJatos(false)});
 
     const A = tomJS.controls.key_a_upper;
     const B = tomJS.controls.key_b_upper;
@@ -37,57 +38,59 @@
     const max_diff = arrayMax(DIFFICULTY);
     const min_diff = arrayMin(DIFFICULTY);
 
+    const fontSize = Math.round(0.05 * tomJS.visual.stimulus_size) + "px";
+
     // trial arguments =====================================================================================================
 
     const _blockwise = {};
     
     const _trialwise = {
-        'condition':CONDITION,
-        'difficulty':DIFFICULTY,
-        'target':['A', 'B'],
+        'condition' : CONDITION,
+        'difficulty' : DIFFICULTY,
+        'target' : ['A', 'B'],
     };
     
     const _additional = {
-        'stimulus':STIMULUS,
-        'gp_ori':ORIENTATION,
-        'gp_size':SIZE,
-        'stimulus_fast':FAST,
-        'stimulus_slow':SLOW,
+        'stimulus' : STIMULUS,
+        'gp_ori' : ORIENTATION,
+        'gp_size' : SIZE,
+        'stimulus_fast' : FAST,
+        'stimulus_slow' : SLOW,
     };
     
     // slides ==============================================================================================================
     
     const welcome = new Slide([
-        { 'class':'text', 'text':'Please press ' + A + ' and then ' + B + ' a few times to make sure your ', 'y':0.25 },
-        { 'class':'text', 'text':'keyboard is being read by the experiment correctly.', 'y':0.30 },
-        { 'class':'text', 'text':'~key~' , 'upper':true},
-        { 'class':'text', 'text':'Press ' + A + ' and ' + B + ' to continue.', 'y':0.75 },
+        { 'class' : 'text', 'text' : 'Please press ' + A + ' and then ' + B + ' a few times to make sure your ', 'y' : 0.25 },
+        { 'class' : 'text', 'text' : 'keyboard is being read by the experiment correctly.', 'y' : 0.30 },
+        { 'class' : 'text', 'text' : '~key~' , 'upper' : true, 'fontSize':fontSize},
+        { 'class' : 'text', 'text' : 'Press ' + A + ' and ' + B + ' to continue.', 'y' : 0.75 },
     ]);
     
     const stimulus = new Slide([
-        { 'class':'text', 'text':'On each trial you will see a stimulus like the one below. Press ' + A + ' if ', 'y':0.15 },
-        { 'class':'text', 'text':'you think the stimulus is rotated to the left, or press ' + B, 'y':0.20 },
-        { 'class':'text', 'text':'if you think it is rotated to the right. Press ' + A + ' and ' + B + ' now to see examples.', 'y':0.25 },
-        { 'class':'gabor', 'gp_size':0.5, 'difficulty':max_diff, 'gp_ori':ORIENTATION},
-        { 'class':'text', 'text':'Press ' + A + ' and ' + B + ' to continue.', 'y':0.75 },
+        { 'class' : 'text', 'text' : 'On each trial you will see a stimulus like the one below. Press ' + A + ' if ', 'y' : 0.15 },
+        { 'class' : 'text', 'text' : 'you think the stimulus is rotated to the left, or press ' + B, 'y' : 0.20 },
+        { 'class' : 'text', 'text' : 'if you think it is rotated to the right. Press ' + A + ' and ' + B + ' now to see examples.', 'y' : 0.25 },
+        { 'class' : 'gabor', 'gp_size' : 0.5, 'difficulty' : max_diff, 'gp_ori' : ORIENTATION},
+        { 'class' : 'text', 'text' : 'Press ' + A + ' and ' + B + ' to continue.', 'y' : 0.75 },
     ]);
 
     const sat = new ExampleVisualResponseSignal([
-        { 'class':'text', 'text':'On each trial you you will see a bar at the top of the screen like the one below.', 'y':0.25 },
-        { 'class':'text', 'text':'You must respond while the bar is blue.', 'y':0.30 },
-        { 'class':'text', 'text':'Press ' + A + ' and ' + B + ' to continue.', 'y':0.75 },
-    ], {'max':2.000});
+        { 'class' : 'text', 'text' : 'On each trial you you will see a bar at the top of the screen like the one below.', 'y' : 0.25 },
+        { 'class' : 'text', 'text' : 'You must respond while the bar is blue.', 'y' : 0.30 },
+        { 'class' : 'text', 'text' : 'Press ' + A + ' and ' + B + ' to continue.', 'y' : 0.75 },
+    ], {'max' : 2.000});
     
     const end_block = new EndBlock([
-        { 'class':'text', 'text':'End of block. Please take a short break. ', 'y':0.25 },
-        { 'class':'text', 'text':'You responded while the bar was blue on ^hits^% of trials this block.' },
-        { 'class':'text', 'text':'Press ' + A + ' and ' + B + ' to continue.', 'y':0.75 },
+        { 'class' : 'text', 'text' : 'End of block. Please take a short break. ', 'y' : 0.25 },
+        { 'class' : 'text', 'text' : 'You responded while the bar was blue on ^hits^% of trials this block.' },
+        { 'class' : 'text', 'text' : 'Press ' + A + ' and ' + B + ' to continue.', 'y' : 0.75 },
     ]);         
     
     const end_exp = new EndExperiment([
-        { 'class':'text', 'text':'End of Experiment. Thank you for your help.', 'y':0.25 },
-        { 'class':'text', 'text':'You responded while the bar was blue on ^hits^% of trials this experiment.' },
-        { 'class':'text', 'text':'Press ' + A + ' and ' + B + ' to end the experiment.', 'y':0.75 },
+        { 'class' : 'text', 'text' : 'End of Experiment. Thank you for your help.', 'y' : 0.25 },
+        { 'class' : 'text', 'text' : 'You responded while the bar was blue on ^hits^% of trials this experiment.' },
+        { 'class' : 'text', 'text' : 'Press ' + A + ' and ' + B + ' to end the experiment.', 'y' : 0.75 },
     ]);
 
     // timeline ============================================================================================================

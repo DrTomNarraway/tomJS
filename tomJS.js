@@ -1,7 +1,7 @@
 
 class Experiment {	
 
-	version = '13.11.25 16:48';
+	version = '14.11.25 16:55';
 
 	constructor(args={}) {
 		
@@ -12,7 +12,7 @@ class Experiment {
 		this.debug.fullscreen = args.fullscreen ?? true;
 		this.debug.pilot = args.pilot ?? false;
 		this.debug.verbose = args.verbose ?? false;
-		this.debug.grid_lines = args.grid_lines ?? false;
+		this.debug.gridlines = args.gridlines ?? false;
 		this.debug.save = args.save ?? true;
 		if (this.debug.verbose) console.log('debug',this.debug);
 
@@ -146,6 +146,7 @@ class Experiment {
         this.controls.key_b     = B;
 		this.controls.key_a_upper = A.toUpperCase();
 		this.controls.key_b_upper = B.toUpperCase();
+		if (this.debug.verbose) console.log({'A':A, 'B':B});
 	}
 
 	drawGridLines() {
@@ -239,7 +240,7 @@ class Experiment {
 		// run current state or move to next?
 		if (this.timeline[this.time_pos].ready_to_exit) this.nextState();
 		else this.timeline[this.time_pos].update();
-		if (this.debug.grid_lines) this.drawGridLines();
+		if (this.debug.gridlines) this.drawGridLines();
 	}
 
 	writeCSV() {
@@ -270,7 +271,7 @@ class Experiment {
 		let _x = args.x ?? 0.5;
 		let _y = args.y ?? 0.5;
 		let _pos_x = tomJS.visual.screen_size * _x;
-		let _pos_y = tomJS.visual.screen_size * _y;
+		let _pos_y = tomJS.visual.screen_size * _y + (0.33 * _pt.split('p')[0]);
 		let _width = tomJS.visual.screen_size ?? 1;
 		tomJS.visual.context.fillText(_text, _pos_x, _pos_y, _width);
 	}
@@ -442,6 +443,7 @@ class Trial extends State {
 			'fixation_end'      : null,
 			'fixation_on'       : null,
 			'fixation_off'      : null,
+			'fixation_size'     : args.fixation_size ?? 0.10,
 			'stimulus_duration' : args.stimulus_duration ?? 3.000,
 			'stimulus_fast'     : args.stimulus_fast ?? 0.200,
 			'stimulus_slow'     : args.stimulus_slow ?? 3.000,
@@ -458,6 +460,7 @@ class Trial extends State {
 			'feedback_off'	    : null,
 			'feedback_text'     : null,
 			'feedback_colour'   : null,
+			'feedback_size'     : args.feedback_size ?? 0.05,
 			'end'               : null,
 		};
 
@@ -493,6 +496,8 @@ class Trial extends State {
 	onEnter() {
 		super.onEnter();
 		this.properties.start = tomJS.now;
+		this.properties.fixation_size = Math.round((this.properties.fixation_size ) * tomJS.visual.stimulus_size) + "px";
+		this.properties.feedback_size = Math.round((this.properties.feedback_size ) * tomJS.visual.stimulus_size) + "px";
 		this.queueFirstSubstate();
 		this.claculateStartAndEndTimes('fixation');		
 	}
@@ -529,7 +534,7 @@ class Trial extends State {
 
 	fixationUpdate() {
 		if (this.substate_virgin) this.fixationEnter();
-		tomJS.writeToCanvas('+');
+		tomJS.writeToCanvas('+', {'fontSize':this.properties.fixation_size});
 		if (tomJS.now >= this.properties.fixation_end) this.fixationExit();
 	}
 
@@ -593,7 +598,7 @@ class Trial extends State {
 	feedbackUpdate() {
 		const text = this.properties.feedback_text;
 		const colour = this.properties.feedback_colour;
-		tomJS.writeToCanvas(text,{'colour':colour});
+		tomJS.writeToCanvas(text,{'colour':colour, 'fontSize':this.properties.feedback_size});
 		if (tomJS.now >= this.properties.feedback_end) this.feedbackExit();
 	}
 
@@ -1078,14 +1083,20 @@ class Countdown extends Slide {
 		super(content, can_return, args);
 		this.id = 'Countdown';
 		this.lifetime = lifetime * 1000;
+		this.fontSize = args.fontSize ?? 0.05;		
 	}
 
 	// super ---------------------------------------------------------------------------------------------------------------
 
+	onEnter() {
+		this.fontSize = Math.round((this.fontSize ) * tomJS.visual.stimulus_size) + "px";
+		super.onEnter();
+	}
+
 	onUpdate() {
 		let time = Math.ceil((this.start + this.lifetime - tomJS.now) / 1000);
 		if (time <= 1) time = 1;
-        tomJS.writeToCanvas(time);
+        tomJS.writeToCanvas(time, {'fontSize':this.fontSize});
         if (tomJS.now >= this.start + this.lifetime) this.ready_to_exit = true;
 		super.onUpdate();
 	}
