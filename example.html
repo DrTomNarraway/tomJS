@@ -25,6 +25,11 @@
         'contacts' : ["Tom Narraway: narraway@uni-bremen.de", "Heinrich Liesefeld: heinrich.liesefeld@uni-bremen.de"],
         'verbose' : true,
     };
+
+
+    const vrs_obligs = "The success of scientific studies depends significantly on your cooperation."+
+		" We therefore ask you to remain focused and to work according to the instructions throughout the entire study. In order to demonstrate your focus you must also respond correctly on at least 60% of trials, and respond at the indicated time on at least 85% of trials."
+    updateConsentForm('value', 'Obligations', vrs_obligs);
     
     const tomJS = new Experiment(args);
 

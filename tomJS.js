@@ -1,11 +1,13 @@
 
 class Experiment {	
 
-	version = '14.11.25 16:55';
+	version = '18.11.25 14:48';
 
 	constructor(args={}) {
 		
 		console.log('booting tomJS version '+this.version);
+
+		this.boot_time = window.performance.now();
 
 		// debug
 		this.debug = {};
@@ -77,8 +79,12 @@ class Experiment {
 		this.blocks = 0;
 
 		// data
-		this.headings = ['subject','age','gender','hand','block','trial','condition','difficulty','rt','score','outcome',
-			'target','response','screen_size','stimulus_size'];
+		this.headings = [
+			'subject','age','gender','hand',
+			'block','trial','condition','difficulty',
+			'rt','score','outcome','target',
+			'response','response_given','response_key',
+			'screen_size','stimulus_size'];
 		this.data = [];
 		
 	}
@@ -426,14 +432,16 @@ class Trial extends State {
 
 		// create data object
 		this.data = {
-			'block'      : args.block ?? tomJS.blocks,
-			'trial'      : args.trial ?? tomJS.trials,
-			'condition'  : args.condition ?? null,
-			'difficulty' : this.stimulus.data.difficulty,
-			'target'     : this.stimulus.data.target,
-			'rt'         : null,
-			'score'      : null,
-			'outcome'    : null,
+			'block'          : args.block ?? tomJS.blocks,
+			'trial'          : args.trial ?? tomJS.trials,
+			'condition'      : args.condition ?? null,
+			'difficulty'     : this.stimulus.data.difficulty,
+			'target'         : this.stimulus.data.target,
+			'rt'             : null,
+			'score'          : null,
+			'outcome'        : null,
+			'response_given' : null,
+			'response_key'   : null,
 		};
 
 		this.properties = {			
@@ -450,9 +458,7 @@ class Trial extends State {
 			'stimulus_start'    : null,
 			'stimulus_end'      : null,
 			'stimulus_on'       : null,
-			'stimulus_off'      : null,
-			'response_given'    : null,			
-			'response_key'      : null,
+			'stimulus_off'      : null,			
 			'feedback_duration' : args.feedback_duration ?? 1.000,
 			'feedback_start'    : null,
 			'feedback_end'	    : null,
@@ -607,7 +613,7 @@ class Trial extends State {
 
 
 	calculateRT() {
-		const rg = this.properties.response_given;
+		const rg = this.data.response_given;
 		const on = this.properties.stimulus_on;
 		this.data.rt = Math.round((rg - on), 5) / 1000;
 	}
@@ -647,8 +653,8 @@ class Trial extends State {
 
 	recordResponse() {
 		this.data.response = tomJS.dir;
-		this.properties.response_key   = tomJS.key; 
-		this.properties.response_given = tomJS.now;
+		this.data.response_key   = tomJS.key; 
+		this.data.response_given = tomJS.now;
 	}
 
 
@@ -768,7 +774,7 @@ class VisualResponseSignal extends Trial {
 
 	calculateRT() {
 		super.calculateRT();
-		const rg = this.properties.response_given;
+		const rg = this.data.response_given;
 		const rs = this.properties.signal_at;
 		this.data.rtt = Math.round((rg - rs), 5) / 1000;
 	}
@@ -1048,13 +1054,12 @@ class Consent extends Slide {
 		div.style.width = "100%";
 		div.style.textAlign = "left";
 		// main content
-		for (let i = 0; i < consent_form.length; i++) {
-			const tmp = document.createElement('label');
-			tmp.textContent = consent_form[i];
-			tmp.style.width = "100%";
-			tmp.style.marginBottom = "1em";
-			if (i % 2 == 0) tmp.style.fontSize = tomJS.visual.h1;
-			div.append(tmp);
+		for (let i = 0; i < Object.keys(consent_form).length; i++) {
+			const key = Object.keys(consent_form)[i];
+			const kargs = {'fontSize':tomJS.visual.h1}
+			const value = Object.values(consent_form)[i];
+			createLabel(key+"Key", key, this, div, kargs);
+			createLabel(key+"Value", value, this, div);
 		}
 		// join
 		this.container.append(div);
@@ -2004,6 +2009,19 @@ function sampleFromTruncatedExponential(mean, truncation, max) {
 }
 
 
+function updateConsentForm(type, key, value) {
+	switch(type) {
+		case 'key':
+			break;
+		case 'value':
+			consent_form[key] = value;
+			break;
+		case 'both':
+			break;
+	}
+}
+
+
 function writeToBody(text) {
 	// Write text to the body of the html page.
 	let p = document.createElement("p");
@@ -2100,39 +2118,38 @@ colours = {
 }
 
 
-consent_form = [
-	"General information",
+consent_form = {
+	"General information":
 		"Thank you for your interest in our scientific study."+
 		" Please read the following information carefully and then decide whether or not to participate in this study."+
 		" If you have any further questions about the study beyond this information please message or email Tom Narraway.",
-	"1. Objective of this Research Project",
+	"Objective of this Research Project":
 		"In this study, we investigate the cognitive representations of motor action planning." +
 		" We aim to determine how our experiment affects the speed and accuracy of your responses.",
-	"2. Study Procedure",
+	"Study Procedure":
 		"First you will use an ID-1 sized card to set the size of the stimuli on your screen."+
 		" Then we ask for your age, gender, and dominant hand, but these details are optional."+
 		" You will be asked to perform a decision making task in response to simple visual stimuli."+
 		" For each decision we record how long you take to respond and if your response is correct or not."+
 		" The exact procedure will be explained to you during the experiment."+		
 		" The experiment takes approximately 60 minutes and will force your browser into fullscreen mode.",
-	"3. Reimbursement",
+	"Reimbursement":
 		"You will be reimbursed at the rate of 9.50 GBP per hour on the condition that you meet your obligations.",
-	"4. Obligations",
+	"Obligations":
 		"The success of scientific studies depends significantly on your cooperation."+
-		" We therefore ask you to remain focused and to work according to the instructions throughout the entire study." +
-		" Failure to respond correctly on at least 60% of trials is considered a failure of your obligations.",
-	"5. Voluntary Participation and Possibility of Dropping Out",
+		" We therefore ask you to remain focused and to work according to the instructions throughout the entire study. In order to demonstrate your focus you must also respond correctly on at least 60% of trials.",
+	"Voluntary Participation and Possibility of Dropping Out":
 		"Your participation in the study is voluntary. "+
 		" You may withdraw from the study at any time and without giving reasons, without incurring any disadvantages."+
 		" If you withdraw but are otherwise eligible for payment, you are entitled to pro rata compensation for your time.",
-	"6. Confidentiality and Anonymity",
+	"Confidentiality and Anonymity":
 		"Data collected as part of this study is connected to a randomly assigned ID-number and therefore cannot be traced back to you.",
-	"7. Data Protection",
+	"Data Protection":
 		"The collection and processing of your personal data described above is carried out without collecting any identifying information."+
 		" This means that no one can link your data to you after collection."+
 		" Accordingly, your data cannot be deleted after collection."+
 		" Therefore you cannot withdraw consent to the use of your data."
-]
+}
 
 
 demographics_prompts = {
