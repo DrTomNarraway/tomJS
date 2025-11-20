@@ -1,7 +1,7 @@
 
 class Experiment {	
 
-	version = '18.11.25 14:48';
+	version = '20.11.25 16:25';
 
 	constructor(args={}) {
 		
@@ -34,8 +34,10 @@ class Experiment {
 		if (this.debug.verbose) console.log('visual', this.visual);
 
 		// apply visual settings to document
-		document.body.style.fontFamily = this.visual.fontFamily;
-		document.body.style.fontSize = this.visual.fontSize;
+		document.body.style.fontFamily      = this.visual.fontFamily;
+		document.body.style.fontSize        = this.visual.fontSize;
+		document.body.style.color           = this.visual.color;
+		document.body.style.backgroundColor = this.visual.backgroundColor;
 		
 		// controls
 		this.controls = {};
@@ -69,9 +71,10 @@ class Experiment {
 		// timeline
         this.now = window.performance.now();
         this.running  = true;
-        this.timeline = [new Consent(args)];
-		if (args.credit_card  ?? true) this.timeline.push(new CreditCard(args));
-		if (args.demographics ?? true) this.timeline.push(new Demographics(args)); 
+        this.timeline = [];
+		if (inAndTrue(args, 'consent', true))      this.timeline.push(new Consent(args));
+		if (inAndTrue(args, 'credit_card', true))  this.timeline.push(new CreditCard(args));
+		if (inAndTrue(args, 'demographics', true)) this.timeline.push(new Demographics(args));
         this.time_pos = 0;
         this.trial  = 0;
         this.block  = 0;
@@ -155,6 +158,11 @@ class Experiment {
 		if (this.debug.verbose) console.log({'A':A, 'B':B});
 	}
 
+	drawBox(x, y, w, h, colour) {
+		this.visual.context.strokeStyle = colour;
+		this.visual.context.strokeRect(x, y, w, h);
+	}
+
 	drawGridLines() {
 		// horizontal
 		for (let i = 0; i < 5; i++) {
@@ -162,8 +170,7 @@ class Experiment {
 			let h = this.visual.screen_size * 0.001;
 			let x = (this.visual.screen_size * 0.5) - (w * 0.5);
 			let y = (this.visual.screen_size * 0.5 * (i/2)) - (h * 0.5);
-			this.visual.context.fillStyle = this.visual.colour;
-			this.visual.context.fillRect(x, y, w, h);
+			this.drawRect(x, y, w, h, this.visual.colour);
 		}
 		// vertical
 		for (let i = 0; i < 5; i++) {
@@ -171,9 +178,13 @@ class Experiment {
 			let h = this.visual.screen_size;
 			let x = (this.visual.screen_size * 0.5 * (i/2)) - (w * 0.5);
 			let y = (this.visual.screen_size * 0.5) - (h * 0.5);
-			this.visual.context.fillStyle = this.visual.colour;
-			this.visual.context.fillRect(x, y, w, h);
+			this.drawRect(x, y, w, h, this.visual.colour);
 		}
+	}
+
+	drawRect(x, y, w, h, colour) {
+		this.visual.context.fillStyle = colour;
+		this.visual.context.fillRect(x, y, w, h);
 	}
 
 	endExperiment() {
@@ -188,8 +199,7 @@ class Experiment {
 
 	error(message) {
 		this.running = false;
-		this.visual.context.fillStyle = "red";
-		this.visual.context.fillRect(0, 0, this.visual.screen_size, this.visual.screen_size);
+		this.drawRect(0, 0, this.visual.screen_size, this.visual.screen_size, "red");
 		this.writeToCanvas('ERROR: '+message);
 	}
 
@@ -219,8 +229,7 @@ class Experiment {
 	}
 	
 	resetCanvas () {
-		this.visual.context.fillStyle = this.visual.backgroundColor;
-		this.visual.context.fillRect(0, 0, this.visual.screen_size, this.visual.screen_size);
+		this.drawRect(0, 0, this.visual.screen_size, this.visual.screen_size, this.visual.backgroundColor);
 	}
 
 	run = () => {
@@ -890,6 +899,9 @@ class Slide extends State {
 					if (tomJS.dir == 'A') this.pp_A.drawStimulus()
 					else this.pp_B.drawStimulus();
 					break;
+				case 'table':
+					this.table.drawStimulus();
+					break;
 			};
 		};
 	}
@@ -919,6 +931,9 @@ class Slide extends State {
 					this.pp_A = new PixelPatch({...c, ...{'difficulty':c.A}});
 					this.pp_B = new PixelPatch({...c, ...{'difficulty':c.B}});
 					break;
+				case 'table':
+					this.table = new Table(c);
+					break;
 			};
 		};
 	}
@@ -944,8 +959,7 @@ class Consent extends Slide {
 	// override ------------------------------------------------------------------------------------------------------------
 
 	onUpdate() {		
-		tomJS.visual.context.fillStyle = "white";
-		tomJS.visual.context.fillRect(0, 0, tomJS.visual.screen_size, tomJS.visual.screen_size);
+		tomJS.drawRect(0, 0, tomJS.visual.screen_size, tomJS.visual.screen_size, "white");
 		if (tomJS.now < this.start + this.force_wait) return;
 	}
 
@@ -1693,7 +1707,6 @@ class Gabor extends Stimulus {
 
 class TwoLines extends Stimulus {
 
-	
 	constructor(args = {}) {
 		super(args);
 		if (!('target' in args))     tomJS.error('no target passed to two lines');
@@ -1710,9 +1723,7 @@ class TwoLines extends Stimulus {
 		this.properties.tl_keep_fix   = args.tl_keep_fix   ?? true;
 	}
 
-
 	// super ---------------------------------------------------------------------------------------------------------------
-
 
 	drawStimulus() {
 		super.drawStimulus();
@@ -1721,9 +1732,7 @@ class TwoLines extends Stimulus {
 		this.drawOneLine('B');
 	}
 
-
 	// functions -----------------------------------------------------------------------------------------------------------
-
 
 	drawOneLine(side){
 		const w = (tomJS.stimulus_size * this.properties.tl_width);
@@ -1736,10 +1745,9 @@ class TwoLines extends Stimulus {
 		const distance = tomJS.stimulus_size * this.properties.tl_distance;
 		const offset_x = w * 0.5;
 		const x = (side === "A") ? pos_x - offset_x - distance : pos_x - offset_x + distance;
-		tomJS.context.fillStyle = (side === this.data.target) ? this.properties.tl_color_L : this.properties.tl_color_R ;
-		tomJS.context.fillRect(x, y, w, h);
+		const c = (side === this.data.target) ? this.properties.tl_color_L : this.properties.tl_color_R ;
+		tomJS.drawRect(x, y, w, h, c);
 	}
-
 
 }
 
@@ -1844,8 +1852,66 @@ class ProgressBar extends Stimulus {
 		const h = tomJS.visual.stimulus_size * this.data.pb_height * ((which == 'F') ? 0.95 : 1);
 		const x = (tomJS.visual.screen_size * this.data.pb_x) - (w * 0.5);
 		const y = (tomJS.visual.screen_size * this.data.pb_y) - (h * 0.5);
-		tomJS.visual.context.fillStyle = (which == 'F') ? this.data.pb_color_F : this.data.pb_color_B;
-		tomJS.visual.context.fillRect(x, y, w, h);
+		const c = (which == 'F') ? this.data.pb_color_F : this.data.pb_color_B;
+		tomJS.drawRect(x, y, w, h, c);
+	}
+
+}
+
+
+class Table extends Stimulus {
+
+	constructor(args={}) {
+		super(args);
+		this.properties.tbl_rows   = args.tbl_rows   ?? 2;
+		this.properties.tbl_cols   = args.tbl_cols   ?? 2;
+		this.properties.tbl_cell_w = args.tbl_cell_w ?? 0.30;	// width of cells in stimulus units
+		this.properties.tbl_cell_h = args.tbl_cell_h ?? 0.15;	// height of cells in stimulus units
+		this.properties.tbl_x      = args.tbl_x      ?? 0.5;
+		this.properties.tbl_y      = args.tbl_y      ?? 0.5;
+		this.properties.headings   = args.headings   ?? ['A','B','C','D'];     // column then row
+		this.properties.content    = args.content    ?? ['AC','BC','AD','BD']; // top-left to bottom-right
+		this.generateMatrix();
+		console.log(this.matrix);
+	}
+
+	// super
+
+	drawStimulus() {
+		super.drawStimulus();
+		this.drawBorder();
+		this.writeOneCell(1, 1);
+	}
+
+	// functions
+
+	drawBorder() {
+		const w = tomJS.visual.stimulus_size * this.properties.tbl_cell_w * (this.properties.tbl_cols + 1);
+		const h = tomJS.visual.stimulus_size * this.properties.tbl_cell_h * (this.properties.tbl_rows + 1);
+		const x = (tomJS.visual.screen_size * this.properties.tbl_x) - (w * 0.5);
+		const y = (tomJS.visual.screen_size * this.properties.tbl_x) - (h * 0.5);
+		const c = "white";
+		tomJS.drawBox(x, y, w, h, c);
+	}
+
+	generateMatrix() {
+		let out = [];
+		for (let r = 0; r < (this.properties.tbl_rows+1); r++) {			
+			const h = r + 1;
+			const b = r;
+			const e = r * this.properties.tbl_cols;
+			console.log(r, h, b, e);
+			let p = [];
+			if (r == 0) p = [''].concat(this.properties.headings.slice(0,this.properties.tbl_cols));
+			else p = [this.properties.headings[h]].concat(this.properties.content.slice(b, e));
+			out.push(p);
+		};
+		this.matrix = out;
+	}
+
+	writeOneCell(row, col) {
+		const content = this.matrix[row][col];
+		tomJS.writeToCanvas(content);
 	}
 
 }
@@ -1949,6 +2015,12 @@ function fillArray(source, limit) {
 		};
 	};
 	return array;
+}
+
+
+function inAndTrue(object, key, fallback=false) {
+	if (!(key in object)) return fallback;
+	if (key in object) return object[key] == true;
 }
 
 
@@ -2121,34 +2193,38 @@ colours = {
 consent_form = {
 	"General information":
 		"Thank you for your interest in our scientific study."+
-		" Please read the following information carefully and then decide whether or not to participate in this study."+
+		" Please read the following information carefully and then decide whether or not to participate in this study." +
 		" If you have any further questions about the study beyond this information please message or email Tom Narraway.",
 	"Objective of this Research Project":
-		"In this study, we investigate the cognitive representations of motor action planning." +
-		" We aim to determine how our experiment affects the speed and accuracy of your responses.",
+		"In this study, we want to determine how our experimental manipulation affects the speed and accuracy of your responses.",
 	"Study Procedure":
-		"First you will use an ID-1 sized card to set the size of the stimuli on your screen."+
-		" Then we ask for your age, gender, and dominant hand, but these details are optional."+
-		" You will be asked to perform a decision making task in response to simple visual stimuli."+
-		" For each decision we record how long you take to respond and if your response is correct or not."+
-		" The exact procedure will be explained to you during the experiment."+		
+		"First you will use an ID-1 sized card to set the size of the stimuli on your screen." +
+		" Then we ask for your age, gender, and dominant hand, but these details are optional." +
+		" You will be asked to perform a decision making task in response to simple visual stimuli." +
+		" For each decision we record how long you take to respond and if your response is correct or not." +
+		" The exact procedure will be explained to you during the experiment." +		
 		" The experiment takes approximately 60 minutes and will force your browser into fullscreen mode.",
 	"Reimbursement":
 		"You will be reimbursed at the rate of 9.50 GBP per hour on the condition that you meet your obligations.",
 	"Obligations":
-		"The success of scientific studies depends significantly on your cooperation."+
-		" We therefore ask you to remain focused and to work according to the instructions throughout the entire study. In order to demonstrate your focus you must also respond correctly on at least 60% of trials.",
+		"The success of scientific studies depends significantly on your cooperation." +
+		" We therefore ask you to remain focused and to work according to the instructions throughout the entire study." +
+		" In order to demonstrate your focus you must respond correctly on at least 75% of trials." +
+		" If you wish to withdraw consent to the use of your data you are obligated to message Tom Narraway via Prolific before your submisison is approved or rejected.",
 	"Voluntary Participation and Possibility of Dropping Out":
 		"Your participation in the study is voluntary. "+
-		" You may withdraw from the study at any time and without giving reasons, without incurring any disadvantages."+
+		" You may withdraw from the study at any time and without giving reasons, without incurring any disadvantages." +
 		" If you withdraw but are otherwise eligible for payment, you are entitled to pro rata compensation for your time.",
 	"Confidentiality and Anonymity":
-		"Data collected as part of this study is connected to a randomly assigned ID-number and therefore cannot be traced back to you.",
-	"Data Protection":
-		"The collection and processing of your personal data described above is carried out without collecting any identifying information."+
-		" This means that no one can link your data to you after collection."+
-		" Accordingly, your data cannot be deleted after collection."+
-		" Therefore you cannot withdraw consent to the use of your data."
+		"All data collected as part of this study are initially connected to your anonymous Prolific Participant ID number." +
+		" After checking that your obligations are met, your Prolific ID is replaced with a random ID number." +
+		" This means that after approving or rejecting your submission, your data can no longer be linked to you in any way." +
+		" Accordingly, you cannot withdraw consent to the use of your data and you cannot request that your data be deleted." +
+		" As an additional data security measure, the random ID numbers are randomly re-assigned whenever new data is collected.",
+	"Data Protection and Use":
+		"All processing and analysis is conducted on anonymised data (i.e. data linked to random ID numbers)." +		
+		" Anonymous data from this study will be used for research purposes for an indefinite period of time." +
+		" Anonymous data may be published online, including to scientific open data platforms."
 }
 
 

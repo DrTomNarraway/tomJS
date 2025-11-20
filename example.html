@@ -24,11 +24,16 @@
     const args = { 
         'contacts' : ["Tom Narraway: narraway@uni-bremen.de", "Heinrich Liesefeld: heinrich.liesefeld@uni-bremen.de"],
         'verbose' : true,
+        'consent' : false,
+        'demographics' : false,
+        'credit_card' : false,
     };
 
-
-    const vrs_obligs = "The success of scientific studies depends significantly on your cooperation."+
-		" We therefore ask you to remain focused and to work according to the instructions throughout the entire study. In order to demonstrate your focus you must also respond correctly on at least 60% of trials, and respond at the indicated time on at least 85% of trials."
+    const vrs_obligs = "The success of scientific studies depends significantly on your cooperation." +
+        " We therefore ask you to remain focused and to work according to the instructions throughout the entire study." +
+        " In order to demonstrate your focus you must respond at the indicated time on at least 85% of trials;"+
+        " and you must respond correctly on at least 60% of trials." +
+        " If you wish to withdraw consent to the use of your data you are obligated to message or email Tom Narraway at the moment of your decision."
     updateConsentForm('value', 'Obligations', vrs_obligs);
     
     const tomJS = new Experiment(args);
@@ -68,7 +73,8 @@
     const welcome = new Slide([
         { 'class' : 'text', 'text' : 'Please press ' + A + ' and then ' + B + ' a few times to make sure your ', 'y' : 0.25 },
         { 'class' : 'text', 'text' : 'keyboard is being read by the experiment correctly.', 'y' : 0.30 },
-        { 'class' : 'text', 'text' : '~key~' , 'upper' : true, 'fontSize':fontSize},
+        //{ 'class' : 'text', 'text' : '~key~' , 'upper' : true, 'fontSize':fontSize},
+        {'class' : 'table'},
         { 'class' : 'text', 'text' : 'Press ' + A + ' and ' + B + ' to continue.', 'y' : 0.75 },
     ]);
     
