@@ -1,7 +1,7 @@
 
 class Experiment {	
 
-	version = '20.11.25 16:25';
+	version = '21.11.25 16:03';
 
 	constructor(args={}) {
 		
@@ -158,8 +158,9 @@ class Experiment {
 		if (this.debug.verbose) console.log({'A':A, 'B':B});
 	}
 
-	drawBox(x, y, w, h, colour) {
-		this.visual.context.strokeStyle = colour;
+	drawBox(x, y, w, h, c = "white", l = 1) {
+		this.visual.context.strokeStyle = c;
+		this.visual.context.lineWidth = l;
 		this.visual.context.strokeRect(x, y, w, h);
 	}
 
@@ -171,7 +172,7 @@ class Experiment {
 			let x = (this.visual.screen_size * 0.5) - (w * 0.5);
 			let y = (this.visual.screen_size * 0.5 * (i/2)) - (h * 0.5);
 			this.drawRect(x, y, w, h, this.visual.colour);
-		}
+		};
 		// vertical
 		for (let i = 0; i < 5; i++) {
 			let w = this.visual.screen_size * 0.001;
@@ -179,10 +180,10 @@ class Experiment {
 			let x = (this.visual.screen_size * 0.5 * (i/2)) - (w * 0.5);
 			let y = (this.visual.screen_size * 0.5) - (h * 0.5);
 			this.drawRect(x, y, w, h, this.visual.colour);
-		}
+		};
 	}
 
-	drawRect(x, y, w, h, colour) {
+	drawRect(x, y, w, h, colour="white") {
 		this.visual.context.fillStyle = colour;
 		this.visual.context.fillRect(x, y, w, h);
 	}
@@ -1861,57 +1862,83 @@ class ProgressBar extends Stimulus {
 
 class Table extends Stimulus {
 
+	example_content = ['','A','B','C','AC','BC','D','AD','BD'];
+	example_borders = [4, 5, 7, 8];
+
 	constructor(args={}) {
 		super(args);
-		this.properties.tbl_rows   = args.tbl_rows   ?? 2;
-		this.properties.tbl_cols   = args.tbl_cols   ?? 2;
-		this.properties.tbl_cell_w = args.tbl_cell_w ?? 0.30;	// width of cells in stimulus units
-		this.properties.tbl_cell_h = args.tbl_cell_h ?? 0.15;	// height of cells in stimulus units
-		this.properties.tbl_x      = args.tbl_x      ?? 0.5;
-		this.properties.tbl_y      = args.tbl_y      ?? 0.5;
-		this.properties.headings   = args.headings   ?? ['A','B','C','D'];     // column then row
-		this.properties.content    = args.content    ?? ['AC','BC','AD','BD']; // top-left to bottom-right
-		this.generateMatrix();
-		console.log(this.matrix);
+		this.properties.tbl_cols      = args.tbl_cols      ?? 3;
+		this.properties.tbl_cell_w    = args.tbl_cell_w    ?? 0.30;	// width of cells in stimulus units
+		this.properties.tbl_cell_h    = args.tbl_cell_h    ?? 0.15;	// height of cells in stimulus units
+		this.properties.tbl_x         = args.tbl_x         ?? 0.5;
+		this.properties.tbl_y         = args.tbl_y         ?? 0.5;
+		this.properties.tbl_content   = args.tbl_content   ?? this.example_content;
+		this.properties.tbl_borders   = args.tbl_borders   ?? this.example_borders;
+		this.properties.tbl_colour    = args.tbl_colour    ?? "white";
+		this.properties.tbl_lineWidth = args.tbl_lineWidth ?? 1; // width of border in pixels units
+		this.properties.tbl_cells     = this.properties.tbl_content.length;
+		this.properties.tbl_rows      = this.properties.tbl_cells / this.properties.tbl_cols;
+		this.matrix = this.generateMatrix();
 	}
 
 	// super
 
 	drawStimulus() {
 		super.drawStimulus();
-		this.drawBorder();
-		this.writeOneCell(1, 1);
+		this.drawAllCells();
+		this.writeAllCells();
 	}
 
 	// functions
 
-	drawBorder() {
-		const w = tomJS.visual.stimulus_size * this.properties.tbl_cell_w * (this.properties.tbl_cols + 1);
-		const h = tomJS.visual.stimulus_size * this.properties.tbl_cell_h * (this.properties.tbl_rows + 1);
-		const x = (tomJS.visual.screen_size * this.properties.tbl_x) - (w * 0.5);
-		const y = (tomJS.visual.screen_size * this.properties.tbl_x) - (h * 0.5);
-		const c = "white";
-		tomJS.drawBox(x, y, w, h, c);
+	drawAllCells() {
+		// iterate over provided list of cells and draw a box around it
+		for (let c of this.properties.tbl_borders) this.drawOneCell(c);
+	}
+
+	drawOneCell(index) {
+		const col = index % this.properties.tbl_cols;
+		const row = Math.floor(index / this.properties.tbl_rows);		
+		const scrn = tomJS.visual.screen_size;
+		const stim = tomJS.visual.stimulus_size;
+		const w = stim * this.properties.tbl_cell_w;
+		const h = stim * this.properties.tbl_cell_h;
+		const x = (scrn * this.properties.tbl_x * (1 - this.properties.tbl_cell_w)) + 
+			(scrn * this.properties.tbl_cell_w * col * 0.5) - 
+			(w * 0.5);
+		const y = (scrn * this.properties.tbl_y * (1 - this.properties.tbl_cell_h)) +
+			(scrn * this.properties.tbl_cell_h * row * 0.5) -
+			(h * 0.5);
+		const c = this.properties.tbl_colour;
+		const l = this.properties.tbl_lineWidth;		
+		tomJS.drawBox(x, y, w, h, c, l);
 	}
 
 	generateMatrix() {
+		const cols = this.properties.tbl_cols;
+		const rows = this.properties.tbl_rows;
 		let out = [];
-		for (let r = 0; r < (this.properties.tbl_rows+1); r++) {			
-			const h = r + 1;
-			const b = r;
-			const e = r * this.properties.tbl_cols;
-			console.log(r, h, b, e);
-			let p = [];
-			if (r == 0) p = [''].concat(this.properties.headings.slice(0,this.properties.tbl_cols));
-			else p = [this.properties.headings[h]].concat(this.properties.content.slice(b, e));
-			out.push(p);
+		for (let r = 0; r < rows; r++) {
+			const b = r * cols;
+			const e = b + this.properties.tbl_cols;
+			out.push(this.properties.tbl_content.slice(b, e));
 		};
-		this.matrix = out;
+		return out;
 	}
 
-	writeOneCell(row, col) {
-		const content = this.matrix[row][col];
-		tomJS.writeToCanvas(content);
+	writeAllCells() {
+		// iterate over the content array and write each cell to the screen
+		for (let c = 0; c < this.properties.tbl_cells; c++) this.writeOneCell(c);
+	}
+
+	writeOneCell(index) {
+		const col = index % this.properties.tbl_cols;
+		const row = Math.floor(index / this.properties.tbl_rows);
+		const content = this.properties.tbl_content[index];
+		const x = (this.properties.tbl_x * (1 - this.properties.tbl_cell_w)) + (this.properties.tbl_cell_w * col * 0.5);
+		const y = (this.properties.tbl_y * (1 - this.properties.tbl_cell_h)) + (this.properties.tbl_cell_h * row * 0.5);
+		const args = {'x':x, 'y':y};
+		tomJS.writeToCanvas(content, args);
 	}
 
 }

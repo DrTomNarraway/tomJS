@@ -27,6 +27,7 @@
         'consent' : false,
         'demographics' : false,
         'credit_card' : false,
+        // 'gridlines' : true,
     };
 
     const vrs_obligs = "The success of scientific studies depends significantly on your cooperation." +
@@ -71,37 +72,37 @@
     // slides ==============================================================================================================
     
     const welcome = new Slide([
-        { 'class' : 'text', 'text' : 'Please press ' + A + ' and then ' + B + ' a few times to make sure your ', 'y' : 0.25 },
+        { 'class' : 'text', 'text' : 'Please press '+A+' and then '+B+' a few times to make sure your ', 'y' : 0.25 },
         { 'class' : 'text', 'text' : 'keyboard is being read by the experiment correctly.', 'y' : 0.30 },
         //{ 'class' : 'text', 'text' : '~key~' , 'upper' : true, 'fontSize':fontSize},
-        {'class' : 'table'},
-        { 'class' : 'text', 'text' : 'Press ' + A + ' and ' + B + ' to continue.', 'y' : 0.75 },
+        { 'class' : 'table', 'tbl_content':['','Correct','Incorrect','Before','+10','-1','After','-5','-10'] },
+        { 'class' : 'text', 'text' : 'Press '+A+' and '+B+' to continue.', 'y' : 0.75 },
     ]);
     
     const stimulus = new Slide([
-        { 'class' : 'text', 'text' : 'On each trial you will see a stimulus like the one below. Press ' + A + ' if ', 'y' : 0.15 },
-        { 'class' : 'text', 'text' : 'you think the stimulus is rotated to the left, or press ' + B, 'y' : 0.20 },
-        { 'class' : 'text', 'text' : 'if you think it is rotated to the right. Press ' + A + ' and ' + B + ' now to see examples.', 'y' : 0.25 },
+        { 'class' : 'text', 'text' : 'On each trial you will see a stimulus like the one below. Press '+A+' if ', 'y' : 0.15 },
+        { 'class' : 'text', 'text' : 'you think the stimulus is rotated to the left, or press '+B, 'y' : 0.20 },
+        { 'class' : 'text', 'text' : 'if you think it is rotated to the right. Press '+A+' and '+B+' now to see examples.', 'y' : 0.25 },
         { 'class' : 'gabor', 'gp_size' : 0.5, 'difficulty' : max_diff, 'gp_ori' : ORIENTATION},
-        { 'class' : 'text', 'text' : 'Press ' + A + ' and ' + B + ' to continue.', 'y' : 0.75 },
+        { 'class' : 'text', 'text' : 'Press '+A+' and '+B+' to continue.', 'y' : 0.75 },
     ]);
 
     const sat = new ExampleVisualResponseSignal([
         { 'class' : 'text', 'text' : 'On each trial you you will see a bar at the top of the screen like the one below.', 'y' : 0.25 },
         { 'class' : 'text', 'text' : 'You must respond while the bar is blue.', 'y' : 0.30 },
-        { 'class' : 'text', 'text' : 'Press ' + A + ' and ' + B + ' to continue.', 'y' : 0.75 },
+        { 'class' : 'text', 'text' : 'Press '+A+' and '+B+' to continue.', 'y' : 0.75 },
     ], {'max' : 2.000});
     
     const end_block = new EndBlock([
         { 'class' : 'text', 'text' : 'End of block. Please take a short break. ', 'y' : 0.25 },
         { 'class' : 'text', 'text' : 'You responded while the bar was blue on ^hits^% of trials this block.' },
-        { 'class' : 'text', 'text' : 'Press ' + A + ' and ' + B + ' to continue.', 'y' : 0.75 },
+        { 'class' : 'text', 'text' : 'Press '+A+' and '+B+' to continue.', 'y' : 0.75 },
     ]);         
     
     const end_exp = new EndExperiment([
         { 'class' : 'text', 'text' : 'End of Experiment. Thank you for your help.', 'y' : 0.25 },
         { 'class' : 'text', 'text' : 'You responded while the bar was blue on ^hits^% of trials this experiment.' },
-        { 'class' : 'text', 'text' : 'Press ' + A + ' and ' + B + ' to end the experiment.', 'y' : 0.75 },
+        { 'class' : 'text', 'text' : 'Press '+A+' and '+B+' to end the experiment.', 'y' : 0.75 },
     ]);
 
     // timeline ============================================================================================================
