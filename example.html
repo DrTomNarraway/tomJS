@@ -8,15 +8,18 @@
 
     // define constants ====================================================================================================
 
-    const BLOCK_REPS  = 1;
-    const CONDITION   = [0.200, 0.500, 0.800];
-    const DIFFICULTY  = [0.01, 0.03, 0.50];
-    const FAST        = 0.000;
-    const ORIENTATION = 2;
-    const SLOW        = 0.350;
-    const SIZE        = 1;
+    const BLOCK_REPS  = 1; // 5; // 12;
+    const CONDITION   = [0.000, 0.200, 0.400]; // target-signal SOA = processing time + condition, seconds
+    const DIFFICULTY  = [0.01, 0.3, 0.50]; // gabor contrast, %
+    const FAST        = 0.000; // onset of response window relative to signal onset, seconds
+    const MAX_PROCESS = 0.600 // maximum allowed processing time, seconds
+    const MIN_PROCESS = 0.200 // minimum allowed processing time, seconds
+    const ORIENTATION = 2; // gabor orientation, degrees
+    const PRACTICE    = [0.200, 0.600];
+    const SLOW        = 0.350; // offset of response window relative to signal onset, seconds
+    const SIZE        = 1; // stimulus units
     const STIMULUS    = Gabor;
-    const TRIAL_REPS  = 1;
+    const TRIAL_REPS  = 1; // 3;
     const TRIAL_TYPE  = VisualResponseSignal;
 
     // set up experiment ===================================================================================================
@@ -24,15 +27,17 @@
     const args = { 
         'contacts' : ["Tom Narraway: narraway@uni-bremen.de", "Heinrich Liesefeld: heinrich.liesefeld@uni-bremen.de"],
         'verbose' : true,
-        'consent' : false,
-        'demographics' : false,
-        'credit_card' : false,
-        // 'gridlines' : true,
+        'consent' : true,
+        'demographics' : true,
+        'credit_card' : true,
+        'fullscreen' : true,
+        'gridlines' : false,
+        'rounding' : 5,
     };
 
     const vrs_obligs = "The success of scientific studies depends significantly on your cooperation." +
         " We therefore ask you to remain focused and to work according to the instructions throughout the entire study." +
-        " In order to demonstrate your focus you must respond at the indicated time on at least 85% of trials;"+
+        " In order to demonstrate your focus you must respond at the indicated time on at least 75% of trials;"+
         " and you must respond correctly on at least 60% of trials." +
         " If you wish to withdraw consent to the use of your data you are obligated to message or email Tom Narraway at the moment of your decision."
     updateConsentForm('value', 'Obligations', vrs_obligs);
@@ -68,14 +73,28 @@
         'stimulus_fast' : FAST,
         'stimulus_slow' : SLOW,
     };
+
+    const _p_trial = {
+        'condition': PRACTICE,
+        'difficulty': DIFFICULTY,
+        'target': ['A', 'B'],
+    };
+
+    const _p_add = {
+        'stimulus': STIMULUS,
+        'gp_ori': ORIENTATION,
+        'gp_size': SIZE,
+        'stimulus_fast': FAST,
+        'stimulus_slow': 2.000,
+    };
     
     // slides ==============================================================================================================
     
     const welcome = new Slide([
         { 'class' : 'text', 'text' : 'Please press '+A+' and then '+B+' a few times to make sure your ', 'y' : 0.25 },
         { 'class' : 'text', 'text' : 'keyboard is being read by the experiment correctly.', 'y' : 0.30 },
-        //{ 'class' : 'text', 'text' : '~key~' , 'upper' : true, 'fontSize':fontSize},
-        { 'class' : 'table', 'tbl_content':['','Correct','Incorrect','Before','+10','-1','After','-5','-10'] },
+        { 'class' : 'text', 'text' : '~key~' , 'upper' : true, 'fontSize':fontSize},
+        //{ 'class' : 'table', 'tbl_content':['','Correct','Incorrect','Before','+10','-1','After','-5','-10'] },
         { 'class' : 'text', 'text' : 'Press '+A+' and '+B+' to continue.', 'y' : 0.75 },
     ]);
     
@@ -87,11 +106,17 @@
         { 'class' : 'text', 'text' : 'Press '+A+' and '+B+' to continue.', 'y' : 0.75 },
     ]);
 
-    const sat = new ExampleVisualResponseSignal([
+    const practice = new ExampleVisualResponseSignal([
         { 'class' : 'text', 'text' : 'On each trial you you will see a bar at the top of the screen like the one below.', 'y' : 0.25 },
-        { 'class' : 'text', 'text' : 'You must respond while the bar is blue.', 'y' : 0.30 },
-        { 'class' : 'text', 'text' : 'Press '+A+' and '+B+' to continue.', 'y' : 0.75 },
-    ], {'max' : 2.000});
+        { 'class' : 'text', 'text' : 'After some time the bar will turn blue. Please respond as soon as you see it is blue.', 'y' : 0.30 },
+        { 'class' : 'text', 'text' : 'Press '+A+' and '+B+' to start the practice.', 'y' : 0.75 },
+    ], false, { 'max': 2.000, 'early': 0.65, 'late': 0});
+
+    const sat = new ExampleVisualResponseSignal([
+        { 'class': 'text', 'text': 'You are now entering the main part of the experiment. The bar will only stay blue for a moment.', 'y': 0.25 },
+        { 'class': 'text', 'text': 'You must respond while the bar is blue. Some trials will feel very hard, this is neccesary for the experiment.', 'y': 0.30 },
+        { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to start the experiment.', 'y': 0.75 },
+    ], false, { 'max': 2.000 });
     
     const end_block = new EndBlock([
         { 'class' : 'text', 'text' : 'End of block. Please take a short break. ', 'y' : 0.25 },
@@ -105,15 +130,41 @@
         { 'class' : 'text', 'text' : 'Press '+A+' and '+B+' to end the experiment.', 'y' : 0.75 },
     ]);
 
+    // mutations ===========================================================================================================
+
+    const mutator = new Mutator(
+        () => {
+            const _b = tomJS.timeline[tomJS.time_pos - 1];
+            let _p = [];
+            for (let i = 0; i < _b.timeline.length; i++) {
+                if (!('data' in _b.timeline[i])) continue;
+                if (_b.timeline[i].data.rtt == null) continue;
+                _p.push(_b.timeline[i].data.rtt);
+            };
+            _p = roundTo(arrayAverage(_p), 3);
+            _p = minMax(_p, MIN_PROCESS, MAX_PROCESS);
+            const _t = _trialwise;
+            for (let i = 0; i < _t.condition.length; i++) _t.condition[i] = roundTo(_t.condition[i]+_p, 3);
+            const _a = _additional;
+            _a.pt = _p;
+            tomJS.appendToTimeline(sat);
+            tomJS.appendBlocks(TRIAL_TYPE, _blockwise, _t, _additional, BLOCK_REPS, TRIAL_REPS, null, end_block, true);
+            tomJS.replaceEndBlockWithEndExperiment(end_exp);
+            if (tomJS.debug.verbose) 
+                console.log('processing time: ',_p);
+                console.log('conditions: ',_t.condition);
+        }
+    );
+
     // timeline ============================================================================================================
     
     tomJS.appendToTimeline(welcome);
     tomJS.appendToTimeline(stimulus);
-    tomJS.appendToTimeline(sat);
-    
-    tomJS.appendBlocks(TRIAL_TYPE, _blockwise, _trialwise, _additional, BLOCK_REPS, TRIAL_REPS, start_block=null, end_block, add_countdown=true);
-    
-    tomJS.replaceEndBlockWithEndExperiment(end_exp);
+    tomJS.appendToTimeline(practice);
+
+    tomJS.appendBlock(TRIAL_TYPE, _p_trial, _p_add, TRIAL_REPS, null, null, true);
+
+    tomJS.appendToTimeline(mutator);
     
     // run =================================================================================================================
     

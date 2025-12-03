@@ -1,7 +1,7 @@
 
 class Experiment {	
 
-	version = '21.11.25 16:03';
+	version = '3.12.25 17:16';
 
 	constructor(args={}) {
 		
@@ -89,6 +89,9 @@ class Experiment {
 			'response','response_given','response_key',
 			'screen_size','stimulus_size'];
 		this.data = [];
+
+		// other
+		this.rounding = args.rounding ?? 5;
 		
 	}
 
@@ -326,13 +329,37 @@ class State {
 }
 
 
+// mutators ================================================================================================================
+
+
+class Mutator extends State {
+
+	/**
+	 * Inserted into timeline to perform runtime mutation, such as changing the upcoming block.
+	 * @param {CallableFunction} mutation - The mutation function to run upon entering this state.
+	 * @param {Object{}} args - An object of optional arguents to pass down the chain.
+	 */
+
+	constructor(mutation, args = {}) {
+		super(args);
+		this.mutation = mutation;
+	}
+
+	onEnter() {
+		this.mutation();
+		this.ready_to_exit = true;
+	}
+
+}
+
+
 // blocks ==================================================================================================================
 
 
 class Block extends State {
 
 	constructor(trial_type, trialwise={}, additional={}, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
-		super();
+		super(args);
 
 		// identification
 		this.tag = args.tag ?? '';
@@ -431,7 +458,6 @@ class Block extends State {
 
 class Trial extends State {
 
-
 	constructor(args={}) {
 		super(args);
 		this.id = 'Trial' + this.tag;
@@ -505,9 +531,7 @@ class Trial extends State {
 
 	}
 
-
 	// super ---------------------------------------------------------------------------------------------------------------
-
 
 	onEnter() {
 		super.onEnter();
@@ -518,28 +542,25 @@ class Trial extends State {
 		this.claculateStartAndEndTimes('fixation');		
 	}
 
-
 	onExit() {
 		super.onExit();
 		this.properties.end = tomJS.now;
+		this.data.response_given = roundTo(this.data.response_given, tomJS.rounding);
 		tomJS.data.push(this.data);
+		if (tomJS.debug.verbose) console.log('block', this.data.block, 'trial', this.data.trial, this.data);
 	}
-
 
 	onUpdate() {
 		super.onUpdate();
 		this.substate();
 	}
 
-
 	// fixation ------------------------------------------------------------------------------------------------------------
-
 
 	fixationEnter() {
 		this.properties.fixation_on = tomJS.now;
 		this.substate = this.fixationUpdate;
 	}
-
 
 	fixationExit() {
 		this.properties.fixation_off = tomJS.now;
@@ -547,29 +568,24 @@ class Trial extends State {
 		this.stimulusEnter();
 	}
 
-
 	fixationUpdate() {
 		if (this.substate_virgin) this.fixationEnter();
 		tomJS.writeToCanvas('+', {'fontSize':this.properties.fixation_size});
 		if (tomJS.now >= this.properties.fixation_end) this.fixationExit();
 	}
 
-
 	// stimulus ------------------------------------------------------------------------------------------------------------
-
 
 	stimulusEnter() {
 		this.properties.stimulus_on = tomJS.now;
 		this.substate = this.stimulusUpdate;		
 	}
 
-
 	stimulusExit() {
 		this.properties.stimulus_off = tomJS.now;
 		this.claculateStartAndEndTimes('feedback');
 		this.feedbackEnter();
 	}
-
 
 	stimulusExitResponse() {
 		this.recordResponse();
@@ -579,12 +595,10 @@ class Trial extends State {
 		this.stimulusExit();		
 	}
 
-
 	stimulusExitTime() {
 		this.determineOutcome();
 		this.stimulusExit();
 	}
-
 
 	stimulusUpdate() {
 		this.stimulus.drawStimulus(this.args);
@@ -594,9 +608,7 @@ class Trial extends State {
 			this.stimulusExitTime();
 	}
 
-
 	// feedback ------------------------------------------------------------------------------------------------------------
-
 
 	feedbackEnter() {
 		this.updateFeedbackText()
@@ -604,12 +616,10 @@ class Trial extends State {
 		this.substate = this.feedbackUpdate;	
 	}
 
-
 	feedbackExit() {
 		this.properties.feedback_off = tomJS.now;
 		this.ready_to_exit = true;
 	}
-
 
 	feedbackUpdate() {
 		const text = this.properties.feedback_text;
@@ -618,29 +628,24 @@ class Trial extends State {
 		if (tomJS.now >= this.properties.feedback_end) this.feedbackExit();
 	}
 
-
 	// functions -----------------------------------------------------------------------------------------------------------
-
 
 	calculateRT() {
 		const rg = this.data.response_given;
 		const on = this.properties.stimulus_on;
-		this.data.rt = Math.round((rg - on), 5) / 1000;
+		this.data.rt = roundTo((rg - on) / 1000, tomJS.rounding);
 	}
-        
         
 	calculateScore() {
 		if (this.data.response == this.data.target) this.data.score = 1 
 		else this.data.score = 0;
 	}
 
-
 	claculateStartAndEndTimes(part) {
         this.properties[part+'_start'] = tomJS.now;
         this.properties[part+'_end']   = this.properties[part+'_start'] +
 			this.properties[part+'_duration']*1000;
 	}
-
 
 	determineOutcome() {
 		const rsp = this.data.response;
@@ -655,11 +660,9 @@ class Trial extends State {
         else				  {this.data.outcome = 'Incorrect'};
 	}
 
-
 	queueFirstSubstate() {
 		this.fixationEnter();		
 	}
-
 
 	recordResponse() {
 		this.data.response = tomJS.dir;
@@ -667,19 +670,16 @@ class Trial extends State {
 		this.data.response_given = tomJS.now;
 	}
 
-
 	updateFeedbackText() {
 		const outcome = this.data.outcome;
 		this.properties.feedback_text   = this.feedback_texts[outcome];
 		this.properties.feedback_colour = this.feedback_colors[outcome];
 	}
 
-
 }
 
 
 class FeedbackDeadline extends Trial {
-
 
 	constructor(args={}) {
 		if (!('condition'in args)) tomJS.error('no condition (deadline) passed to feedback deadline trial');
@@ -687,7 +687,6 @@ class FeedbackDeadline extends Trial {
 		this.id = 'FeedbackDeadline' + this.tag;
         this.properties.stimulus_slow = this.data.condition;
 	}
-
 
 }
 
@@ -756,6 +755,9 @@ class VisualResponseSignal extends Trial {
 		super(args);
 
 		if (tomJS.headings.findIndex(x=>x=='rtt')==-1) tomJS.headings.push('rtt');
+		if (tomJS.headings.findIndex(x=>x=='pt')==-1)  tomJS.headings.push('pt');
+
+		this.data.pt = args.pt ?? 0.200;
 
 		this.properties.signal_color = args.signal_color ?? "DodgerBlue";
 		this.properties.response_signal = args.response_signal ?? 1.000;
@@ -786,7 +788,7 @@ class VisualResponseSignal extends Trial {
 		super.calculateRT();
 		const rg = this.data.response_given;
 		const rs = this.properties.signal_at;
-		this.data.rtt = Math.round((rg - rs), 5) / 1000;
+		this.data.rtt = roundTo((rg - rs) / 1000, tomJS.rounding);
 	}
 
 	fixationUpdate() {
@@ -953,6 +955,7 @@ class Consent extends Slide {
 		this.institute  = args.institute  ?? bremen.institute;
 		this.department = args.department ?? bremen.department;
 		this.group      = args.group      ?? bremen.group;
+		this.logo       = args.logo       ?? bremen.logo;
 		this.contact    = args.contact    ?? "Contacts";
 		this.contacts   = args.contacts   ?? ["Tom Narraway: "+bremen.email];
 	}
@@ -990,7 +993,7 @@ class Consent extends Slide {
 	}
 
 	createBremenLogo() {
-		const url = "https://www.uni-bremen.de/typo3conf/ext/package/Resources/Public/Images/logo_ub_2021.png";
+		const url = this.logo;
 		const img = document.createElement('IMG');
 		img.id = "Bremen Logo";
 		img.src = url;
@@ -1446,8 +1449,8 @@ class EndBlock extends Slide {
 		const d = tomJS.timeline[i].block_data;
 		const n = d.n;
 		// arrays to averages
-		this.rt = Math.round((d.rt.reduce((a,b)=>a+b,0)/n)*1000);
-		this.score = Math.round((d.score.reduce((a,b)=>a+b,0)/n)*100);
+		this.rt = Math.round(arrayAverage(d.rt)*1000);
+		this.score = Math.round(arrayAverage(d.score)*100);
 		// counts to percentages
 		this.correct   = Math.round((d.correct/n)*100);
 		this.incorrect = Math.round((d.incorrect/n)*100);
@@ -1586,8 +1589,8 @@ class ExampleVisualResponseSignal extends ExampleProgressBar {
 
 	constructor(content = [], can_return = false, args = {}) {
 		super(content, can_return, args);
-		this.early = args.early ?? 0.35;
-		this.late = args.slate ?? 0.20;
+		this.early = args.early ?? 0.50;
+		this.late = args.late ?? 0.25;
 		this.colour = args.colour ?? "DodgerBlue";
 	}
 
@@ -1947,6 +1950,13 @@ class Table extends Stimulus {
 // utils ===================================================================================================================
 
 
+function arrayAverage(array) {
+	const _n = array.length;
+	let _a = array;
+	return _a.reduce((a,b)=>a+b,0)/_n;
+}
+
+
 function arrayMax(array) {
 	return array.reduce((a,b)=>Math.max(a,b));
 }
@@ -2086,6 +2096,12 @@ function returnTotalDictLength(x) {
 }
 
 
+function roundTo(number, places) {
+	const _dp = Math.pow(10, places-1);
+	return Math.round(number * _dp) / _dp;
+}
+
+
 function sampleFromNormal(mean = 100, deviation) {
 	// Draw a random sample from a normal distribution.
 	let u = v = 0;
@@ -2200,6 +2216,7 @@ bremen = {
 	'department' : "Fachbereich 11",
 	'group'      : "Psychologische Forschungsmethoden und Kognitive Psychologie",
 	'email'      : "narraway@uni-bremen.de",
+	'logo'       : "https://www.uni-bremen.de/_assets/8ec6f74154680cbbd6366024eea31e0b/Images/logo_ub_2021.png"
 }
 
 
