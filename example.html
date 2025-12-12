@@ -8,18 +8,20 @@
 
     // define constants ====================================================================================================
 
-    const BLOCK_REPS  = 1; // 5; // 12;
+    const BLOCK_REPS  = 2; // number of times each block-wise design cell appears
     const CONDITION   = [0.000, 0.200, 0.400]; // target-signal SOA = processing time + condition, seconds
-    const DIFFICULTY  = [0.01, 0.3, 0.50]; // gabor contrast, %
+    const DIFFICULTY  = [0.01, 0.03, 0.50]; // gabor contrast, %
     const FAST        = 0.000; // onset of response window relative to signal onset, seconds
     const MAX_PROCESS = 0.600 // maximum allowed processing time, seconds
     const MIN_PROCESS = 0.200 // minimum allowed processing time, seconds
     const ORIENTATION = 2; // gabor orientation, degrees
-    const PRACTICE    = [0.200, 0.600];
-    const SLOW        = 0.350; // offset of response window relative to signal onset, seconds
+    const SLOW        = 0.000; // offset of response window relative to signal onset, seconds
+    const SIGNAL_AT   = 1.000; // duration from trial start at which to signal
+    const SIGNAL_FOR  = 0.300; // duration for signal to be given for
     const SIZE        = 1; // stimulus units
     const STIMULUS    = Gabor;
-    const TRIAL_REPS  = 1; // 3;
+    const TRAIN_REPS  = 1; // number of times each design cell appears during the training block
+    const TRIAL_REPS  = 1; // number of times each design cell appears during a test block
     const TRIAL_TYPE  = VisualResponseSignal;
 
     // set up experiment ===================================================================================================
@@ -27,10 +29,10 @@
     const args = { 
         'contacts' : ["Tom Narraway: narraway@uni-bremen.de", "Heinrich Liesefeld: heinrich.liesefeld@uni-bremen.de"],
         'verbose' : true,
-        'consent' : true,
-        'demographics' : true,
-        'credit_card' : true,
-        'fullscreen' : true,
+        'consent' : false,
+        'demographics': false,
+        'credit_card': false,
+        'fullscreen': false,
         'gridlines' : false,
         'rounding' : 5,
     };
@@ -74,18 +76,13 @@
         'stimulus_slow' : SLOW,
     };
 
-    const _p_trial = {
-        'condition': PRACTICE,
-        'difficulty': DIFFICULTY,
-        'target': ['A', 'B'],
-    };
-
     const _p_add = {
         'stimulus': STIMULUS,
         'gp_ori': ORIENTATION,
         'gp_size': SIZE,
         'stimulus_fast': FAST,
-        'stimulus_slow': 2.000,
+        'stimulus_slow': 3.000,
+        'signal_for' : 3.000,
     };
     
     // slides ==============================================================================================================
@@ -134,25 +131,28 @@
 
     const mutator = new Mutator(
         () => {
-            const _b = tomJS.timeline[tomJS.time_pos - 1];
-            let _p = [];
-            for (let i = 0; i < _b.timeline.length; i++) {
-                if (!('data' in _b.timeline[i])) continue;
-                if (_b.timeline[i].data.rtt == null) continue;
-                _p.push(_b.timeline[i].data.rtt);
+            // gather variables
+            let _pts = [];
+
+            // loop over training block and store pts
+            for (let t of tomJS.trial_list) {
+                if (t.data.block > 0) break;
+                if (t.data.rtt == null) continue;                
+                _pts.push(t.data.rtt);
             };
-            _p = roundTo(arrayAverage(_p), 3);
-            _p = minMax(_p, MIN_PROCESS, MAX_PROCESS);
-            const _t = _trialwise;
-            for (let i = 0; i < _t.condition.length; i++) _t.condition[i] = roundTo(_t.condition[i]+_p, 3);
-            const _a = _additional;
-            _a.pt = _p;
-            tomJS.appendToTimeline(sat);
-            tomJS.appendBlocks(TRIAL_TYPE, _blockwise, _t, _additional, BLOCK_REPS, TRIAL_REPS, null, end_block, true);
-            tomJS.replaceEndBlockWithEndExperiment(end_exp);
-            if (tomJS.debug.verbose) 
-                console.log('processing time: ',_p);
-                console.log('conditions: ',_t.condition);
+            
+            // calculate average processing time
+            _pt = roundTo(arrayAverage(_pts), 3);
+            _pt = minMax(_pt, MIN_PROCESS, MAX_PROCESS);      
+            
+            // mutate all future pts
+            for (let t of tomJS.trial_list) {                
+                if (t.data.block == 0) continue;
+                t.data.pt = _pt;
+            };
+
+            // print to the console so we can see the process is finished
+            if (tomJS.debug.verbose) console.log(_pt);
         }
     );
 
@@ -162,10 +162,15 @@
     tomJS.appendToTimeline(stimulus);
     tomJS.appendToTimeline(practice);
 
-    tomJS.appendBlock(TRIAL_TYPE, _p_trial, _p_add, TRIAL_REPS, null, null, true);
+    tomJS.appendBlock(TRIAL_TYPE, _trialwise, _p_add, TRAIN_REPS, null, null, true);
 
     tomJS.appendToTimeline(mutator);
+
+    tomJS.appendToTimeline(sat);
+    tomJS.appendBlocks(TRIAL_TYPE, _blockwise, _trialwise, _additional, BLOCK_REPS, TRIAL_REPS, null, end_block, true);
     
+    tomJS.replaceEndBlockWithEndExperiment(end_exp);
+
     // run =================================================================================================================
     
     if (tomJS.verbose) console.log(tomJS.timeline);

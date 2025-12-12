@@ -1,7 +1,7 @@
 
 class Experiment {	
 
-	version = '3.12.25 17:16';
+	version = '12.12.25 14:29';
 
 	constructor(args={}) {
 		
@@ -69,17 +69,19 @@ class Experiment {
 		this.demographics.n = Math.round(Math.random() * 2);
 
 		// timeline
-        this.now = window.performance.now();
-        this.running  = true;
-        this.timeline = [];
+        this.now        = window.performance.now();
+        this.running    = true;
+        this.timeline   = [];
+		this.trial_list = [];
 		if (inAndTrue(args, 'consent', true))      this.timeline.push(new Consent(args));
 		if (inAndTrue(args, 'credit_card', true))  this.timeline.push(new CreditCard(args));
 		if (inAndTrue(args, 'demographics', true)) this.timeline.push(new Demographics(args));
         this.time_pos = 0;
-        this.trial  = 0;
-        this.block  = 0;
-        this.trials = 0;
-		this.blocks = 0;
+        this.trial    = 0;
+        this.block    = 0;
+        this.trials   = 0;
+		this.blocks   = 0;
+		this.trials   = 0;
 
 		// data
 		this.headings = [
@@ -99,12 +101,6 @@ class Experiment {
 	
 	appendToTimeline (new_state) {
 		this.timeline.push(new_state);
-	}
-	
-	appendOneTrial (trial_class, args={}) {
-        let _new_trial = new trial_class(args);
-        this.appendToTimeline(_new_trial);
-        this.trials += 1;
 	}
 
 	appendBlock(trial_type, trialwise={}, additional={}, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
@@ -415,17 +411,19 @@ class Block extends State {
 
 	generateTimeline(trial_type, trialwise, additional, trial_reps, start_slide, end_slide, add_countdown) {
 		let _timeline = [];
-		let _t_cells = returnTotalDictLength(trialwise);
+		const _t_cells = returnTotalDictLength(trialwise);
 		let _trialwise = returnAllCombinationsFromDict(trialwise);
 		_trialwise = returnShuffledArray(_trialwise);
 		let _n_trials = _t_cells * trial_reps;
 		if (start_slide != null) _timeline.push(start_slide);
 		if (add_countdown) _timeline.push(new Countdown(3.0));
 		for (let t = 0; t < _n_trials; t++) {
-			let _args = Object.assign({ }, _trialwise[t%_t_cells], additional, {'block':this.block, 'trial':t});
-			let _new_trial = new trial_type(_args);
+			const _args = Object.assign({ }, _trialwise[t%_t_cells], additional, {'block':this.block, 'trial':t});
+			const _new_trial = new trial_type(_args);
 			_timeline.push(_new_trial);
 			this.block_data.n++;
+			tomJS.trial_list.push(_new_trial);
+			tomJS.trials += 1;
 		};
 		if (end_slide != null) _timeline.push(end_slide);
 		return _timeline;
@@ -547,7 +545,6 @@ class Trial extends State {
 		this.properties.end = tomJS.now;
 		this.data.response_given = roundTo(this.data.response_given, tomJS.rounding);
 		tomJS.data.push(this.data);
-		if (tomJS.debug.verbose) console.log('block', this.data.block, 'trial', this.data.trial, this.data);
 	}
 
 	onUpdate() {
@@ -759,35 +756,28 @@ class VisualResponseSignal extends Trial {
 
 		this.data.pt = args.pt ?? 0.200;
 
-		this.properties.signal_color = args.signal_color ?? "DodgerBlue";
-		this.properties.response_signal = args.response_signal ?? 1.000;
+		this.properties.signal_at      = args.signal_at ?? 1.000;
+		this.properties.signal_color   = args.signal_color ?? "DodgerBlue";
+		this.properties.signal_for     = args.signal_for ?? 0.300;
 		this.properties.trial_duration = args.trial_duration ?? 2.000;
 
-		this.properties.earl = this.properties.response_signal - this.properties.stimulus_fast;
-		this.properties.late = this.properties.response_signal + this.properties.stimulus_slow;
-		
-		this.properties.fixation_duration = this.properties.response_signal - this.data.condition;
-		this.properties.stimulus_duration = this.properties.trial_duration - this.properties.fixation_duration;
-
-		this.properties.p_earl = 1 - (this.properties.earl / this.properties.trial_duration);
-		this.properties.p_late = 1 - (this.properties.late / this.properties.trial_duration);
-
 		this.progress_bar = new ProgressBar(args);
+
+		this.properties.signal_on = null;
+		this.properties.signal_of = null;
+		this.properties.earl = null;
+		this.properties.late = null;
+		this.properties.p_earl = null;
+		this.properties.p_late = null;
+
 	}
 
 	// super ---------------------------------------------------------------------------------------------------------------
 
-	onEnter() {		
-		super.onEnter();
-		this.properties.signal_at = this.properties.start + (this.properties.response_signal * 1000);
-		this.properties.r_earl    = this.properties.signal_at - this.properties.stimulus_fast;
-		this.properties.r_late    = this.properties.signal_at + this.properties.stimulus_slow;
-	}
-
 	calculateRT() {
 		super.calculateRT();
 		const rg = this.data.response_given;
-		const rs = this.properties.signal_at;
+		const rs = this.properties.signal_on;
 		this.data.rtt = roundTo((rg - rs) / 1000, tomJS.rounding);
 	}
 
@@ -810,15 +800,43 @@ class VisualResponseSignal extends Trial {
 
 	// override ------------------------------------------------------------------------------------------------------------
 
+	onEnter() {		
+		// inherited properties that we still need
+		this.properties.start = tomJS.now;
+		this.properties.fixation_size = Math.round((this.properties.fixation_size ) * tomJS.visual.stimulus_size) + "px";
+		this.properties.feedback_size = Math.round((this.properties.feedback_size ) * tomJS.visual.stimulus_size) + "px";
+		
+		// signal onset and offset
+		this.properties.signal_on = this.properties.start + (this.properties.signal_at * 1000);
+		this.properties.signal_of = this.properties.signal_on + (this.properties.signal_for * 1000);
+
+		// response window
+		this.properties.earl = this.properties.signal_on - this.properties.stimulus_fast;
+		this.properties.late = this.properties.signal_of + this.properties.stimulus_slow;
+		
+		// fixation and stimulus duration
+		this.properties.fixation_duration = this.properties.signal_at - this.data.condition - this.data.pt;
+		this.properties.stimulus_duration = this.properties.trial_duration - this.properties.fixation_duration;
+
+		// calculate when to turn bar blue
+		this.properties.p_earl = 1 - (this.properties.signal_at / this.properties.trial_duration);
+		this.properties.p_late = 1 - ((this.properties.signal_at + this.properties.signal_for) / 
+			this.properties.trial_duration);
+
+		// cue up all substate events
+		this.queueFirstSubstate();
+		this.claculateStartAndEndTimes('fixation');	
+	}
+
 	determineOutcome() {
 		const rsp = this.data.response;
-		const rtt  = this.data.rtt;
+		const rsg = this.data.response_given;
+		const erl = this.properties.earl;
+		const lte = this.properties.late;
 		const tgt = this.data.target;
-		const slw = this.properties.stimulus_slow;
-		const fst = this.properties.stimulus_fast;
 		if		(rsp == null) {this.data.outcome = 'Censored'}
-		else if (rtt >= slw)  {this.data.outcome = 'Slow'}
-		else if (rtt <= fst)  {this.data.outcome = 'Fast'}
+		else if (rsg <= erl)  {this.data.outcome = 'Fast'}
+		else if (rsg >= lte)  {this.data.outcome = 'Slow'}
 		else if (rsp == tgt)  {this.data.outcome = 'Correct'}
         else				  {this.data.outcome = 'Incorrect'};
 	}
