@@ -9,15 +9,12 @@
     // define constants ====================================================================================================
 
     const BLOCK_REPS  = 2; // number of times each block-wise design cell appears
-    const CONDITION   = [0.000, 0.200, 0.400]; // target-signal SOA = processing time + condition, seconds
+    const CONDITION   = [0, 200, 400]; // target-signal SOA = processing time + condition, milliseconds
     const DIFFICULTY  = [0.01, 0.03, 0.50]; // gabor contrast, %
-    const FAST        = 0.000; // onset of response window relative to signal onset, seconds
-    const MAX_PROCESS = 0.600 // maximum allowed processing time, seconds
-    const MIN_PROCESS = 0.200 // minimum allowed processing time, seconds
+    const FAST        = 0; // onset of response window relative to signal onset, milliseconds
     const ORIENTATION = 2; // gabor orientation, degrees
-    const SLOW        = 0.000; // offset of response window relative to signal onset, seconds
-    const SIGNAL_AT   = 1.000; // duration from trial start at which to signal
-    const SIGNAL_FOR  = 0.300; // duration for signal to be given for
+    const SLOW        = 0; // offset of response window relative to signal onset, milliseconds
+    const SIGNAL_FOR  = 300; // duration for signal to be given for, milliseconds
     const SIZE        = 1; // stimulus units
     const STIMULUS    = Gabor;
     const TRAIN_REPS  = 1; // number of times each design cell appears during the training block
@@ -28,8 +25,8 @@
     
     const args = { 
         'contacts' : ["Tom Narraway: narraway@uni-bremen.de", "Heinrich Liesefeld: heinrich.liesefeld@uni-bremen.de"],
-        'verbose' : true,
-        'consent' : false,
+        'verbose': true,
+        'consent': false,
         'demographics': false,
         'credit_card': false,
         'fullscreen': false,
@@ -142,8 +139,7 @@
             };
             
             // calculate average processing time
-            _pt = roundTo(arrayAverage(_pts), 3);
-            _pt = minMax(_pt, MIN_PROCESS, MAX_PROCESS);      
+            _pt = roundTo(arrayAverage(_pts), 3);    
             
             // mutate all future pts
             for (let t of tomJS.trial_list) {                

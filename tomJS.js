@@ -478,29 +478,29 @@ class Trial extends State {
 			'response_key'   : null,
 		};
 
-		this.properties = {			
+		this.properties = {
 			'start'             : null,
-			'fixation_duration' : args.fixation_duration ?? 1.000,
+			'fixation_duration' : choose(args.fixation_duration, 1000),
 			'fixation_start'    : null,
 			'fixation_end'      : null,
 			'fixation_on'       : null,
 			'fixation_off'      : null,
-			'fixation_size'     : args.fixation_size ?? 0.10,
-			'stimulus_duration' : args.stimulus_duration ?? 3.000,
-			'stimulus_fast'     : args.stimulus_fast ?? 0.200,
-			'stimulus_slow'     : args.stimulus_slow ?? 3.000,
+			'fixation_size'     : choose(args.fixation_size, 0.10),
+			'stimulus_duration' : choose(args.stimulus_duration, 3000),
+			'stimulus_fast'     : choose(args.stimulus_fast, 200),
+			'stimulus_slow'     : choose(args.stimulus_slow, 3000),
 			'stimulus_start'    : null,
 			'stimulus_end'      : null,
 			'stimulus_on'       : null,
 			'stimulus_off'      : null,			
-			'feedback_duration' : args.feedback_duration ?? 1.000,
+			'feedback_duration' : choose(args.feedback_duration, 1000),
 			'feedback_start'    : null,
 			'feedback_end'	    : null,
 			'feedback_on'	    : null,
 			'feedback_off'	    : null,
 			'feedback_text'     : null,
 			'feedback_colour'   : null,
-			'feedback_size'     : args.feedback_size ?? 0.05,
+			'feedback_size'     : choose(args.feedback_size, 0.05),
 			'end'               : null,
 		};
 
@@ -536,8 +536,8 @@ class Trial extends State {
 		this.properties.start = tomJS.now;
 		this.properties.fixation_size = Math.round((this.properties.fixation_size ) * tomJS.visual.stimulus_size) + "px";
 		this.properties.feedback_size = Math.round((this.properties.feedback_size ) * tomJS.visual.stimulus_size) + "px";
-		this.queueFirstSubstate();
-		this.claculateStartAndEndTimes('fixation');		
+		this.queueSubstates();
+		this.setFirstSubstate();
 	}
 
 	onExit() {
@@ -561,12 +561,15 @@ class Trial extends State {
 
 	fixationExit() {
 		this.properties.fixation_off = tomJS.now;
-		this.claculateStartAndEndTimes('stimulus');
 		this.stimulusEnter();
 	}
 
+	fixationQueue() {
+		this.properties.fixation_start = this.properties.start + 1;
+		this.properties.fixation_end   = this.properties.fixation_start + this.properties.fixation_duration;
+	}
+
 	fixationUpdate() {
-		if (this.substate_virgin) this.fixationEnter();
 		tomJS.writeToCanvas('+', {'fontSize':this.properties.fixation_size});
 		if (tomJS.now >= this.properties.fixation_end) this.fixationExit();
 	}
@@ -580,7 +583,6 @@ class Trial extends State {
 
 	stimulusExit() {
 		this.properties.stimulus_off = tomJS.now;
-		this.claculateStartAndEndTimes('feedback');
 		this.feedbackEnter();
 	}
 
@@ -597,6 +599,11 @@ class Trial extends State {
 		this.stimulusExit();
 	}
 
+	stimulusQueue() {
+		this.properties.stimulus_start = this.properties.fixation_end + 1;
+		this.properties.stimulus_end   = this.properties.stimulus_start + this.properties.stimulus_duration;
+	}
+
 	stimulusUpdate() {
 		this.stimulus.drawStimulus(this.args);
 		if (tomJS.controls.keyboard.anyKeysPressed([tomJS.controls.key_a, tomJS.controls.key_b])) 
@@ -610,12 +617,18 @@ class Trial extends State {
 	feedbackEnter() {
 		this.updateFeedbackText()
 		this.properties.feedback_on = tomJS.now;
-		this.substate = this.feedbackUpdate;	
+		this.properties.feedback_end = tomJS.now + this.properties.feedback_duration;
+		this.substate = this.feedbackUpdate;
 	}
 
 	feedbackExit() {
 		this.properties.feedback_off = tomJS.now;
 		this.ready_to_exit = true;
+	}
+
+	feedbackQueue() {
+		this.properties.feedback_start = this.properties.stimulus_end + 1;
+		this.properties.feedback_end   = this.properties.feedback_start + this.properties.feedback_duration;
 	}
 
 	feedbackUpdate() {
@@ -657,14 +670,20 @@ class Trial extends State {
         else				  {this.data.outcome = 'Incorrect'};
 	}
 
-	queueFirstSubstate() {
-		this.fixationEnter();		
+	queueSubstates(){
+		this.fixationQueue();
+		this.stimulusQueue();
+		this.feedbackQueue();
 	}
 
 	recordResponse() {
 		this.data.response = tomJS.dir;
 		this.data.response_key   = tomJS.key; 
 		this.data.response_given = tomJS.now;
+	}
+
+	setFirstSubstate() {
+		this.fixationEnter();
 	}
 
 	updateFeedbackText() {
@@ -695,8 +714,8 @@ class VisibleFeedbackDeadline extends FeedbackDeadline {
 			tomJS.error('no condition passed to visible feedback deadline trial');
 		super(args);
 		this.id = 'VisibleFeedbackDeadline' + this.tag;
-		this.properties.deadline_min = args.deadline_min ?? this.properties.stimulus_fast;
-        this.properties.deadline_max = args.deadline_max ?? this.properties.stimulus_slow;
+		this.properties.deadline_min = choose(args.deadline_min, this.properties.stimulus_fast);
+        this.properties.deadline_max = choose(args.deadline_max, this.properties.stimulus_slow);
 		this.progress_bar = new ProgressBar(args);
 	}
 
@@ -733,8 +752,8 @@ class VisibleFeedbackDeadline extends FeedbackDeadline {
     updateProgressBar() {
 		const start = this.properties.stimulus_on;
 		const now = tomJS.now;
-		const condition = this.data.condition * 1000;
-		const duration = this.properties.deadline_max * 1000;
+		const condition = this.data.condition;
+		const duration = this.properties.deadline_max;
 		const progress = (now - start) + (duration - condition);
 		const percent = 1 - Math.min(progress / duration, 1);
         if (percent >= 0.01) this.progress_bar.set('pb_percent', percent);
@@ -754,14 +773,15 @@ class VisualResponseSignal extends Trial {
 		if (tomJS.headings.findIndex(x=>x=='rtt')==-1) tomJS.headings.push('rtt');
 		if (tomJS.headings.findIndex(x=>x=='pt')==-1)  tomJS.headings.push('pt');
 
-		this.data.pt = args.pt ?? 0.200;
+		this.data.pt = args.pt ?? 200;
 
-		this.properties.signal_at      = args.signal_at ?? 1.000;
-		this.properties.signal_color   = args.signal_color ?? "DodgerBlue";
-		this.properties.signal_for     = args.signal_for ?? 0.300;
-		this.properties.trial_duration = args.trial_duration ?? 2.000;
+		this.properties.signal_color = choose(args.signal_color, "DodgerBlue");
+		this.properties.signal_for   = choose(args.signal_for, 300);
 
 		this.progress_bar = new ProgressBar(args);
+
+		this.properties.signal_after   = this.data.condition + this.data.pt;
+		this.properties.trial_duration = this.properties.fixation_duration + this.properties.stimulus_duration;
 
 		this.properties.signal_on = null;
 		this.properties.signal_of = null;
@@ -773,6 +793,24 @@ class VisualResponseSignal extends Trial {
 	}
 
 	// super ---------------------------------------------------------------------------------------------------------------
+
+	onEnter() {
+		super.onEnter();
+
+		// signal onset and offset
+		this.properties.signal_on = this.properties.stimulus_start + this.properties.signal_after;
+		this.properties.signal_of = this.properties.signal_on + this.properties.signal_for;
+
+		// response window
+		this.properties.earl = this.properties.signal_on - this.properties.stimulus_fast;
+		this.properties.late = this.properties.signal_of + this.properties.stimulus_slow;
+
+		// calculate when to turn bar blue
+		this.properties.p_earl = 1 - (this.properties.signal_after / this.properties.trial_duration);
+		this.properties.p_late = 1 - ((this.properties.signal_after + this.properties.signal_for) / 
+			this.properties.trial_duration);
+
+	}
 
 	calculateRT() {
 		super.calculateRT();
@@ -800,34 +838,6 @@ class VisualResponseSignal extends Trial {
 
 	// override ------------------------------------------------------------------------------------------------------------
 
-	onEnter() {		
-		// inherited properties that we still need
-		this.properties.start = tomJS.now;
-		this.properties.fixation_size = Math.round((this.properties.fixation_size ) * tomJS.visual.stimulus_size) + "px";
-		this.properties.feedback_size = Math.round((this.properties.feedback_size ) * tomJS.visual.stimulus_size) + "px";
-		
-		// signal onset and offset
-		this.properties.signal_on = this.properties.start + (this.properties.signal_at * 1000);
-		this.properties.signal_of = this.properties.signal_on + (this.properties.signal_for * 1000);
-
-		// response window
-		this.properties.earl = this.properties.signal_on - this.properties.stimulus_fast;
-		this.properties.late = this.properties.signal_of + this.properties.stimulus_slow;
-		
-		// fixation and stimulus duration
-		this.properties.fixation_duration = this.properties.signal_at - this.data.condition - this.data.pt;
-		this.properties.stimulus_duration = this.properties.trial_duration - this.properties.fixation_duration;
-
-		// calculate when to turn bar blue
-		this.properties.p_earl = 1 - (this.properties.signal_at / this.properties.trial_duration);
-		this.properties.p_late = 1 - ((this.properties.signal_at + this.properties.signal_for) / 
-			this.properties.trial_duration);
-
-		// cue up all substate events
-		this.queueFirstSubstate();
-		this.claculateStartAndEndTimes('fixation');	
-	}
-
 	determineOutcome() {
 		const rsp = this.data.response;
 		const rsg = this.data.response_given;
@@ -850,7 +860,7 @@ class VisualResponseSignal extends Trial {
     updateProgressBar() {
 		const start = this.properties.fixation_start;
 		const now   = tomJS.now;
-		const duration = this.properties.trial_duration * 1000;
+		const duration = this.properties.trial_duration;
 		const progress = now - start;
 		const percent  = 1 - Math.min(progress / duration, 1);
         if (percent >= 0.01) this.progress_bar.set('pb_percent', percent);		
@@ -874,7 +884,7 @@ class Slide extends State {
 		this.content = content;
 		this.can_return = can_return;
 		this.start = null;
-		this.force_wait = (args.force_wait ?? 1) * 1000; // pass in seconds for consistency
+		this.force_wait = (args.force_wait ?? 1000); // pass in seconds for consistency
 		this.realizeContent();
 	}
 
@@ -1124,7 +1134,7 @@ class Countdown extends Slide {
 		super(content, can_return, args);
 		this.id = 'Countdown';
 		this.lifetime = lifetime * 1000;
-		this.fontSize = args.fontSize ?? 0.05;		
+		this.fontSize = choose(args.fontSize, 0.05);
 	}
 
 	// super ---------------------------------------------------------------------------------------------------------------
@@ -1275,7 +1285,7 @@ class CreditCard extends Slide {
 	onUpDownClick(s, x) {
 		// this is the button
 		const n = Math.round(s.slider.value) + x;
-		const m = minMax(n, s.min, s.max);
+		const m = clamp(n, s.min, s.max);
 		s.slider.value = m;
 		s.setCreditCardScale();
 	}
@@ -1476,8 +1486,8 @@ class EndBlock extends Slide {
 		this.slow      = Math.round((d.slow/n)*100);
 		this.censored  = Math.round((d.censored/n)*100);
 		// complex
-		this.hits = minMax(this.correct + this.incorrect, 0, 100);
-		this.miss = minMax(this.fast + this.slow + this.censored, 0, 100);
+		this.hits = clamp(this.correct + this.incorrect, 0, 100);
+		this.miss = clamp(this.fast + this.slow + this.censored, 0, 100);
 	}
 
 
@@ -1554,9 +1564,9 @@ class EndExperiment extends Slide {
 		this.censored  = Math.round((censored/n)*100);
 		// complex
 		const hits = this.correct + this.incorrect;
-		this.hits  = minMax(hits, 0, 100);
+		this.hits  = clamp(hits, 0, 100);
 		const miss = this.fast + this.slow + this.censored
-		this.miss  = minMax(miss, 0, 100);
+		this.miss  = clamp(miss, 0, 100);
 	}
 
 }
@@ -1703,7 +1713,7 @@ class Gabor extends Stimulus {
 		const theta = (ori * Math.PI * dir) / 180;
 		const cosT = Math.cos(theta), sinT = Math.sin(theta);
 		const k = 2 * Math.PI * sf / s;
-		const amp = lum * minMax(con, 0, 1);
+		const amp = lum * clamp(con, 0, 1);
 		let image_data = [];
 		for (let _y = 0; _y < s; _y++) {
 			const dy = _y - cy
@@ -1714,7 +1724,7 @@ class Gabor extends Stimulus {
 				const gauss = Math.exp(-(xPrime * xPrime + yPrime * yPrime) / (2 * sigma * sigma));
 				const carrier = Math.cos(k * xPrime + phs);
 				const L = lum + amp * carrier;
-				const v = minMax(L, 0, 255) | 0;
+				const v = clamp(L, 0, 255) | 0;
 				image_data.push(v);							// R
 				image_data.push(v);							// G
 				image_data.push(v);							// B
@@ -1970,8 +1980,7 @@ class Table extends Stimulus {
 
 function arrayAverage(array) {
 	const _n = array.length;
-	let _a = array;
-	return _a.reduce((a,b)=>a+b,0)/_n;
+	return array.reduce((a,b)=>a+b,0)/_n;
 }
 
 
@@ -1994,6 +2003,19 @@ function assignImageData(source, sink) {
 		sink[i+2] = source[i+2];	// B
 		sink[i+3] = source[i+3];	// A
 	};
+}
+
+
+/**
+ * Clamp a number between two others.
+ * Returns the number, but no less than min and no more than max.
+ * @param {number} number The number to clamp.
+ * @param {number} min The lowest allowed value.
+ * @param {number} max The highest allowed value.
+ * @returns {number}
+ */
+function clamp(number, min, max) {
+	return Math.max(Math.min(number, max), min);
 }
 
 
@@ -2073,19 +2095,42 @@ function fillArray(source, limit) {
 }
 
 
+/**
+ * Check if a key exists in an object, and if it is true. 
+ * Returns true if the key is in the object and is true, otherwise returns false.
+ * @param {any} object The object to look for the key in.
+ * @param {any} key The key to look for.
+ * @param {any} fallback If the key is not in the object, return this value instead of crashing.
+ * @returns {boolean}
+ */
 function inAndTrue(object, key, fallback=false) {
 	if (!(key in object)) return fallback;
 	if (key in object) return object[key] == true;
 }
 
 
-function minMax(number, min, max) {
-	return Math.max(Math.min(number, max), min);
+/**
+ * Choose one of the options from the passed list at random, or return the fallback value instead.
+ * Returns one argument from the provided list, or the fallback argument instead of crashing.
+ * @param {any} args List of arguments to choose from.
+ * @param {any} [fallback] Argument to choose if something goes wrong with the choice.
+ * @returns {any}
+ */
+function choose(args, fallback = null) {
+	if (args == undefined) return fallback;
+	if (args.typeof != Array) return fallback;
+	if (args.length == 0) return args[0];
+	return args[Math.floor(Math.random() * args.length)];
 }
 
 
+/**
+ * Create a list of key/value pairs by corssing each key with each value in the dict.
+ * Return a list containing every combination of key and value.
+ * @param {any} _dict
+ * @returns {[]}
+ */
 function returnAllCombinationsFromDict(_dict) {
-	// Return a list of dicts, each containing one argument from each key/value pair in dict.
 	let out = [{}];
 	for (const [key, values] of Object.entries(_dict)) {
 		out = out.flatMap(obj => values.map(v => ({ ...obj, [key]: v })));
@@ -2094,8 +2139,13 @@ function returnAllCombinationsFromDict(_dict) {
 }
 
 
-function returnShuffledArray(array) {
-	// Return a randomly reordered version of an array.
+/**
+ * Copy an array and shuffle the copy. Does not affect the original array.
+ * Return a randomly reordered version of an array.
+ * @param {[]} array
+ * @returns {[]}
+ */
+function returnShuffledArray(array) {	
 	let _shuffled = array;
 	for (let i = 0; i < _shuffled.length; i++) {
 		let rng = Math.floor(Math.random()*_shuffled.length);
@@ -2114,6 +2164,13 @@ function returnTotalDictLength(x) {
 }
 
 
+/**
+ * Round a number to a certain number of decimal places.
+ * Returns the number, rounded to the specified number of decimal places.
+ * @param {number} number The number to round.
+ * @param {number} places The number of decimal places to round to.
+ * @returns {number}
+ */
 function roundTo(number, places) {
 	const _dp = Math.pow(10, places-1);
 	return Math.round(number * _dp) / _dp;
@@ -2125,7 +2182,7 @@ function sampleFromNormal(mean = 100, deviation) {
 	let u = v = 0;
 	while (u === 0) u = Math.random();
 	while (v === 0) v = Math.random();
-	let normalNumber = Math.sqrt(-deviation * Math.log(u)) * Math.c(deviation * Math.PI * v);
+	let normalNumber = Math.sqrt(-deviation * Math.log(u)) * (deviation * Math.PI * v);
 	normalNumber = normalNumber / 10.0 + 0.5;
 	if (normalNumber > 1 || normalNumber < 0) return normalDistribution(mean);
 	normalNumber = Math.round(normalNumber * (mean * 2));
@@ -2137,7 +2194,7 @@ function sampleFromTruncatedExponential(mean, truncation, max) {
 	// Draw a random sample from a truncated exponential dsitribution.
 	let randomNumber = Math.random();
 	let rolledNumber = Math.ceil(Math.log(1 - randomNumber) / (-(1 / mean))) + truncation;
-	let cleanedNumber = minMax(parseInt(rolledNumber), max, truncation);
+	let cleanedNumber = clamp(parseInt(rolledNumber), max, truncation);
 	return cleanedNumber;
 }
 
@@ -2155,8 +2212,11 @@ function updateConsentForm(type, key, value) {
 }
 
 
+/**
+ * Write text to the body of the html page.
+ * @param {any} text
+ */
 function writeToBody(text) {
-	// Write text to the body of the html page.
 	let p = document.createElement("p");
 	p.appendChild(document.createTextNode(text));
 	document.body.appendChild(p);
