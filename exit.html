@@ -13,19 +13,19 @@
 		jatos.onLoad(endStudy);
 
 		function endStudy() {
-            const study_name = jatos.studyAssets;            
-            if (study_name == 'example') {
-                writeToBody('In the real study you would now be automatically redirected to Prolific.');
+            const study_name = jatos.studyAssets;
+            if (study_name in study_codes) {
+                const study_code = study_codes[study_name];
+                const link = "https://app.prolific.co/submissions/complete?cc=" + study_code;
+                jatos.endStudyAndRedirect(link);
+            }
+            else {
+                writeToBody('You can press this button to download your data as a text file, or just close the window :)');
                 const btn = document.createElement('button');
                 btn.id = "exit_button";
                 btn.textContent = "Click this to close window";
                 btn.onclick = jatos.endStudy;
                 document.body.appendChild(btn);
-            }
-            else {
-                const study_code = study_codes[study_name];
-                const link = "https://app.prolific.co/submissions/complete?cc=6" + study_code;
-                jatos.endStudyAndRedirect(link);
             };
 		};
 

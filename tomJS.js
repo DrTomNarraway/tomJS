@@ -1,7 +1,7 @@
 
 class Experiment {	
 
-	version = '12.12.25 14:29';
+	version = '17.12.25 12:12';
 
 	constructor(args={}) {
 		
@@ -234,7 +234,7 @@ class Experiment {
 
 	run = () => {
 		if (!this.running) return;
-		this.now = window.performance.now();
+		this.now = Math.round(window.performance.now());
 		this.resetCanvas();		
 		this.update();
 		requestAnimationFrame(this.run);
@@ -454,6 +454,11 @@ class Block extends State {
 // trials ==================================================================================================================
 
 
+/**
+ * Trial.
+ * Standard two-alternative forced choice reaction time task.
+ * @class Trial
+ */
 class Trial extends State {
 
 	constructor(args={}) {
@@ -651,12 +656,6 @@ class Trial extends State {
 		else this.data.score = 0;
 	}
 
-	claculateStartAndEndTimes(part) {
-        this.properties[part+'_start'] = tomJS.now;
-        this.properties[part+'_end']   = this.properties[part+'_start'] +
-			this.properties[part+'_duration']*1000;
-	}
-
 	determineOutcome() {
 		const rsp = this.data.response;
 		const rt  = this.data.rt;
@@ -763,6 +762,10 @@ class VisibleFeedbackDeadline extends FeedbackDeadline {
 }
 
 
+/**
+ * Visual Response Signal. 
+ * A bar at the top of the screen informs the participant when, and how long they have, to respond.
+ */
 class VisualResponseSignal extends Trial {
 
 	constructor(args={}) {
@@ -781,14 +784,13 @@ class VisualResponseSignal extends Trial {
 		this.progress_bar = new ProgressBar(args);
 
 		this.properties.signal_after   = this.data.condition + this.data.pt;
+		this.properties.stimulus_duration += this.properties.signal_after;
 		this.properties.trial_duration = this.properties.fixation_duration + this.properties.stimulus_duration;
 
 		this.properties.signal_on = null;
 		this.properties.signal_of = null;
 		this.properties.earl = null;
 		this.properties.late = null;
-		this.properties.p_earl = null;
-		this.properties.p_late = null;
 
 	}
 
@@ -804,19 +806,13 @@ class VisualResponseSignal extends Trial {
 		// response window
 		this.properties.earl = this.properties.signal_on - this.properties.stimulus_fast;
 		this.properties.late = this.properties.signal_of + this.properties.stimulus_slow;
-
-		// calculate when to turn bar blue
-		this.properties.p_earl = 1 - (this.properties.signal_after / this.properties.trial_duration);
-		this.properties.p_late = 1 - ((this.properties.signal_after + this.properties.signal_for) / 
-			this.properties.trial_duration);
-
 	}
 
 	calculateRT() {
 		super.calculateRT();
 		const rg = this.data.response_given;
 		const rs = this.properties.signal_on;
-		this.data.rtt = roundTo((rg - rs) / 1000, tomJS.rounding);
+		this.data.rtt = roundTo((rg - rs), tomJS.rounding);
 	}
 
 	fixationUpdate() {
@@ -864,9 +860,9 @@ class VisualResponseSignal extends Trial {
 		const progress = now - start;
 		const percent  = 1 - Math.min(progress / duration, 1);
         if (percent >= 0.01) this.progress_bar.set('pb_percent', percent);		
-		if (percent <= this.properties.p_earl) this.progress_bar.set('pb_color_F', this.properties.signal_color);
-		if (percent <= this.properties.p_late) this.progress_bar.set('pb_color_F', "white");
-		if (percent == 0) this.progress_bar.set('pb_color_F', "grey");
+		if (now >= this.properties.signal_on) this.progress_bar.set('pb_color_F', this.properties.signal_color);
+		if (now >= this.properties.signal_of) this.progress_bar.set('pb_color_F', "white");
+		if (now >= this.properties.stimulus_end) this.progress_bar.set('pb_color_F', "grey");
 	}
 
 }
@@ -1133,7 +1129,7 @@ class Countdown extends Slide {
 	constructor(lifetime, content = [], can_return = false, args = {}) {
 		super(content, can_return, args);
 		this.id = 'Countdown';
-		this.lifetime = lifetime * 1000;
+		this.lifetime = lifetime;
 		this.fontSize = choose(args.fontSize, 0.05);
 	}
 
@@ -1145,7 +1141,7 @@ class Countdown extends Slide {
 	}
 
 	onUpdate() {
-		let time = Math.ceil((this.start + this.lifetime - tomJS.now) / 1000);
+		let time = Math.ceil(this.start + this.lifetime - tomJS.now);
 		if (time <= 1) time = 1;
         tomJS.writeToCanvas(time, {'fontSize':this.fontSize});
         if (tomJS.now >= this.start + this.lifetime) this.ready_to_exit = true;
@@ -1625,8 +1621,8 @@ class ExampleVisualResponseSignal extends ExampleProgressBar {
 	updateProgressBar() {
 		const start = this.start;
 		const now = tomJS.now;
-		const condition = this.max * 1000;
-		const duration = this.max * 1000;
+		const condition = this.max;
+		const duration = this.max;
 		const progress = (now - start) + (duration - condition);
 		const percent = 1 - Math.min(progress / duration, 1);
         if (percent >= 0.01) this.progress_bar.set('pb_percent', percent);		
@@ -2116,11 +2112,13 @@ function inAndTrue(object, key, fallback=false) {
  * @param {any} [fallback] Argument to choose if something goes wrong with the choice.
  * @returns {any}
  */
-function choose(args, fallback = null) {
-	if (args == undefined) return fallback;
-	if (args.typeof != Array) return fallback;
-	if (args.length == 0) return args[0];
-	return args[Math.floor(Math.random() * args.length)];
+function choose(x, fallback = null) {
+	if (typeof x == 'number') return x;
+	if (typeof x == 'object') {
+		if (x.length == 1) return x[0];
+		else return x[Math.floor(Math.random() * x.length)];
+	}
+	return fallback;
 }
 
 
@@ -2327,7 +2325,7 @@ consent_form = {
 		" The exact procedure will be explained to you during the experiment." +		
 		" The experiment takes approximately 60 minutes and will force your browser into fullscreen mode.",
 	"Reimbursement":
-		"You will be reimbursed at the rate of 9.50 GBP per hour on the condition that you meet your obligations.",
+		"You will be reimbursed at the rate of 9.5 GBP per hour on the condition that you meet your obligations.",
 	"Obligations":
 		"The success of scientific studies depends significantly on your cooperation." +
 		" We therefore ask you to remain focused and to work according to the instructions throughout the entire study." +

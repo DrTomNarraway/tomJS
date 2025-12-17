@@ -8,17 +8,18 @@
 
     // define constants ====================================================================================================
 
-    const BLOCK_REPS  = 2; // number of times each block-wise design cell appears
-    const CONDITION   = [0, 200, 400]; // target-signal SOA = processing time + condition, milliseconds
-    const DIFFICULTY  = [0.01, 0.03, 0.50]; // gabor contrast, %
-    const FAST        = 0; // onset of response window relative to signal onset, milliseconds
-    const ORIENTATION = 2; // gabor orientation, degrees
-    const SLOW        = 0; // offset of response window relative to signal onset, milliseconds
-    const SIGNAL_FOR  = 300; // duration for signal to be given for, milliseconds
-    const SIZE        = 1; // stimulus units
+    const BLOCK_REPS  = 2; // number of times each block-wise design cell appears.
+    const CONDITION   = [0, 200, 400]; // target-signal SOA = processing time + condition, milliseconds.
+    const DIFFICULTY  = [0.01, 0.03, 0.50]; // gabor contrast, percentage.
+    const FAST        = 0; // onset of response window relative to signal onset, milliseconds.
+    const ORIENTATION = 2; // gabor orientation, degrees.
+    const SLOW        = 0; // offset of response window relative to signal onset, milliseconds.
+    const SIGNAL_FOR  = 300; // duration for signal to be given for, milliseconds.
+    const SIZE        = 1; // stimulus units.
     const STIMULUS    = Gabor;
-    const TRAIN_REPS  = 1; // number of times each design cell appears during the training block
-    const TRIAL_REPS  = 1; // number of times each design cell appears during a test block
+    const STIM_DUR    = 1000; // how long after signal onset before the trial censors, milliseconds.
+    const TRAIN_REPS  = 1; // number of times each design cell appears during the training block.
+    const TRIAL_REPS  = 1; // number of times each design cell appears during a test block.
     const TRIAL_TYPE  = VisualResponseSignal;
 
     // set up experiment ===================================================================================================
@@ -71,6 +72,7 @@
         'gp_size' : SIZE,
         'stimulus_fast' : FAST,
         'stimulus_slow' : SLOW,
+        'stimulus_duration': STIM_DUR,
     };
 
     const _p_add = {
@@ -78,8 +80,9 @@
         'gp_ori': ORIENTATION,
         'gp_size': SIZE,
         'stimulus_fast': FAST,
-        'stimulus_slow': 3.000,
-        'signal_for' : 3.000,
+        'stimulus_slow': 3000,
+        'signal_for' : 3000,
+        'stimulus_duration': STIM_DUR,
     };
     
     // slides ==============================================================================================================
@@ -101,16 +104,18 @@
     ]);
 
     const practice = new ExampleVisualResponseSignal([
-        { 'class' : 'text', 'text' : 'On each trial you you will see a bar at the top of the screen like the one below.', 'y' : 0.25 },
-        { 'class' : 'text', 'text' : 'After some time the bar will turn blue. Please respond as soon as you see it is blue.', 'y' : 0.30 },
+        { 'class' : 'text', 'text' : 'On each trial you you will see a bar at the top of the screen like the one below.', 'y' : 0.20 },
+        { 'class' : 'text', 'text' : 'After some time the bar will turn blue. Please respond as soon as you see it is blue.', 'y' : 0.25 },
+        { 'class' : 'text', 'text' : 'Some trials will feel hard, this is neccesary to help train you properly.', 'y': 0.30 },
         { 'class' : 'text', 'text' : 'Press '+A+' and '+B+' to start the practice.', 'y' : 0.75 },
-    ], false, { 'max': 2.000, 'early': 0.65, 'late': 0});
+    ], false, { 'max': 2000, 'early': 0.65, 'late': 0});
 
     const sat = new ExampleVisualResponseSignal([
-        { 'class': 'text', 'text': 'You are now entering the main part of the experiment. The bar will only stay blue for a moment.', 'y': 0.25 },
-        { 'class': 'text', 'text': 'You must respond while the bar is blue. Some trials will feel very hard, this is neccesary for the experiment.', 'y': 0.30 },
-        { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to start the experiment.', 'y': 0.75 },
-    ], false, { 'max': 2.000 });
+        { 'class' : 'text', 'text' : 'You are now entering the main part of the experiment. The bar will only stay blue for a moment.', 'y' : 0.20 },
+        { 'class' : 'text', 'text' : 'You must respond while the bar is blue. Some trials will feel very hard, this is neccesary for us to determine', 'y' : 0.25 },
+        { 'class' : 'text', 'text' : 'what experimental conditions result in the lowest performance. Please do not feel discouraged.', 'y' : 0.30 },
+        { 'class' : 'text', 'text' : 'Press ' + A + ' and ' + B + ' to start the experiment.', 'y' : 0.75 },
+    ], false, { 'max': 3000 });
     
     const end_block = new EndBlock([
         { 'class' : 'text', 'text' : 'End of block. Please take a short break. ', 'y' : 0.25 },
@@ -139,7 +144,8 @@
             };
             
             // calculate average processing time
-            _pt = roundTo(arrayAverage(_pts), 3);    
+            _pt = Math.round(arrayAverage(_pts));
+            _pt = Math.max(_pt, 0);
             
             // mutate all future pts
             for (let t of tomJS.trial_list) {                
