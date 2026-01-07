@@ -9,15 +9,14 @@
     // define constants ====================================================================================================
 
     const BLOCK_REPS  = 2; // number of times each block-wise design cell appears.
-    const CONDITION   = [0, 200, 400]; // target-signal SOA = processing time + condition, milliseconds.
-    const DIFFICULTY  = [0.01, 0.03, 0.50]; // gabor contrast, percentage.
+    const CONDITION   = [0, 400]; // target-signal SOA = processing time + condition, milliseconds.
+    const DIFFICULTY  = [0.01, 0.50]; // gabor contrast, percentage.
     const FAST        = 0; // onset of response window relative to signal onset, milliseconds.
     const ORIENTATION = 2; // gabor orientation, degrees.
     const SLOW        = 0; // offset of response window relative to signal onset, milliseconds.
-    const SIGNAL_FOR  = 300; // duration for signal to be given for, milliseconds.
-    const SIZE        = 1; // stimulus units.
+    const SIGNAL_FOR  = 350; // duration for signal to be given for, milliseconds.
     const STIMULUS    = Gabor;
-    const STIM_DUR    = 1000; // how long after signal onset before the trial censors, milliseconds.
+    const STIM_DUR    = 2000; // how long after signal onset before the trial censors, milliseconds.
     const TRAIN_REPS  = 1; // number of times each design cell appears during the training block.
     const TRIAL_REPS  = 1; // number of times each design cell appears during a test block.
     const TRIAL_TYPE  = VisualResponseSignal;
@@ -37,7 +36,7 @@
 
     const vrs_obligs = "The success of scientific studies depends significantly on your cooperation." +
         " We therefore ask you to remain focused and to work according to the instructions throughout the entire study." +
-        " In order to demonstrate your focus you must respond at the indicated time on at least 75% of trials;"+
+        " In order to demonstrate your focus you must respond at the indicated time on at least 60% of trials;"+
         " and you must respond correctly on at least 60% of trials." +
         " If you wish to withdraw consent to the use of your data you are obligated to message or email Tom Narraway at the moment of your decision."
     updateConsentForm('value', 'Obligations', vrs_obligs);
@@ -69,20 +68,19 @@
     const _additional = {
         'stimulus' : STIMULUS,
         'gp_ori' : ORIENTATION,
-        'gp_size' : SIZE,
+        'stimulus_duration': STIM_DUR,
         'stimulus_fast' : FAST,
         'stimulus_slow' : SLOW,
-        'stimulus_duration': STIM_DUR,
+        'signal_for' : SIGNAL_FOR,
     };
 
     const _p_add = {
         'stimulus': STIMULUS,
         'gp_ori': ORIENTATION,
-        'gp_size': SIZE,
+        'stimulus_duration': STIM_DUR,
         'stimulus_fast': FAST,
         'stimulus_slow': 3000,
         'signal_for' : 3000,
-        'stimulus_duration': STIM_DUR,
     };
     
     // slides ==============================================================================================================
@@ -91,8 +89,8 @@
         { 'class' : 'text', 'text' : 'Please press '+A+' and then '+B+' a few times to make sure your ', 'y' : 0.25 },
         { 'class' : 'text', 'text' : 'keyboard is being read by the experiment correctly.', 'y' : 0.30 },
         { 'class' : 'text', 'text' : '~key~' , 'upper' : true, 'fontSize':fontSize},
-        //{ 'class' : 'table', 'tbl_content':['','Correct','Incorrect','Before','+10','-1','After','-5','-10'] },
         { 'class' : 'text', 'text' : 'Press '+A+' and '+B+' to continue.', 'y' : 0.75 },
+        { 'class' : 'text', 'text' : 'poo', 'y': 0.60, 'conditions':{'key':'f'} },
     ]);
     
     const stimulus = new Slide([
@@ -107,8 +105,17 @@
         { 'class' : 'text', 'text' : 'On each trial you you will see a bar at the top of the screen like the one below.', 'y' : 0.20 },
         { 'class' : 'text', 'text' : 'After some time the bar will turn blue. Please respond as soon as you see it is blue.', 'y' : 0.25 },
         { 'class' : 'text', 'text' : 'Some trials will feel hard, this is neccesary to help train you properly.', 'y': 0.30 },
-        { 'class' : 'text', 'text' : 'Press '+A+' and '+B+' to start the practice.', 'y' : 0.75 },
+        { 'class' : 'text', 'text' : 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
     ], false, { 'max': 2000, 'early': 0.65, 'late': 0});
+
+    const difficulty = new Slide([
+        { 'class': 'text', 'text': 'One goal of this study is to determine what the limits of human performance are.', 'y': 0.30 },
+        { 'class': 'text', 'text': 'This means that some trials are designed to be very hard, while others very easy.', 'y': 0.35 },
+        { 'class': 'text', 'text': 'The eligibility criteria mentioned in the consent form are meant to prevent', 'y':0.40 },
+        { 'class': 'text', 'text': 'unscrupulous individuals from submitting low-quality data. If you simply perform', 'y': 0.45 },
+        { 'class': 'text', 'text': 'the task with a normal level of effort throughout you will meet these criteria.', 'y': 0.50 },
+        { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to start practicing.', 'y': 0.75 },
+    ], false, {'force_wait':3000}); 
 
     const sat = new ExampleVisualResponseSignal([
         { 'class' : 'text', 'text' : 'You are now entering the main part of the experiment. The bar will only stay blue for a moment.', 'y' : 0.20 },
@@ -118,10 +125,10 @@
     ], false, { 'max': 3000 });
     
     const end_block = new EndBlock([
-        { 'class' : 'text', 'text' : 'End of block. Please take a short break. ', 'y' : 0.25 },
+        { 'class' : 'text', 'text' : 'End of block. Please take a short break.', 'y' : 0.25 },
         { 'class' : 'text', 'text' : 'You responded while the bar was blue on ^hits^% of trials this block.' },
         { 'class' : 'text', 'text' : 'Press '+A+' and '+B+' to continue.', 'y' : 0.75 },
-    ]);         
+    ]);
     
     const end_exp = new EndExperiment([
         { 'class' : 'text', 'text' : 'End of Experiment. Thank you for your help.', 'y' : 0.25 },
@@ -163,6 +170,7 @@
     tomJS.appendToTimeline(welcome);
     tomJS.appendToTimeline(stimulus);
     tomJS.appendToTimeline(practice);
+    tomJS.appendToTimeline(difficulty);
 
     tomJS.appendBlock(TRIAL_TYPE, _trialwise, _p_add, TRAIN_REPS, null, null, true);
 
