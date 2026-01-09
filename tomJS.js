@@ -1,7 +1,7 @@
 
 class Experiment {	
 
-	version = '09.01.26 15:22';
+	version = '09.01.26 16:37';
 
 	constructor(args={}) {
 		
@@ -476,6 +476,7 @@ class Trial extends State {
 			'feedback_text'     : null,
 			'feedback_colour'   : null,
 			'feedback_size'     : choose(args.feedback_size, 0.05),
+			'iti_duration'      : choose(args.iti_duration, 0),
 			'end'               : null,
 		};
 
@@ -601,7 +602,8 @@ class Trial extends State {
 
 	feedbackExit() {
 		this.data.feedback_off = tomJS.now;
-		this.ready_to_exit = true;
+		if (this.data.iti_duration > 0) this.itiEnter();
+		else this.ready_to_exit = true;
 	}
 
 	feedbackQueue() {
@@ -614,6 +616,16 @@ class Trial extends State {
 		const colour = this.data.feedback_colour;
 		tomJS.writeToCanvas(text,{'colour':colour, 'fontSize':this.data.feedback_size});
 		if (tomJS.now >= this.data.feedback_end) this.feedbackExit();
+	}
+
+	// inter-trial interval-------------------------------------------------------------------------------------------------
+
+	itiEnter() {
+		this.substate = this.itiUpdate;
+	}
+
+	itiUpdate() {
+		if (tomJS.now >= this.data.feedback_off + this.data.iti_duration) this.ready_to_exit = true;
 	}
 
 	// functions -----------------------------------------------------------------------------------------------------------
@@ -751,14 +763,17 @@ class VisualResponseSignal extends Trial {
 		if (!('condition'in args)) tomJS.error('no condition passed to visual response signal trial');
 		super(args);		
 
-		this.data.pt = args.pt ?? 200;
-
-		this.data.signal_colour = choose(args.signal_colour, "DodgerBlue");
-		this.data.signal_for    = choose(args.signal_for, 100);
-
 		this.progress_bar = new ProgressBar(args);
 
-		this.data.stimulus_duration += this.data.pt;
+		this.data.signal_colour = choose(args.signal_colour, "DodgerBlue");
+		this.data.signal_for    = choose(args.signal_for, 300);
+
+		this.data.pta = args.pta ?? 0;
+
+		this.data.fixation_duration += this.data.pta;
+		this.data.stimulus_duration += this.data.pta;
+		this.data.feedback_duration += this.data.pta;
+
 		this.data.trial_duration = this.data.fixation_duration + this.data.stimulus_duration;
 
 		this.data.rtt = null;
@@ -768,15 +783,14 @@ class VisualResponseSignal extends Trial {
 		this.data.late = null;
 
 		this.feedback_texts  = args.feedback_texts  ?? { 
-			'Correct': 'On Time', 
-			'Incorrect': 'On Time', 
+			'Correct': 'On Time',
+			'Incorrect': 'On Time',
 			'Fast': 'Too Fast', 
-			'Slow': 'Too Slow', 
+			'Slow': 'Too Slow',
 			'Censored': 'Too Slow'
 		};
 
-		if (!(arraySearch(tomJS.headings, 'rtt'))) tomJS.headings = 
-			joinUniques(tomJS.headings, Object.keys(this.data));
+		if (!(arraySearch(tomJS.headings, 'rtt'))) tomJS.headings = joinUniques(tomJS.headings, Object.keys(this.data));
 
 	}
 
@@ -784,9 +798,6 @@ class VisualResponseSignal extends Trial {
 
 	onEnter() {
 		super.onEnter();
-
-		// add PT to response window
-		this.data.signal_for += this.data.pt;
 
 		// signal onset and offset
 		this.data.signal_on = this.data.stimulus_start + this.data.condition;
@@ -945,13 +956,7 @@ class Slide extends State {
 	parseText(_text) {
 		if (_text.includes('~')) {
 			let _split = _text.split('~');
-			let _eval = eval('tomJS.' + _split[1]);
-			_text = _split[0] + _eval + _split[2];
-		};
-		if (_text.includes('^')) {
-			let _split = _text.split('^');
-			let _eval = eval('this.' + _split[1]);
-			_text = _split[0] + _eval + _split[2];
+			_text = _split[0] + eval(_split[1]) + _split[2];
 		};
 		return _text;
 	}

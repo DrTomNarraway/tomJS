@@ -11,8 +11,10 @@
     const BLOCK_REPS  = 16; // number of times each block-wise design cell appears.
     const CONDITION   = [0, 200, 400]; // target-signal SOA = processing time + condition, milliseconds.
     const DIFFICULTY  = [0.01, 0.03, 0.50]; // gabor contrast, percentage.
+    const ITI_DUR     = 500; // time between end of one trial and start of next, milliseconds
+    const SIGNAL_FOR  = 300; // length of the response window, milliseconds.
     const STIM_DUR    = 2000; // how long stimulus remains before trial censores, milliseconds.
-    const TRAIN_REPS  = 5; // number of times each design cell appears during the training block.
+    const TRAIN_REPS  = 3; // number of times each design cell appears during the training block.
     const TRIAL_REPS  = 2; // number of times each design cell appears during a test block.
     const TRIAL_TYPE  = VisualResponseSignal;
 
@@ -20,11 +22,11 @@
     
     const args = { 
         'contacts' : ["Tom Narraway: narraway@uni-bremen.de", "Heinrich Liesefeld: heinrich.liesefeld@uni-bremen.de"],
-        'verbose': false,
-        'consent': true,
-        'demographics': true,
-        'credit_card': true,
-        'fullscreen': true,
+        'verbose': true,
+        'consent': false,
+        'demographics': false,
+        'credit_card': false,
+        'fullscreen': false,
         'gridlines' : false,
         'rounding' : 5,
     };
@@ -66,16 +68,18 @@
         'stimulus_duration': STIM_DUR,
         'stimulus_fast' : 0,
         'stimulus_slow' : 0,
+        'signal_for': SIGNAL_FOR,
+        'iti_duration': ITI_DUR,
     };
 
     const _p_add = {
         'stimulus': Gabor,
         'gp_ori': 2,
         'stimulus_duration': STIM_DUR,
-        'pt' : 0,
         'stimulus_fast': 0,
         'stimulus_slow': 3000,
         'signal_for' : 3000,
+        'iti_duration': ITI_DUR,
     };
     
     // slides ==============================================================================================================
@@ -83,7 +87,7 @@
     const welcome = new Slide([
         { 'class': 'text', 'text': 'Please press ' + A + ' and then ' + B + ' a few times to make sure your ', 'y': 0.25 },
         { 'class': 'text', 'text': 'keyboard is being read by the experiment correctly.', 'y': 0.30 },
-        { 'class': 'text', 'text': '~key~', 'upper': true, 'fontSize': fontSize },
+        { 'class': 'text', 'text': '~tomJS.key~', 'upper': true, 'fontSize': fontSize },
         { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
     ]);
     
@@ -120,19 +124,19 @@
     
     const end_block = new EndBlock([
         { 'class': 'text', 'text': 'End of block. Please take a short break.', 'y': 0.25 },
-        { 'class': 'text', 'text': 'Your accuracy was great this block.', 'y': 0.48, 'conditions': ['^accuracy^ >= 80'] },
-        { 'class': 'text', 'text': 'Your accuracy was good this block.', 'y': 0.48,  'conditions': ['^accuracy^ < 80', '^accuracy^ >= 60']},
-        { 'class': 'text', 'text': 'You must improve your accuracy.', 'y': 0.48,     'conditions': ['^accuracy^ < 60']},
-        { 'class': 'text', 'text': 'Your timing was great this block.', 'y': 0.52,   'conditions': ['^hits^ >= 80'] },
-        { 'class': 'text', 'text': 'Your timing was good this block.', 'y': 0.52,    'conditions': ['^hits^ < 80', '^hits^ >= 60'] },
-        { 'class': 'text', 'text': 'You must improve your timing.', 'y': 0.52,       'conditions': ['^hits^ < 60'] },
+        { 'class': 'text', 'text': 'Your accuracy was great this block.', 'y': 0.48, 'conditions': ['~this.accuracy~ >= 80'] },
+        { 'class': 'text', 'text': 'Your accuracy was good this block.', 'y': 0.48,  'conditions': ['~this.accuracy~ < 80', '~this.accuracy~ >= 60']},
+        { 'class': 'text', 'text': 'You must improve your accuracy.', 'y': 0.48,     'conditions': ['~this.accuracy~ < 60']},
+        { 'class': 'text', 'text': 'Your timing was great this block.', 'y': 0.52,   'conditions': ['~this.hits~ >= 80'] },
+        { 'class': 'text', 'text': 'Your timing was good this block.', 'y': 0.52,    'conditions': ['~this.hits~ < 80', '~this.hits~ >= 60'] },
+        { 'class': 'text', 'text': 'You must improve your timing.', 'y': 0.52,       'conditions': ['~this.hits~ < 60'] },
         { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
     ]);
     
     const end_exp = new EndExperiment([
         { 'class': 'text', 'text': 'End of Experiment. Thank you for your help.', 'y': 0.25 },
-        { 'class': 'text', 'text': 'Your responses were correct on ^accuracy^% of trials.', 'y':0.48 },
-        { 'class': 'text', 'text': 'Your responses were on time for ^hits^% of trials.', 'y': 0.52 },
+        { 'class': 'text', 'text': 'Your responses were correct on ~this.accuracy~% of trials.', 'y':0.48 },
+        { 'class': 'text', 'text': 'Your responses were on time for ~this.hits~% of trials.', 'y': 0.52 },
         { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to end the experiment.', 'y': 0.75 },
     ]);
 
