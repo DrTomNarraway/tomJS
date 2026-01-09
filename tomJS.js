@@ -1,7 +1,7 @@
 
 class Experiment {	
 
-	version = '07.01.26 15:59';
+	version = '09.01.26 15:22';
 
 	constructor(args={}) {
 		
@@ -253,7 +253,7 @@ class Experiment {
 	}
 
 	writeCSV() {
-		const data = this.data;
+		const data = collapse(this.data);
 		const demo = this.demographics;
 		const visu = this.visual;
 		let csv = this.headings.toString() + '\n';
@@ -754,14 +754,11 @@ class VisualResponseSignal extends Trial {
 		this.data.pt = args.pt ?? 200;
 
 		this.data.signal_colour = choose(args.signal_colour, "DodgerBlue");
-		this.data.signal_for    = choose(args.signal_for, 350);
+		this.data.signal_for    = choose(args.signal_for, 100);
 
 		this.progress_bar = new ProgressBar(args);
 
-		this.data.fixation_duration += this.data.pt;
 		this.data.stimulus_duration += this.data.pt;
-		this.data.feedback_duration += this.data.pt;
-
 		this.data.trial_duration = this.data.fixation_duration + this.data.stimulus_duration;
 
 		this.data.rtt = null;
@@ -769,6 +766,14 @@ class VisualResponseSignal extends Trial {
 		this.data.signal_off = null;
 		this.data.early = null;
 		this.data.late = null;
+
+		this.feedback_texts  = args.feedback_texts  ?? { 
+			'Correct': 'On Time', 
+			'Incorrect': 'On Time', 
+			'Fast': 'Too Fast', 
+			'Slow': 'Too Slow', 
+			'Censored': 'Too Slow'
+		};
 
 		if (!(arraySearch(tomJS.headings, 'rtt'))) tomJS.headings = 
 			joinUniques(tomJS.headings, Object.keys(this.data));
@@ -780,8 +785,11 @@ class VisualResponseSignal extends Trial {
 	onEnter() {
 		super.onEnter();
 
+		// add PT to response window
+		this.data.signal_for += this.data.pt;
+
 		// signal onset and offset
-		this.data.signal_on = this.data.stimulus_start + this.data.condition + this.data.pt;
+		this.data.signal_on = this.data.stimulus_start + this.data.condition;
 		this.data.signal_off = this.data.signal_on + this.data.signal_for;
 
 		// response window
@@ -883,11 +891,8 @@ class Slide extends State {
 
 	checkConditions(content) {
 		if (!('conditions' in content)) return true;
-		for (let c in content.conditions) {
-			console.log(c);
-			return false
-		};
-		return true
+		for (let c of content.conditions) return this.evaluate(c);
+		return true;
 	}
 
 	checkUserInput() {
@@ -922,6 +927,19 @@ class Slide extends State {
 					break;
 			};
 		};
+	}	
+
+	evaluate(operation) {
+		const t = this.parseText(operation).split(' ');
+		const o = t[1];
+		switch(o) {
+			case '==' : return t[0] == t[2];
+			case '!=' : return t[0] != t[2];
+			case '<'  : return t[0] <  t[2];
+			case '>'  : return t[0] >  t[2];
+			case '<=' : return t[0] <= t[2];
+			case '>=' : return t[0] >= t[2];
+		}
 	}
 
 	parseText(_text) {
@@ -1438,55 +1456,12 @@ class Demographics extends Slide {
  */
 class EndBlock extends Slide {
 
-
-	constructor(content = [], can_return = false, args = {}) {
-		super(content, can_return, args);
-	}
-
-
-	// super ---------------------------------------------------------------------------------------------------------------
-
-
-	onEnter () {
-        super.onEnter();
-        this.calculateBlockData();
-		if (tomJS.debug.save) tomJS.saveData();
-	}
-
-	// functions  ----------------------------------------------------------------------------------------------------------
-
-
-	calculateBlockData() {
-		let d = tomJS.data[tomJS.block];
-		const n = d.length;
-		// arrays to averages
-		this.rt = Math.round(arrayAverage(extractFromObjectInArray(d, 'rt')));
-		this.accuracy = Math.round(arrayAverage(extractFromObjectInArray(d, 'accuracy'))*100);
-		this.score = Math.round(arrayAverage(extractFromObjectInArray(d, 'score')));
-		// counts to percentages
-		let outcomes   = extractFromObjectInArray(d, 'outcome');
-		this.correct   = Math.round((countInArray(outcomes,'Correct')/n)*100);
-		this.incorrect = Math.round((countInArray(outcomes,'Incorrect')/n)*100);
-		this.fast      = Math.round((countInArray(outcomes,'Fast')/n)*100);
-		this.slow      = Math.round((countInArray(outcomes,'Slow')/n)*100);
-		this.censored  = Math.round((countInArray(outcomes,'Censored')/n)*100);
-		// // complex
-		this.hits = clamp(this.correct + this.incorrect, 0, 100);
-		this.miss = clamp(100 - this.hits, 0, 100);
-	}
-
-
-}
-
-
-class EndExperiment extends Slide {
-
-
 	constructor(content = [], can_return = false, args = {}) {
 		super(content, can_return, args);
 		// manifest
+        this.accuracy  = null;
+		this.rt        = null;
 		this.score     = null;
-        this.rt        = null;
 		// outcomes
         this.correct   = null;
         this.incorrect = null;
@@ -1498,60 +1473,62 @@ class EndExperiment extends Slide {
 		this.miss = null;
 	}
 
-
 	// super ---------------------------------------------------------------------------------------------------------------
-
 
 	onEnter () {
         super.onEnter();
-        this.calculateExperimentData();
+        this.calculateData();		
+		if (tomJS.debug.save) tomJS.saveData();
 	}
 
+	// functions  ----------------------------------------------------------------------------------------------------------
 
-    onExit () {
-        if (tomJS.debug.save) tomJS.saveData();
-        super.onExit();
+	gatherData() {
+		return tomJS.data[tomJS.block];
 	}
 
+	calculateAverages() {
+		const d = this.gatherData();
+		this.rt = Math.round(arrayAverage(extractFromObjectInArray(d, 'rt')));
+		this.accuracy = Math.round(arrayAverage(extractFromObjectInArray(d, 'accuracy'))*100);
+		this.score = Math.round(arrayAverage(extractFromObjectInArray(d, 'score')));
+	}
 
-	// functions -----------------------------------------------------------------------------------------------------------
+	calculateComplex() {
+		this.hits = clamp(this.correct + this.incorrect, 0, 100);
+		this.miss = clamp(100 - this.hits, 0, 100);
+	}
+
+	calculatePercentages() {
+		const d = this.gatherData();
+		const n = d.length;
+		let outcomes   = extractFromObjectInArray(d, 'outcome');
+		this.correct   = Math.round((countInArray(outcomes,'Correct')/n)*100);
+		this.incorrect = Math.round((countInArray(outcomes,'Incorrect')/n)*100);
+		this.fast      = Math.round((countInArray(outcomes,'Fast')/n)*100);
+		this.slow      = Math.round((countInArray(outcomes,'Slow')/n)*100);
+		this.censored  = Math.round((countInArray(outcomes,'Censored')/n)*100);
+	}
+
+	calculateData() {
+		this.calculateAverages();
+		this.calculatePercentages();
+		this.calculateComplex();
+	}
+
+}
 
 
-	calculateExperimentData() {
-		const data = tomJS.data;
-		const n = data.length;
-		let score     = [];
-		let rt        = [];
-		let correct   = 0;
-		let incorrect = 0;
-		let fast      = 0;
-		let slow      = 0;
-		let censored  = 0;
-		for (let i = 0; i < n; i++) {
-			score.push(data[i].score);
-			rt.push(data[i].rt);
-			switch(data[i].outcome){
-				case 'Correct'   : correct++	; break;
-				case 'Incorrect' : incorrect++  ; break;
-				case 'Fast'      : fast++		; break;
-				case 'Slow'      : slow++		; break;
-				case 'Censored'  : censored++	; break;
-			}
-		};
-		// manifest
-		this.rt    = Math.round((rt.reduce((a,b)=>a+b,0)/n)*1000);
-		this.score = Math.round((score.reduce((a,b)=>a+b,0)/n)*100);
-		// outcomes
-		this.correct   = Math.round((correct/n)*100);
-		this.incorrect = Math.round((incorrect/n)*100);
-		this.fast      = Math.round((fast/n)*100);
-		this.slow      = Math.round((slow/n)*100);
-		this.censored  = Math.round((censored/n)*100);
-		// complex
-		const hits = this.correct + this.incorrect;
-		this.hits  = clamp(hits, 0, 100);
-		const miss = this.fast + this.slow + this.censored
-		this.miss  = clamp(miss, 0, 100);
+class EndExperiment extends EndBlock {
+
+	constructor(content = [], can_return = false, args = {}) {
+		super(content, can_return, args);
+	}
+
+	// override -----------------------------------------------------------------------------------------------------------
+
+	gatherData() {
+		return collapse(tomJS.data);
 	}
 
 }
@@ -1569,7 +1546,7 @@ class ExampleProgressBar extends Slide {
 		this.start = null
 	}
 
-	// super --------------------------------------------------------------------------------------
+	// super ---------------------------------------------------------------------------------------------------------------
 
 	onEnter() {
         super.onEnter();
@@ -1582,7 +1559,7 @@ class ExampleProgressBar extends Slide {
 		this.progress_bar.drawStimulus();
 	}
 
-	// functions ----------------------------------------------------------------------------------
+	// functions -----------------------------------------------------------------------------------------------------------
 
 	updateProgressBar() {
 		const start = this.start;
@@ -2020,6 +1997,14 @@ function choose(x, fallback = null) {
  */
 function clamp(number, min, max) {
 	return Math.max(Math.min(number, max), min);
+}
+
+
+/** Collapse an array of arrays into a single array containing all child items. Does not interact with originals. */
+function collapse(array) {
+	let out = [];
+	for (let a of array) out = [...out, ...a];
+	return out;
 }
 
 /** Search an array for a target and return the number of times that target appears. */
