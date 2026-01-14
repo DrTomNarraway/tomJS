@@ -22,9 +22,9 @@
             else {
                 writeToBody('You can press this button to download your data as a text file, or just close the window :)');
                 const btn = document.createElement('button');
-                btn.id = "exit_button";
-                btn.textContent = "Click this to close window";
-                btn.onclick = jatos.endStudy;
+                btn.id = "dl_button";
+                btn.textContent = "Click this to download your data";
+                btn.onclick = () => {jatos.downloadResultFile(1, "data.csv")};
                 document.body.appendChild(btn);
             };
 		};

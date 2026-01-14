@@ -1,7 +1,7 @@
 
 class Experiment {	
 
-	version = '09.01.26 16:37';
+	version = '14.01.26 17:10';
 
 	constructor(args={}) {
 		
@@ -97,19 +97,19 @@ class Experiment {
 		this.timeline.push(new_state);
 	}
 
-	appendBlock(trial_type, trialwise={}, additional={}, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
-		const _block = new Block(trial_type, trialwise, additional, trial_reps, start_slide, end_slide, add_countdown);
+	appendBlock(trial_type, trialwise={}, additional={}, conditional={}, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
+		const _block = new Block(trial_type, trialwise, additional, conditional, trial_reps, start_slide, end_slide, add_countdown);
 		this.appendToTimeline(_block);
 	}
 
-	appendBlocks(trial_type, blockwise={}, trialwise={}, additional={}, block_reps=1, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
+	appendBlocks(trial_type, blockwise={}, trialwise={}, additional={}, conditional={}, block_reps=1, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
 		let _b_cells  = returnTotalDictLength(blockwise);
         for (let b = 0; b < block_reps; b++) {
             let _blockwise = returnAllCombinationsFromDict(blockwise);
             _blockwise = returnShuffledArray(_blockwise);
             for (let i = 0; i < _b_cells; i++) {
 				let _additional = Object.assign({ }, _blockwise[i%_b_cells], additional);
-                this.appendBlock(trial_type, trialwise, _additional, trial_reps, start_slide, end_slide, add_countdown);
+                this.appendBlock(trial_type, trialwise, _additional, conditional, trial_reps, start_slide, end_slide, add_countdown);
 			};
 		};
 	}
@@ -240,6 +240,7 @@ class Experiment {
 	}
 
 	start () {
+		this.running = true;
 		this.resetCanvas();
 		this.timeline[0].onEnter();
 		requestAnimationFrame(this.run);
@@ -263,11 +264,17 @@ class Experiment {
 			for (let h of tomJS.headings) y.push(x[h]);
 			csv += y.toString() + '\n';
 		};
-		if (tomJS.debug.verbose) console.log(csv);
 		return csv;
 	}
 
-	/** Write text to the canvas with a relative position (0.5 being center). */
+	/** Write text to the canvas with a relative position (0.5 being center). 
+	 * align: html alignment. How should text align itself to the canvas?
+	 * colour: html color. What colour to render the text in.
+	 * fontSize: int. What pt size should the text render with?
+	 * upper: bool (false). Should text be rendered in all uppercase?
+	 * x: portion (0.5): Where should the text render horizontally, from 0 (left) to 1 (right)?
+	 * y: portion (0.5): Where should the text render vertically, from 0 (top) to 1 (bottom)?
+	 */
 	writeToCanvas (text, args={}) {		
 		const _upper = args.upper ?? false;
 		const _text = _upper ? text.toUpperCase() : text;
@@ -348,7 +355,7 @@ class Mutator extends State {
 
 class Block extends State {
 
-	constructor(trial_type, trialwise={}, additional={}, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
+	constructor(trial_type, trialwise={}, additional={}, conditional={}, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
 		super(args);
 
 		// identification
@@ -361,8 +368,11 @@ class Block extends State {
 
 		// state
 		this.ready_to_exit = false;		
-		this.timeline      = this.generateTimeline(trial_type, trialwise, additional, trial_reps, start_slide, end_slide, add_countdown);
-        this.time_pos      = 0;		
+		this.timeline      = this.generateTimeline(trial_type, trialwise, additional, conditional, trial_reps, start_slide, end_slide, add_countdown);
+        this.time_pos      = 0;	
+		
+		// placeholder
+		this.args = {};
 	}
 
 	// super ---------------------------------------------------------------------------------------------------------------
@@ -386,7 +396,37 @@ class Block extends State {
 
 	// functions -----------------------------------------------------------------------------------------------------------	
 
-	generateTimeline(trial_type, trialwise, additional, trial_reps, start_slide, end_slide, add_countdown) {
+	checkConditions(conds) {
+		if (Object.keys(conds).length == 0) return;
+		for (let _c = 0; _c < Object.keys(conds).length; _c++) {
+			const _key = Object.keys(conds)[_c];
+			const _cond = conds[_key];
+			for (let _o = 0; _o < Object.keys(_cond).length; _o++) {
+				const _operation = this.parseText(Object.keys(_cond)[_o]);
+				const _outcome   = this.parseText(Object.values(_cond)[_o]);
+				const _evaluation  = this.evaluate(_operation);
+				if (_evaluation) { 
+					this.args[_key] = _outcome;
+					break;
+				};
+			};
+		};
+	}
+
+	evaluate(operation) {
+		const t = operation.split(' ');
+		const o = t[1];
+		switch(o) {
+			case '==' : return t[0] == t[2];
+			case '!=' : return t[0] != t[2];
+			case '<'  : return t[0] <  t[2];
+			case '>'  : return t[0] >  t[2];
+			case '<=' : return t[0] <= t[2];
+			case '>=' : return t[0] >= t[2];
+		}
+	}
+
+	generateTimeline(trial_type, trialwise, additional, conditional, trial_reps, start_slide, end_slide, add_countdown) {
 		let _timeline = [];
 		const _t_cells = returnTotalDictLength(trialwise);
 		let _trialwise = returnAllCombinationsFromDict(trialwise);
@@ -395,14 +435,17 @@ class Block extends State {
 		if (start_slide != null) _timeline.push(start_slide);
 		if (add_countdown) _timeline.push(new Countdown(3.0));
 		for (let t = 0; t < _n_trials; t++) {
-			const _args = Object.assign({ }, _trialwise[t%_t_cells], additional, {'block':this.block, 'trial':t});
-			const _new_trial = new trial_type(_args);
+			// let _args = Object.assign({ }, {'block':this.block, 'trial':t}, _trialwise[t%_t_cells], additional);
+			this.args = Object.assign({ }, {'block':this.block, 'trial':t}, _trialwise[t%_t_cells], additional);
+			this.checkConditions(conditional);
+			const _new_trial = new trial_type(this.args);
 			_timeline.push(_new_trial);
 			this.n++;
 			tomJS.trial_list.push(_new_trial);
 			tomJS.trials += 1;
 		};
 		if (end_slide != null) _timeline.push(end_slide);
+		this.args = null;
 		return _timeline;
 	}
 
@@ -417,6 +460,14 @@ class Block extends State {
             this.time_pos = _new_position;
             this.timeline[this.time_pos].onEnter();
 		};
+	}
+
+	parseText(_text) {
+		if (_text.includes('~')) {
+			let _split = _text.split('~');
+			_text = _split[0] + eval(_split[1]) + _split[2];
+		};
+		return _text;
 	}
 
 }
@@ -761,12 +812,15 @@ class VisualResponseSignal extends Trial {
 	constructor(args={}) {
 
 		if (!('condition'in args)) tomJS.error('no condition passed to visual response signal trial');
-		super(args);		
+		super(args);	
+		
+		this.data.stimulus_fast = args.stimulus_fast ?? 0;
+		this.data.stimulus_slow = args.stimulus_slow ?? 0;
 
 		this.progress_bar = new ProgressBar(args);
 
 		this.data.signal_colour = choose(args.signal_colour, "DodgerBlue");
-		this.data.signal_for    = choose(args.signal_for, 300);
+		this.data.signal_for    = choose(args.signal_for, 400);
 
 		this.data.pta = args.pta ?? 0;
 
@@ -902,7 +956,7 @@ class Slide extends State {
 
 	checkConditions(content) {
 		if (!('conditions' in content)) return true;
-		for (let c of content.conditions) return this.evaluate(c);
+		for (let c of content.conditions) if (!eval(this.parseText(c))) return false;
 		return true;
 	}
 
@@ -938,19 +992,6 @@ class Slide extends State {
 					break;
 			};
 		};
-	}	
-
-	evaluate(operation) {
-		const t = this.parseText(operation).split(' ');
-		const o = t[1];
-		switch(o) {
-			case '==' : return t[0] == t[2];
-			case '!=' : return t[0] != t[2];
-			case '<'  : return t[0] <  t[2];
-			case '>'  : return t[0] >  t[2];
-			case '<=' : return t[0] <= t[2];
-			case '>=' : return t[0] >= t[2];
-		}
 	}
 
 	parseText(_text) {
@@ -1937,6 +1978,30 @@ class Table extends Stimulus {
 		const y = (this.properties.tbl_y * (1 - this.properties.tbl_cell_h)) + (this.properties.tbl_cell_h * row * 0.5);
 		const args = {'x':x, 'y':y};
 		tomJS.writeToCanvas(content, args);
+	}
+
+}
+
+
+class Letter extends Stimulus {
+
+	constructor(args={}) {
+		super(args);
+		this.data.target = args.target;
+		this.data.difficulty = '';
+		this.data.letter = args.letter;
+		this.properties.x      = args.ltr_x      ?? 0.5;
+		this.properties.y      = args.ltr_y      ?? 0.5;
+		this.properties.colour = args.ltr_colour ?? "white";
+		this.properties.upper  = args.ltr_upper  ?? false;
+		this.properties.fontSize = Math.round((args.ltr_size ?? 0.25) * tomJS.visual.stimulus_size) + "px";
+	}
+
+	// super
+
+	drawStimulus() {
+		super.drawStimulus();
+		tomJS.writeToCanvas(this.data.letter, this.properties);
 	}
 
 }

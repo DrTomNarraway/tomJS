@@ -8,35 +8,23 @@
 
     // define constants ====================================================================================================
 
-    const BLOCK_REPS  = 16; // number of times each block-wise design cell appears.
-    const CONDITION   = [0, 200, 400]; // target-signal SOA = processing time + condition, milliseconds.
-    const DIFFICULTY  = [0.01, 0.03, 0.50]; // gabor contrast, percentage.
-    const ITI_DUR     = 500; // time between end of one trial and start of next, milliseconds
-    const SIGNAL_FOR  = 300; // length of the response window, milliseconds.
-    const STIM_DUR    = 2000; // how long stimulus remains before trial censores, milliseconds.
-    const TRAIN_REPS  = 3; // number of times each design cell appears during the training block.
-    const TRIAL_REPS  = 2; // number of times each design cell appears during a test block.
+    const BLOCK_REPS  = 1;
+    const CONDITION   = [0.200, 0.500, 0.800];
+    const DIFFICULTY  = [0.01, 0.03, 0.50];
+    const FAST        = 0.000;
+    const ORIENTATION = 2;
+    const SLOW        = 0.350;
+    const SIZE        = 1;
+    const STIMULUS    = Gabor;
+    const TRIAL_REPS  = 1;
     const TRIAL_TYPE  = VisualResponseSignal;
 
     // set up experiment ===================================================================================================
     
     const args = { 
         'contacts' : ["Tom Narraway: narraway@uni-bremen.de", "Heinrich Liesefeld: heinrich.liesefeld@uni-bremen.de"],
-        'verbose': true,
-        'consent': false,
-        'demographics': false,
-        'credit_card': false,
-        'fullscreen': false,
-        'gridlines' : false,
-        'rounding' : 5,
+        'verbose' : true,
     };
-
-    const vrs_obligs = "The success of scientific studies depends significantly on your cooperation." +
-        " We therefore ask you to remain focused and to work according to the instructions throughout the entire study." +
-        " In order to demonstrate your focus you must respond at the indicated time on at least 60% of trials;"+
-        " and you must respond correctly on at least 60% of trials." +
-        " If you wish to withdraw consent to the use of your data you are obligated to message or email Tom Narraway at the moment of your decision."
-    updateConsentForm('value', 'Obligations', vrs_obligs);
     
     const tomJS = new Experiment(args);
 
@@ -50,8 +38,6 @@
     const max_diff = arrayMax(DIFFICULTY);
     const min_diff = arrayMin(DIFFICULTY);
 
-    const fontSize = Math.round(0.05 * tomJS.visual.stimulus_size) + "px";
-
     // trial arguments =====================================================================================================
 
     const _blockwise = {};
@@ -63,128 +49,58 @@
     };
     
     const _additional = {
-        'stimulus': Gabor,
-        'gp_ori' : 2,
-        'stimulus_duration': STIM_DUR,
-        'stimulus_fast' : 0,
-        'stimulus_slow' : 0,
-        'signal_for': SIGNAL_FOR,
-        'iti_duration': ITI_DUR,
-    };
-
-    const _p_add = {
-        'stimulus': Gabor,
-        'gp_ori': 2,
-        'stimulus_duration': STIM_DUR,
-        'stimulus_fast': 0,
-        'stimulus_slow': 3000,
-        'signal_for' : 3000,
-        'iti_duration': ITI_DUR,
+        'stimulus' : STIMULUS,
+        'gp_ori' : ORIENTATION,
+        'gp_size' : SIZE,
+        'stimulus_fast' : FAST,
+        'stimulus_slow' : SLOW,
     };
     
     // slides ==============================================================================================================
     
     const welcome = new Slide([
-        { 'class': 'text', 'text': 'Please press ' + A + ' and then ' + B + ' a few times to make sure your ', 'y': 0.25 },
-        { 'class': 'text', 'text': 'keyboard is being read by the experiment correctly.', 'y': 0.30 },
-        { 'class': 'text', 'text': '~tomJS.key~', 'upper': true, 'fontSize': fontSize },
-        { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
+        { 'class' : 'text', 'text' : 'Please press ' + A + ' and then ' + B + ' a few times to make sure your ', 'y' : 0.25 },
+        { 'class' : 'text', 'text' : 'keyboard is being read by the experiment correctly.', 'y' : 0.30 },
+        { 'class' : 'text', 'text' : '~key~' , 'upper' : true},
+        { 'class' : 'text', 'text' : 'Press ' + A + ' and ' + B + ' to continue.', 'y' : 0.75 },
     ]);
     
     const stimulus = new Slide([
-        { 'class': 'text', 'text': 'On each trial you will see a stimulus like the one below. Press ' + A + ' if ', 'y': 0.15 },
-        { 'class': 'text', 'text': 'you think the stimulus is rotated to the left, or press ' + B, 'y': 0.20 },
-        { 'class': 'text', 'text': 'if you think it is rotated to the right. Press ' + A + ' and ' + B + ' now to see examples.', 'y': 0.25 },
-        { 'class': 'gabor', 'gp_size': 0.5, 'difficulty': max_diff, 'gp_ori': 2 },
-        { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
+        { 'class' : 'text', 'text' : 'On each trial you will see a stimulus like the one below. Press ' + A + ' if ', 'y' : 0.15 },
+        { 'class' : 'text', 'text' : 'you think the stimulus is rotated to the left, or press ' + B, 'y' : 0.20 },
+        { 'class' : 'text', 'text' : 'if you think it is rotated to the right. Press ' + A + ' and ' + B + ' now to see examples.', 'y' : 0.25 },
+        { 'class' : 'gabor', 'gp_size' : 0.5, 'difficulty' : max_diff, 'gp_ori' : ORIENTATION},
+        { 'class' : 'text', 'text' : 'Press ' + A + ' and ' + B + ' to continue.', 'y' : 0.75 },
     ]);
-
-    const practice = new ExampleVisualResponseSignal([
-        { 'class': 'text', 'text': 'On each trial you you will see a bar at the top of the screen like the one below.', 'y': 0.20 },
-        { 'class': 'text', 'text': 'After some time the bar will turn blue. Please respond as soon as you see it is blue.', 'y': 0.25 },
-        { 'class': 'text', 'text': 'Some trials will feel hard, this is neccesary to help train you properly.', 'y': 0.30 },
-        { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
-    ], false, { 'max': 2000, 'early': 0.65, 'late': 0});
-
-    const difficulty = new Slide([
-        { 'class': 'text', 'text': 'One goal of this study is to determine what the limits of human performance are.', 'y': 0.30 },
-        { 'class': 'text', 'text': 'This means that some trials are designed to be very hard, while others very easy.', 'y': 0.35 },
-        { 'class': 'text', 'text': 'The eligibility criteria mentioned in the consent form are meant to prevent', 'y':0.40 },
-        { 'class': 'text', 'text': 'unscrupulous individuals from submitting low-quality data. If you simply perform', 'y': 0.45 },
-        { 'class': 'text', 'text': 'the task with a normal level of effort throughout you will meet these criteria.', 'y': 0.50 },
-        { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to start practicing.', 'y': 0.75 },
-    ], false, {'force_wait':3000}); 
 
     const sat = new ExampleVisualResponseSignal([
-        { 'class': 'text', 'text': 'You are now entering the main part of the experiment. The bar will only stay blue for a moment.', 'y': 0.20 },
-        { 'class': 'text', 'text': 'You must respond while the bar is blue. Some trials will feel very hard, this is neccesary for us to determine', 'y': 0.25 },
-        { 'class': 'text', 'text': 'what experimental conditions result in the lowest performance. Please do not feel discouraged.', 'y': 0.30 },
-        { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to start the experiment.', 'y': 0.75 },
-    ], false, { 'max': 3000 });
+        { 'class' : 'text', 'text' : 'On each trial you you will see a bar at the top of the screen like the one below.', 'y' : 0.25 },
+        { 'class' : 'text', 'text' : 'You must respond while the bar is blue.', 'y' : 0.30 },
+        { 'class' : 'text', 'text' : 'Press ' + A + ' and ' + B + ' to continue.', 'y' : 0.75 },
+    ], {'max' : 2.000});
     
     const end_block = new EndBlock([
-        { 'class': 'text', 'text': 'End of block. Please take a short break.', 'y': 0.25 },
-        { 'class': 'text', 'text': 'Your accuracy was great this block.', 'y': 0.48, 'conditions': ['~this.accuracy~ >= 80'] },
-        { 'class': 'text', 'text': 'Your accuracy was good this block.', 'y': 0.48,  'conditions': ['~this.accuracy~ < 80', '~this.accuracy~ >= 60']},
-        { 'class': 'text', 'text': 'You must improve your accuracy.', 'y': 0.48,     'conditions': ['~this.accuracy~ < 60']},
-        { 'class': 'text', 'text': 'Your timing was great this block.', 'y': 0.52,   'conditions': ['~this.hits~ >= 80'] },
-        { 'class': 'text', 'text': 'Your timing was good this block.', 'y': 0.52,    'conditions': ['~this.hits~ < 80', '~this.hits~ >= 60'] },
-        { 'class': 'text', 'text': 'You must improve your timing.', 'y': 0.52,       'conditions': ['~this.hits~ < 60'] },
-        { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
-    ]);
+        { 'class' : 'text', 'text' : 'End of block. Please take a short break. ', 'y' : 0.25 },
+        { 'class' : 'text', 'text' : 'You responded while the bar was blue on ^hits^% of trials this block.' },
+        { 'class' : 'text', 'text' : 'Press ' + A + ' and ' + B + ' to continue.', 'y' : 0.75 },
+    ]);         
     
     const end_exp = new EndExperiment([
-        { 'class': 'text', 'text': 'End of Experiment. Thank you for your help.', 'y': 0.25 },
-        { 'class': 'text', 'text': 'Your responses were correct on ~this.accuracy~% of trials.', 'y':0.48 },
-        { 'class': 'text', 'text': 'Your responses were on time for ~this.hits~% of trials.', 'y': 0.52 },
-        { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to end the experiment.', 'y': 0.75 },
+        { 'class' : 'text', 'text' : 'End of Experiment. Thank you for your help.', 'y' : 0.25 },
+        { 'class' : 'text', 'text' : 'You responded while the bar was blue on ^hits^% of trials this experiment.' },
+        { 'class' : 'text', 'text' : 'Press ' + A + ' and ' + B + ' to end the experiment.', 'y' : 0.75 },
     ]);
-
-    // mutations ===========================================================================================================
-
-    const mutator = new Mutator(
-        () => {
-            // gather variables
-            let _pts = [];
-
-            // loop over training block and store pts
-            for (let t of tomJS.trial_list) {
-                if (t.data.block > 0) break;
-                if (t.data.rtt == null) continue;                
-                _pts.push(t.data.rtt);
-            };
-            
-            // calculate average processing time
-            _pt = Math.round(arrayAverage(_pts));
-            _pt = Math.max(_pt, 0);
-            
-            // mutate all future pts
-            for (let t of tomJS.trial_list) {                
-                if (t.data.block == 0) continue;
-                t.data.pt = _pt;
-            };
-
-            // print to the console so we can see the process is finished
-            if (tomJS.debug.verbose) console.log('pt ', _pt);
-        }
-    );
 
     // timeline ============================================================================================================
     
     tomJS.appendToTimeline(welcome);
     tomJS.appendToTimeline(stimulus);
-    tomJS.appendToTimeline(practice);
-    tomJS.appendToTimeline(difficulty);
-
-    tomJS.appendBlock(TRIAL_TYPE, _trialwise, _p_add, TRAIN_REPS, null, null, true);
-
-    tomJS.appendToTimeline(mutator);
-
     tomJS.appendToTimeline(sat);
-    tomJS.appendBlocks(TRIAL_TYPE, _blockwise, _trialwise, _additional, BLOCK_REPS, TRIAL_REPS, null, end_block, true);
+    
+    tomJS.appendBlocks(TRIAL_TYPE, _blockwise, _trialwise, _additional, BLOCK_REPS, TRIAL_REPS, start_block=null, end_block, add_countdown=true);
     
     tomJS.replaceEndBlockWithEndExperiment(end_exp);
-
+    
     // run =================================================================================================================
     
     if (tomJS.verbose) console.log(tomJS.timeline);
