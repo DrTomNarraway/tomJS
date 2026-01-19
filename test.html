@@ -1,0 +1,115 @@
+
+<!DOCTYPE html>
+<html>
+<body>
+    <script src="jatos.js" id="jatos"></script>
+    <script src="tomJS.js" id="tomJS"></script>
+    <script>
+
+        // define constants ================================================================================================
+
+        const BLOCK_REPS  = 1;
+        const CONDITION   = [200, 600];
+        const DIFFICULTY  = [0.01, 0.50];
+        const FIX_COLOUR  = ['orange', 'blue'];
+        const ITI_DUR     = [800, 1000, 1200];
+        const ORIENTATION = 2;
+        const STIM_DUR    = 2000;
+        const STIMULUS    = Gabor;
+        const TARGET      = ['A', 'B'];
+        const TRIAL_REPS  = 1;
+        const TOO_FAST    = 0;
+        const TOO_SLOW    = 0;
+
+        // set up experiment ===============================================================================================
+
+        const args = {
+            'verbose': true,
+            'consent': false,
+            'demographics': false,
+            'credit_card': false,
+            'fullscreen': false,
+            'gridlines' : false,
+            'rounding' : 5,
+        };
+
+        const tomJS = new Experiment(args);
+
+        if (jatos.constructor != HTMLScriptElement) jatos.onConnected(()=>{tomJS.connectToJatos(false)});
+
+        const A = tomJS.controls.key_a_upper;
+        const B = tomJS.controls.key_b_upper;
+
+        const fontSize = Math.round(0.05 * tomJS.visual.stimulus_size) + "px";
+
+        // trial arguments =================================================================================================
+
+        const _blockwise = {
+            'fixation_colour': FIX_COLOUR,
+        };
+
+        const _trialwise = {
+            'condition' : CONDITION,
+            'difficulty' : DIFFICULTY,
+            'target' : TARGET,
+        };
+
+        const _additional = {
+            'stimulus': STIMULUS,
+            'gp_ori': ORIENTATION,
+            'stimulus_duration': STIM_DUR,
+            'stimulus_fast' : TOO_FAST,
+            'stimulus_slow' : TOO_SLOW,
+            'iti_duration' : ITI_DUR,
+        };
+
+        const _conditional = {};
+
+        // slides ==========================================================================================================
+
+        const _welcome = new Slide([
+            { 'class': 'text', 'text': 'DEBUG VERSION', 'y':0.25 },
+            { 'class': 'text', 'text': '~tomJS.key~', 'upper': true, 'fontSize': fontSize },
+            { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 }
+        ]);
+
+        const _end_block = new EndBlock([
+            { 'class': 'text', 'text': 'End of block. Please take a short break.', 'y': 0.25 },
+            { 'class': 'text', 'text': 'Accuracy: ~this.data.accuracy~'  , 'y': 0.48},
+            { 'class': 'text', 'text': 'Hit Rate: ~this.data.hits~'      , 'y': 0.52},
+            { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
+        ]);
+
+        const _end_exp = new EndExperiment([
+            { 'class': 'text', 'text': 'DEBUG VERSION', 'y': 0.25 },
+            { 'class': 'text', 'text': 'Accuracy: ~this.data.accuracy~'  , 'y': 0.48 },
+            { 'class': 'text', 'text': 'Hit Rate: ~this.data.hits~'      , 'y': 0.52 },
+            { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to end the experiment.', 'y': 0.75 },
+        ]);
+
+        // timeline ========================================================================================================
+
+        tomJS.appendToTimeline(_welcome);
+
+        tomJS.appendBlocks(
+            trial_type = VisualResponseSignal,
+            blockwise = _blockwise,
+            trialwise = _trialwise,
+            additional = _additional,
+            conditional = _conditional,
+            block_reps = BLOCK_REPS,
+            trial_reps = TRIAL_REPS,
+            start_slide = null,
+            end_slide = _end_block,
+            add_countdown = true,
+        )
+
+        tomJS.replaceEndBlockWithEndExperiment(_end_exp);
+
+        // run =============================================================================================================
+
+        tomJS.start();
+
+    </script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 
 class Experiment {	
 
-	version = '14.01.26 17:10';
+	version = '19.01.26 16:18';
 
 	constructor(args={}) {
 		
@@ -176,16 +176,25 @@ class Experiment {
 		};
 	}
 
+	drawImage (path, args={}) {
+		const img = new Image();
+		img.src = path;
+		const _size = tomJS.visual.stimulus_size * (args.size ?? 0.5);
+		const _x = tomJS.visual.screen_size * (args.x ?? 0.5) - (_size * 0.5);
+		const _y = tomJS.visual.screen_size * (args.y ?? 0.5) - (_size * 0.5);
+		tomJS.visual.context.drawImage(img, _x, _y, _size, _size);
+	}
+
 	drawRect(x, y, w, h, colour="white") {
 		this.visual.context.fillStyle = colour;
 		this.visual.context.fillRect(x, y, w, h);
 	}
 
 	endExperiment() {
+		this.running = false;
 		if (this.debug.fullscreen) document.exitFullscreen();
-		if (this.jatos) jatos.startNextComponent();
-		else {
-			this.running = false;
+		if (this.jatos)	jatos.startNextComponent("exit 0");
+		else {			
 			this.resetCanvas();
 			this.writeToCanvas('You can close the window when you are ready :)');
 		};
@@ -254,7 +263,7 @@ class Experiment {
 	}
 
 	writeCSV() {
-		const data = collapse(this.data);
+		const data = this.data;
 		const demo = this.demographics;
 		const visu = this.visual;
 		let csv = this.headings.toString() + '\n';
@@ -294,6 +303,114 @@ class Experiment {
 
 }
 
+// data ====================================================================================================================
+
+
+class DataWrapper {
+
+	constructor() {}
+
+	keys() {
+		return Object.keys(this);
+	}
+
+	values() {
+		return Object.values(this);
+	}
+
+}
+
+class BlockData extends DataWrapper {
+
+	constructor() {
+		super();
+		this.accuracy	= null;
+		this.rt			= null;
+		this.score		= null;
+        this.correct	= null;
+        this.incorrect	= null;
+        this.fast		= null;
+        this.slow		= null;
+        this.censored	= null;
+		this.hits		= null;
+		this.miss		= null;
+	}
+
+	calculateAverages(data) {
+		this.rt = Math.round(arrayAverage(extractFromObjectInArray(data, 'rt')));
+		this.accuracy = Math.round(arrayAverage(extractFromObjectInArray(data, 'accuracy'))*100);
+		this.score = Math.round(arrayAverage(extractFromObjectInArray(data, 'score')));
+	}
+
+	calculateComplex() {
+		this.hits = clamp(this.correct + this.incorrect, 0, 100);
+		this.miss = clamp(100 - this.hits, 0, 100);
+	}
+
+	calculatePercentages(data) {
+		const n = data.length;
+		let outcomes   = extractFromObjectInArray(data, 'outcome');
+		this.correct   = Math.round((countInArray(outcomes,'Correct')/n)*100);
+		this.incorrect = Math.round((countInArray(outcomes,'Incorrect')/n)*100);
+		this.fast      = Math.round((countInArray(outcomes,'Fast')/n)*100);
+		this.slow      = Math.round((countInArray(outcomes,'Slow')/n)*100);
+		this.censored  = Math.round((countInArray(outcomes,'Censored')/n)*100);
+	}
+
+	calculateData(data) {
+		this.calculateAverages(data);
+		this.calculatePercentages(data);
+		this.calculateComplex();
+	}
+
+}
+
+class TrialData extends DataWrapper {
+
+	constructor() {
+		super();
+		this.block			    = null;
+		this.trial			    = null;
+		this.index				= null;
+		this.condition		    = null;
+		this.difficulty			= null;
+		this.rt					= null;
+		this.accuracy			= null;
+		this.outcome			= null;
+		this.score			    = null;
+		this.start				= null;
+		this.fixation_duration	= null;
+		this.fixation_start		= null;
+		this.fixation_end		= null;
+		this.fixation_on		= null;
+		this.fixation_off		= null;
+		this.fixation_size		= null;
+		this.fixation_colour	= null;
+		this.stimulus_duration	= null;
+		this.stimulus_fast		= null;
+		this.stimulus_slow		= null;
+		this.stimulus_start		= null;
+		this.stimulus_end		= null;
+		this.stimulus_on		= null;
+		this.stimulus_off		= null;
+		this.target				= null;
+		this.response			= null;
+		this.response_key	    = null;
+		this.response_given		= null;
+		this.feedback_duration	= null;
+		this.feedback_start		= null;
+		this.feedback_end	    = null;
+		this.feedback_on		= null;
+		this.feedback_off	    = null;
+		this.feedback_text		= null;
+		this.feedback_colour	= null;
+		this.feedback_size		= null;
+		this.iti_duration		= null;
+		this.end				= null;
+	}
+
+}
+
 
 // states ==================================================================================================================
 
@@ -302,7 +419,6 @@ class State {
 
 	constructor(args = {}) {
 		this.tag = args.tag ?? '';
-		this.id = 'State' + this.tag;
 		this.ready_to_exit = false;
 	}
 
@@ -360,10 +476,8 @@ class Block extends State {
 
 		// identification
 		this.tag = args.tag ?? '';
-		this.id  = 'Block' + this.tag + tomJS.blocks;
 		this.block = tomJS.blocks;
 		tomJS.blocks++;
-		tomJS.data.push([]);
 		this.n = 0;
 
 		// state
@@ -436,7 +550,7 @@ class Block extends State {
 		if (add_countdown) _timeline.push(new Countdown(3.0));
 		for (let t = 0; t < _n_trials; t++) {
 			// let _args = Object.assign({ }, {'block':this.block, 'trial':t}, _trialwise[t%_t_cells], additional);
-			this.args = Object.assign({ }, {'block':this.block, 'trial':t}, _trialwise[t%_t_cells], additional);
+			this.args = Object.assign({ }, {'block':this.block, 'trial':t, 'index':tomJS.trials}, _trialwise[t%_t_cells], additional);
 			this.checkConditions(conditional);
 			const _new_trial = new trial_type(this.args);
 			_timeline.push(_new_trial);
@@ -485,54 +599,32 @@ class Trial extends State {
 
 	constructor(args={}) {
 		super(args);
-		this.id = 'Trial' + this.tag;
+
+		this.index = args.index ?? 0;
 
 		// create new stimulus object
 		if (!('stimulus' in args)) tomJS.error('no target stimulus passed to trial');
 		this.stimulus = new args.stimulus(args);
 
-		// create data object
-		this.data = {
-			'block'				: args.block ?? tomJS.blocks,
-			'trial'				: args.trial ?? tomJS.trials,
-			'condition'			: args.condition ?? null,
-			'difficulty'		: this.stimulus.data.difficulty,
-			'rt'				: null,
-			'accuracy'          : null,
-			'outcome'			: null,
-			'score'				: null,
-			'start'             : null,
-			'fixation_duration' : choose(args.fixation_duration, 1000),
-			'fixation_start'    : null,
-			'fixation_end'      : null,
-			'fixation_on'       : null,
-			'fixation_off'      : null,
-			'fixation_size'     : choose(args.fixation_size, 0.10),
-			'stimulus_duration' : choose(args.stimulus_duration, 3000),
-			'stimulus_fast'     : choose(args.stimulus_fast, 200),
-			'stimulus_slow'     : choose(args.stimulus_slow, 3000),
-			'stimulus_start'    : null,
-			'stimulus_end'      : null,
-			'stimulus_on'       : null,
-			'stimulus_off'      : null,			
-			'target'			: this.stimulus.data.target,
-			'response'          : null,
-			'response_key'		: null,
-			'response_given'	: null,
-			'feedback_duration' : choose(args.feedback_duration, 1000),
-			'feedback_start'    : null,
-			'feedback_end'	    : null,
-			'feedback_on'	    : null,
-			'feedback_off'	    : null,
-			'feedback_text'     : null,
-			'feedback_colour'   : null,
-			'feedback_size'     : choose(args.feedback_size, 0.05),
-			'iti_duration'      : choose(args.iti_duration, 0),
-			'end'               : null,
-		};
+		tomJS.data.push(new TrialData());
+		tomJS.data[this.index].block				= args.block ?? tomJS.block;
+		tomJS.data[this.index].trial				= args.trial ?? tomJS.trial;
+		tomJS.data[this.index].index				= this.index;
+		tomJS.data[this.index].condition			= args.condition ?? null;
+		tomJS.data[this.index].difficulty			= this.stimulus.data.difficulty;
+		tomJS.data[this.index].fixation_duration	= choose(args.fixation_duration, 1000);
+		tomJS.data[this.index].fixation_size		= choose(args.fixation_size, 0.10);
+		tomJS.data[this.index].fixation_colour		= args.fixation_colour ?? "white";
+		tomJS.data[this.index].stimulus_duration	= choose(args.stimulus_duration, 3000);
+		tomJS.data[this.index].stimulus_fast		= choose(args.stimulus_fast, 200);
+		tomJS.data[this.index].stimulus_slow		= choose(args.stimulus_slow, 3000);
+		tomJS.data[this.index].target				= this.stimulus.data.target;
+		tomJS.data[this.index].feedback_duration	= choose(args.feedback_duration, 1000);
+		tomJS.data[this.index].feedback_size		= choose(args.feedback_size, 0.05);
+		tomJS.data[this.index].iti_duration			= choose(args.iti_duration, 0);
 
 		// append data headings to global data heading storage
-		if (arraySearch(tomJS.headings, 'block')) tomJS.headings.concat(Object.keys(this.data));
+		if (tomJS.headings[4] != 'block') joinUniques(tomJS.headings, tomJS.data[this.index].keys());
 
 		// feedback information
 		this.feedback_colors = args.feedback_colors ?? {
@@ -542,6 +634,7 @@ class Trial extends State {
 			'Slow': 'white', 
 			'Censored': 'white'
 		};
+
 		this.feedback_texts  = args.feedback_texts  ?? { 
 			'Correct': 'Correct', 
 			'Incorrect': 'Incorrect', 
@@ -552,7 +645,7 @@ class Trial extends State {
 
 		// ensure too slow response does not override stimulus duration, unless desired
 		if ('stimulus_duration' in args && ! 'stimulus_slow' in args)
-			this.data.stimulus_slow = this.data.stimulus_duration;
+			tomJS.data[this.index].stimulus_slow = tomJS.data[this.index].stimulus_duration;
 
 		// variables that current state
 		this.substate = null;
@@ -563,17 +656,16 @@ class Trial extends State {
 
 	onEnter() {
 		super.onEnter();
-		this.data.start = tomJS.now;
-		this.data.fixation_size = Math.round((this.data.fixation_size ) * tomJS.visual.stimulus_size) + "px";
-		this.data.feedback_size = Math.round((this.data.feedback_size ) * tomJS.visual.stimulus_size) + "px";
+		tomJS.data[this.index].start = tomJS.now;
+		tomJS.data[this.index].fixation_size = Math.round((tomJS.data[this.index].fixation_size ) * tomJS.visual.stimulus_size) + "px";
+		tomJS.data[this.index].feedback_size = Math.round((tomJS.data[this.index].feedback_size ) * tomJS.visual.stimulus_size) + "px";
 		this.queueSubstates();
 		this.setFirstSubstate();
 	}
 
 	onExit() {
 		super.onExit();
-		this.data.end = tomJS.now;
-		tomJS.data[tomJS.block].push(this.data);
+		tomJS.data[this.index].end = tomJS.now;
 	}
 
 	onUpdate() {
@@ -584,34 +676,34 @@ class Trial extends State {
 	// fixation ------------------------------------------------------------------------------------------------------------
 
 	fixationEnter() {
-		this.data.fixation_on = tomJS.now;
+		tomJS.data[this.index].fixation_on = tomJS.now;
 		this.substate = this.fixationUpdate;
 	}
 
 	fixationExit() {
-		this.data.fixation_off = tomJS.now;
+		tomJS.data[this.index].fixation_off = tomJS.now;
 		this.stimulusEnter();
 	}
 
 	fixationQueue() {
-		this.data.fixation_start = this.data.start + 1;
-		this.data.fixation_end   = this.data.fixation_start + this.data.fixation_duration;
+		tomJS.data[this.index].fixation_start = tomJS.data[this.index].start + 1;
+		tomJS.data[this.index].fixation_end   = tomJS.data[this.index].fixation_start + tomJS.data[this.index].fixation_duration;
 	}
 
 	fixationUpdate() {
-		tomJS.writeToCanvas('+', {'fontSize':this.data.fixation_size});
-		if (tomJS.now >= this.data.fixation_end) this.fixationExit();
+		tomJS.writeToCanvas('+', {'colour':tomJS.data[this.index].fixation_colour, 'fontSize':tomJS.data[this.index].fixation_size});
+		if (tomJS.now >= tomJS.data[this.index].fixation_end) this.fixationExit();
 	}
 
 	// stimulus ------------------------------------------------------------------------------------------------------------
 
 	stimulusEnter() {
-		this.data.stimulus_on = tomJS.now;
+		tomJS.data[this.index].stimulus_on = tomJS.now;
 		this.substate = this.stimulusUpdate;		
 	}
 
 	stimulusExit() {
-		this.data.stimulus_off = tomJS.now;
+		tomJS.data[this.index].stimulus_off = tomJS.now;
 		this.feedbackEnter();
 	}
 
@@ -630,15 +722,15 @@ class Trial extends State {
 	}
 
 	stimulusQueue() {
-		this.data.stimulus_start = this.data.fixation_end + 1;
-		this.data.stimulus_end   = this.data.stimulus_start + this.data.stimulus_duration;
+		tomJS.data[this.index].stimulus_start = tomJS.data[this.index].fixation_end + 1;
+		tomJS.data[this.index].stimulus_end   = tomJS.data[this.index].stimulus_start + tomJS.data[this.index].stimulus_duration;
 	}
 
 	stimulusUpdate() {
 		this.stimulus.drawStimulus(this.args);
 		if (tomJS.controls.keyboard.anyKeysPressed([tomJS.controls.key_a, tomJS.controls.key_b])) 
 			this.stimulusExitResponse();
-		if (tomJS.now >= this.data.stimulus_end) 
+		if (tomJS.now >= tomJS.data[this.index].stimulus_end) 
 			this.stimulusExitTime();
 	}
 
@@ -646,27 +738,27 @@ class Trial extends State {
 
 	feedbackEnter() {
 		this.updateFeedbackText()
-		this.data.feedback_on = tomJS.now;
-		this.data.feedback_end = tomJS.now + this.data.feedback_duration;
+		tomJS.data[this.index].feedback_on = tomJS.now;
+		tomJS.data[this.index].feedback_end = tomJS.now + tomJS.data[this.index].feedback_duration;
 		this.substate = this.feedbackUpdate;
 	}
 
 	feedbackExit() {
-		this.data.feedback_off = tomJS.now;
-		if (this.data.iti_duration > 0) this.itiEnter();
+		tomJS.data[this.index].feedback_off = tomJS.now;
+		if (tomJS.data[this.index].iti_duration > 0) this.itiEnter();
 		else this.ready_to_exit = true;
 	}
 
 	feedbackQueue() {
-		this.data.feedback_start = this.data.stimulus_end + 1;
-		this.data.feedback_end   = this.data.feedback_start + this.data.feedback_duration;
+		tomJS.data[this.index].feedback_start = tomJS.data[this.index].stimulus_end + 1;
+		tomJS.data[this.index].feedback_end   = tomJS.data[this.index].feedback_start + tomJS.data[this.index].feedback_duration;
 	}
 
 	feedbackUpdate() {
-		const text = this.data.feedback_text;
-		const colour = this.data.feedback_colour;
-		tomJS.writeToCanvas(text,{'colour':colour, 'fontSize':this.data.feedback_size});
-		if (tomJS.now >= this.data.feedback_end) this.feedbackExit();
+		const text = tomJS.data[this.index].feedback_text;
+		const colour = tomJS.data[this.index].feedback_colour;
+		tomJS.writeToCanvas(text,{'colour':colour, 'fontSize':tomJS.data[this.index].feedback_size});
+		if (tomJS.now >= tomJS.data[this.index].feedback_end) this.feedbackExit();
 	}
 
 	// inter-trial interval-------------------------------------------------------------------------------------------------
@@ -676,38 +768,38 @@ class Trial extends State {
 	}
 
 	itiUpdate() {
-		if (tomJS.now >= this.data.feedback_off + this.data.iti_duration) this.ready_to_exit = true;
+		if (tomJS.now >= tomJS.data[this.index].feedback_off + tomJS.data[this.index].iti_duration) this.ready_to_exit = true;
 	}
 
 	// functions -----------------------------------------------------------------------------------------------------------
 
 	calculateRT() {
-		const rg = this.data.response_given;
-		const on = this.data.stimulus_on;
-		this.data.rt = roundTo((rg - on), tomJS.rounding);
+		const rg = tomJS.data[this.index].response_given;
+		const on = tomJS.data[this.index].stimulus_on;
+		tomJS.data[this.index].rt = roundTo((rg - on), tomJS.rounding);
 	}
         
 	calculateScore() {
-		if (this.data.response == this.data.target) this.data.score = 100 
-		else this.data.score = 0;
+		if (tomJS.data[this.index].response == tomJS.data[this.index].target) tomJS.data[this.index].score = 100 
+		else tomJS.data[this.index].score = 0;
 	}
 
 	determineAccuracy() {
-		if (this.data.response == this.data.target) this.data.accuracy = 1 
-		else this.data.accuracy = 0;
+		if (tomJS.data[this.index].response == tomJS.data[this.index].target) tomJS.data[this.index].accuracy = 1 
+		else tomJS.data[this.index].accuracy = 0;
 	}
 
 	determineOutcome() {
-		const rsp = this.data.response;
-		const rt  = this.data.rt;
-		const tgt = this.data.target;
-		const slw = this.data.stimulus_slow;
-		const fst = this.data.stimulus_fast;
-		if		(rsp == null) {this.data.outcome = 'Censored'}
-		else if (rt >= slw)   {this.data.outcome = 'Slow'}
-		else if (rt <= fst)   {this.data.outcome = 'Fast'}
-		else if (rsp == tgt)  {this.data.outcome = 'Correct'}
-        else				  {this.data.outcome = 'Incorrect'};
+		const rsp = tomJS.data[this.index].response;
+		const rt  = tomJS.data[this.index].rt;
+		const tgt = tomJS.data[this.index].target;
+		const slw = tomJS.data[this.index].stimulus_slow;
+		const fst = tomJS.data[this.index].stimulus_fast;
+		if		(rsp == null) {tomJS.data[this.index].outcome = 'Censored'}
+		else if (rt >= slw)   {tomJS.data[this.index].outcome = 'Slow'}
+		else if (rt <= fst)   {tomJS.data[this.index].outcome = 'Fast'}
+		else if (rsp == tgt)  {tomJS.data[this.index].outcome = 'Correct'}
+        else				  {tomJS.data[this.index].outcome = 'Incorrect'};
 	}
 
 	queueSubstates(){
@@ -717,9 +809,9 @@ class Trial extends State {
 	}
 
 	recordResponse() {
-		this.data.response       = tomJS.dir;
-		this.data.response_key   = tomJS.key; 
-		this.data.response_given = tomJS.now;
+		tomJS.data[this.index].response       = tomJS.dir;
+		tomJS.data[this.index].response_key   = tomJS.key; 
+		tomJS.data[this.index].response_given = tomJS.now;
 	}
 
 	setFirstSubstate() {
@@ -727,9 +819,9 @@ class Trial extends State {
 	}
 
 	updateFeedbackText() {
-		const outcome = this.data.outcome;
-		this.data.feedback_text   = this.feedback_texts[outcome];
-		this.data.feedback_colour = this.feedback_colors[outcome];
+		const outcome = tomJS.data[this.index].outcome;
+		tomJS.data[this.index].feedback_text   = this.feedback_texts[outcome];
+		tomJS.data[this.index].feedback_colour = this.feedback_colors[outcome];
 	}
 
 }
@@ -740,22 +832,67 @@ class FeedbackDeadline extends Trial {
 	constructor(args={}) {
 		if (!('condition'in args)) tomJS.error('no condition (deadline) passed to feedback deadline trial');
 		super(args);
-		this.id = 'FeedbackDeadline' + this.tag;
-        this.data.stimulus_slow = this.data.condition;
+        tomJS.data[this.index].stimulus_slow = tomJS.data[this.index].condition;
 	}
 
+}
+
+
+class PreFixationPicture extends Trial {
+
+	constructor(args={}) {
+		if (!('condition'in args)) tomJS.error('no condition passed to pre-fixation picture trial');
+		super(args);
+
+		tomJS.data[this.index].cue_duration = args.cue_duration ?? 1000;
+
+	}
+
+	// super ---------------------------------------------------------------------------------------------------------------
+
+	queueSubstates() {
+		this.cueQueue();
+		super.queueSubstates();
+	}
+
+	// override ------------------------------------------------------------------------------------------------------------
+
+	setFirstSubstate() {
+		this.substate = this.cueEnter;
+	}
+
+	// functions -----------------------------------------------------------------------------------------------------------
+
+
+	cueEnter() {
+		tomJS.data[this.index].cue_on = tomJS.now;
+		this.substate = this.cueUpdate;
+	}
+
+	cueExit() {
+		tomJS.data[this.index].cue_off = tomJS.now;
+		this.fixationEnter();
+	}
+
+	cueQueue() {
+		tomJS.data[this.index].cue_start = tomJS.data[this.index].start + 1;
+		tomJS.data[this.index].cue_end   = tomJS.data[this.index].cue_start + tomJS.data[this.index].cue_duration;
+	}
+
+	cueUpdate() {
+		tomJS.drawImage(tomJS.data[this.index].condition, this.args);
+		if (tomJS.now >= tomJS.data[this.index].cue_end) this.cueExit();
+	}
 }
 
 
 class VisibleFeedbackDeadline extends FeedbackDeadline {
 
 	constructor(args={}) {
-		if (!('condition'in args)) 
-			tomJS.error('no condition passed to visible feedback deadline trial');
+		if (!('condition'in args)) tomJS.error('no condition passed to visible feedback deadline trial');
 		super(args);
-		this.id = 'VisibleFeedbackDeadline' + this.tag;
-		this.data.deadline_min = choose(args.deadline_min, this.data.stimulus_fast);
-        this.data.deadline_max = choose(args.deadline_max, this.data.stimulus_slow);
+		tomJS.data[this.index].deadline_min = choose(args.deadline_min, tomJS.data[this.index].stimulus_fast);
+        tomJS.data[this.index].deadline_max = choose(args.deadline_max, tomJS.data[this.index].stimulus_slow);
 		this.progress_bar = new ProgressBar(args);
 	}
 
@@ -763,7 +900,7 @@ class VisibleFeedbackDeadline extends FeedbackDeadline {
 
     onEnter() {
         super.onEnter();
-        const percent = this.data.condition / this.data.deadline_max;
+        const percent = tomJS.data[this.index].condition / tomJS.data[this.index].deadline_max;
         this.progress_bar.set('pb_percent', percent);
 	}
 
@@ -790,10 +927,10 @@ class VisibleFeedbackDeadline extends FeedbackDeadline {
 	}
 
     updateProgressBar() {
-		const start = this.data.stimulus_on;
+		const start = tomJS.data[this.index].stimulus_on;
 		const now = tomJS.now;
-		const condition = this.data.condition;
-		const duration = this.data.deadline_max;
+		const condition = tomJS.data[this.index].condition;
+		const duration = tomJS.data[this.index].deadline_max;
 		const progress = (now - start) + (duration - condition);
 		const percent = 1 - Math.min(progress / duration, 1);
         if (percent >= 0.01) this.progress_bar.set('pb_percent', percent);
@@ -812,39 +949,39 @@ class VisualResponseSignal extends Trial {
 	constructor(args={}) {
 
 		if (!('condition'in args)) tomJS.error('no condition passed to visual response signal trial');
-		super(args);	
+		super(args);
 		
-		this.data.stimulus_fast = args.stimulus_fast ?? 0;
-		this.data.stimulus_slow = args.stimulus_slow ?? 0;
+		tomJS.data[this.index].stimulus_fast = args.stimulus_fast ?? 0;
+		tomJS.data[this.index].stimulus_slow = args.stimulus_slow ?? 0;
 
 		this.progress_bar = new ProgressBar(args);
 
-		this.data.signal_colour = choose(args.signal_colour, "DodgerBlue");
-		this.data.signal_for    = choose(args.signal_for, 400);
+		tomJS.data[this.index].signal_colour = choose(args.signal_colour, "DodgerBlue");
+		tomJS.data[this.index].signal_for    = choose(args.signal_for, 400);
 
-		this.data.pta = args.pta ?? 0;
+		tomJS.data[this.index].pta = args.pta ?? 0;
 
-		this.data.fixation_duration += this.data.pta;
-		this.data.stimulus_duration += this.data.pta;
-		this.data.feedback_duration += this.data.pta;
+		tomJS.data[this.index].fixation_duration += tomJS.data[this.index].pta;
+		tomJS.data[this.index].stimulus_duration += tomJS.data[this.index].pta;
+		tomJS.data[this.index].feedback_duration += tomJS.data[this.index].pta;
 
-		this.data.trial_duration = this.data.fixation_duration + this.data.stimulus_duration;
+		tomJS.data[this.index].trial_duration = tomJS.data[this.index].fixation_duration + tomJS.data[this.index].stimulus_duration;
 
-		this.data.rtt = null;
-		this.data.signal_on = null;
-		this.data.signal_off = null;
-		this.data.early = null;
-		this.data.late = null;
+		tomJS.data[this.index].rtt = null;
+		tomJS.data[this.index].signal_on = null;
+		tomJS.data[this.index].signal_off = null;
+		tomJS.data[this.index].early = null;
+		tomJS.data[this.index].late = null;
 
 		this.feedback_texts  = args.feedback_texts  ?? { 
-			'Correct': 'On Time',
-			'Incorrect': 'On Time',
-			'Fast': 'Too Fast', 
-			'Slow': 'Too Slow',
-			'Censored': 'Too Slow'
+			'Correct'	: 'On Time',
+			'Incorrect'	: 'On Time',
+			'Fast'		: 'Too Fast', 
+			'Slow'		: 'Too Slow',
+			'Censored'	: 'Too Slow'
 		};
 
-		if (!(arraySearch(tomJS.headings, 'rtt'))) tomJS.headings = joinUniques(tomJS.headings, Object.keys(this.data));
+		if (!(arraySearch(tomJS.headings, 'rtt'))) tomJS.headings = joinUniques(tomJS.headings, tomJS.data[this.index].keys());
 
 	}
 
@@ -854,19 +991,19 @@ class VisualResponseSignal extends Trial {
 		super.onEnter();
 
 		// signal onset and offset
-		this.data.signal_on = this.data.stimulus_start + this.data.condition;
-		this.data.signal_off = this.data.signal_on + this.data.signal_for;
+		tomJS.data[this.index].signal_on = tomJS.data[this.index].stimulus_start + tomJS.data[this.index].condition;
+		tomJS.data[this.index].signal_off = tomJS.data[this.index].signal_on + tomJS.data[this.index].signal_for;
 
 		// response window
-		this.data.early = this.data.signal_on - this.data.stimulus_fast;
-		this.data.late = this.data.signal_off + this.data.stimulus_slow;
+		tomJS.data[this.index].early = tomJS.data[this.index].signal_on - tomJS.data[this.index].stimulus_fast;
+		tomJS.data[this.index].late = tomJS.data[this.index].signal_off + tomJS.data[this.index].stimulus_slow;
 	}
 
 	calculateRT() {
 		super.calculateRT();
-		const rg = this.data.response_given;
-		const rs = this.data.signal_on;
-		this.data.rtt = roundTo((rg - rs), tomJS.rounding);
+		const rg = tomJS.data[this.index].response_given;
+		const rs = tomJS.data[this.index].signal_on;
+		tomJS.data[this.index].rtt = roundTo((rg - rs), tomJS.rounding);
 	}
 
 	fixationUpdate() {
@@ -889,16 +1026,16 @@ class VisualResponseSignal extends Trial {
 	// override ------------------------------------------------------------------------------------------------------------
 
 	determineOutcome() {
-		const rsp = this.data.response;
-		const rsg = this.data.response_given;
-		const erl = this.data.early;
-		const lte = this.data.late;
-		const tgt = this.data.target;
-		if		(rsp == null) {this.data.outcome = 'Censored'}
-		else if (rsg <= erl)  {this.data.outcome = 'Fast'}
-		else if (rsg >= lte)  {this.data.outcome = 'Slow'}
-		else if (rsp == tgt)  {this.data.outcome = 'Correct'}
-        else				  {this.data.outcome = 'Incorrect'};
+		const rsp = tomJS.data[this.index].response;
+		const rsg = tomJS.data[this.index].response_given;
+		const erl = tomJS.data[this.index].early;
+		const lte = tomJS.data[this.index].late;
+		const tgt = tomJS.data[this.index].target;
+		if		(rsp == null) {tomJS.data[this.index].outcome = 'Censored'}
+		else if (rsg <= erl)  {tomJS.data[this.index].outcome = 'Fast'}
+		else if (rsg >= lte)  {tomJS.data[this.index].outcome = 'Slow'}
+		else if (rsp == tgt)  {tomJS.data[this.index].outcome = 'Correct'}
+        else				  {tomJS.data[this.index].outcome = 'Incorrect'};
 	}
 
 	// functions -----------------------------------------------------------------------------------------------------------
@@ -908,15 +1045,16 @@ class VisualResponseSignal extends Trial {
 	}
 
     updateProgressBar() {
-		const start = this.data.fixation_start;
-		const now   = tomJS.now;
-		const duration = this.data.trial_duration;
+		const start    = tomJS.data[this.index].fixation_start;
+		const now      = tomJS.now;
+		const duration = tomJS.data[this.index].trial_duration;
 		const progress = now - start;
 		const percent  = 1 - Math.min(progress / duration, 1);
         if (percent >= 0.01) this.progress_bar.set('pb_percent', percent);		
-		if (now >= this.data.signal_on) this.progress_bar.set('pb_color_F', this.data.signal_colour);
-		if (now >= this.data.signal_off) this.progress_bar.set('pb_color_F', "white");
-		if (now >= this.data.stimulus_end) this.progress_bar.set('pb_color_F', "grey");
+		if (now >= tomJS.data[this.index].signal_on & now <= tomJS.data[this.index].signal_off) 
+			this.progress_bar.set('pb_color_F', tomJS.data[this.index].signal_colour);
+		else if (now >= tomJS.data[this.index].stimulus_end) this.progress_bar.set('pb_color_F', "grey");
+		else this.progress_bar.set('pb_color_F', "white");
 	}
 
 }
@@ -969,19 +1107,13 @@ class Slide extends State {
 	drawContent() {
 		for (const _content of this.content) {
 			switch(_content.class) {
-				case 'text':
-					if (!(this.checkConditions(_content))) break;
-					const _text = this.parseText(_content.text);
-					tomJS.writeToCanvas(_text, _content);
-					break;
 				case 'gabor':
 					if (tomJS.dir == 'A') this.gp_L.drawStimulus()
 					else this.gp_R.drawStimulus();
 					break;
-				case 'twolines':
-					const _tl_args = {..._content,...{'target':this.parseText(_content.target)}};
-					const _tl = new TwoLines(_tl_args);
-					_tl.drawStimulus();
+				case 'image':
+					const _path = this.parseText(_content.path);
+					tomJS.drawImage(_path, _content);
 					break;
 				case 'pixelpatch':
 					if (tomJS.dir == 'A') this.pp_A.drawStimulus()
@@ -989,6 +1121,16 @@ class Slide extends State {
 					break;
 				case 'table':
 					this.table.drawStimulus();
+					break;
+				case 'text':
+					if (!(this.checkConditions(_content))) break;
+					const _text = this.parseText(_content.text);
+					tomJS.writeToCanvas(_text, _content);
+					break;
+				case 'twolines':
+					const _tl_args = {..._content,...{'target':this.parseText(_content.target)}};
+					const _tl = new TwoLines(_tl_args);
+					_tl.drawStimulus();
 					break;
 			};
 		};
@@ -1486,85 +1628,32 @@ class Demographics extends Slide {
 }
 
 
-/**
- * Slide meant to be shown at the end of a block. Autmoatically calculates a few useful stats for feedback.
- * 
- *	rt - average response time (ms).
- *	accuracy - average number of correct responses (%).
- *	score - average score (arbitrary points).
- *	correct - trials where response was correct (%).
- *	incorrect - trials where response was incorrect (%).
- *	fast - trials where response was too fast (%).
- *	slow - trials where response was too slow (%).
- *	censored - trials where response was not given (%).
- *	hits - trials where response was on time (%).
- *	miss - trials where the response was not on time (%).
- */
+/** Slide shown at the end of a block. Access averaged data inside ~this.data~. */
 class EndBlock extends Slide {
 
 	constructor(content = [], can_return = false, args = {}) {
 		super(content, can_return, args);
-		// manifest
-        this.accuracy  = null;
-		this.rt        = null;
-		this.score     = null;
-		// outcomes
-        this.correct   = null;
-        this.incorrect = null;
-        this.fast      = null;
-        this.slow      = null;
-        this.censored  = null;
-		// complex
-		this.hits = null;
-		this.miss = null;
+		this.data = new BlockData();
 	}
 
 	// super ---------------------------------------------------------------------------------------------------------------
 
 	onEnter () {
         super.onEnter();
-        this.calculateData();		
+        this.data.calculateData(this.gatherData());
 		if (tomJS.debug.save) tomJS.saveData();
 	}
 
 	// functions  ----------------------------------------------------------------------------------------------------------
 
-	gatherData() {
-		return tomJS.data[tomJS.block];
-	}
-
-	calculateAverages() {
-		const d = this.gatherData();
-		this.rt = Math.round(arrayAverage(extractFromObjectInArray(d, 'rt')));
-		this.accuracy = Math.round(arrayAverage(extractFromObjectInArray(d, 'accuracy'))*100);
-		this.score = Math.round(arrayAverage(extractFromObjectInArray(d, 'score')));
-	}
-
-	calculateComplex() {
-		this.hits = clamp(this.correct + this.incorrect, 0, 100);
-		this.miss = clamp(100 - this.hits, 0, 100);
-	}
-
-	calculatePercentages() {
-		const d = this.gatherData();
-		const n = d.length;
-		let outcomes   = extractFromObjectInArray(d, 'outcome');
-		this.correct   = Math.round((countInArray(outcomes,'Correct')/n)*100);
-		this.incorrect = Math.round((countInArray(outcomes,'Incorrect')/n)*100);
-		this.fast      = Math.round((countInArray(outcomes,'Fast')/n)*100);
-		this.slow      = Math.round((countInArray(outcomes,'Slow')/n)*100);
-		this.censored  = Math.round((countInArray(outcomes,'Censored')/n)*100);
-	}
-
-	calculateData() {
-		this.calculateAverages();
-		this.calculatePercentages();
-		this.calculateComplex();
+	gatherData() {		
+		return filterObjectArray(tomJS.data, 'block', tomJS.block);
 	}
 
 }
 
 
+/** Slide shown at the end of the experiment. Access averaged data inside ~this.data~. */
 class EndExperiment extends EndBlock {
 
 	constructor(content = [], can_return = false, args = {}) {
@@ -1574,7 +1663,7 @@ class EndExperiment extends EndBlock {
 	// override -----------------------------------------------------------------------------------------------------------
 
 	gatherData() {
-		return collapse(tomJS.data);
+		return tomJS.data;
 	}
 
 }
@@ -2168,6 +2257,27 @@ function fillArray(source, limit) {
 		};
 	};
 	return array;
+}
+
+
+/**
+ * Search an array of objects for the target key value.
+ * Can automatically stop after a set number of fails in a row to prevent time waste.
+ * Returns a new array of only entries which match the target value.
+ */
+function filterObjectArray(array, key, target, auto_stop = 5) {
+	let out = [];
+	let fails = 0;
+	for (let a of array) {
+		// check inclusion
+		if (a[key] == target) {
+			out.push(a);
+			fails = 0;
+		}   else fails++;
+		// check stop
+		if (auto_stop > 0 & fails >= auto_stop) break;
+	};
+	return out;
 }
 
 

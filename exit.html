@@ -8,6 +8,7 @@
 
         const study_codes = {
             'vrs' : 'BE5A68E6',
+			'vrs_p2' : 'CKQXC305',
         }
 
 		jatos.onLoad(endStudy);
@@ -17,7 +18,7 @@
             if (study_name in study_codes) {
                 const study_code = study_codes[study_name];
                 const link = "https://app.prolific.co/submissions/complete?cc=" + study_code;
-                jatos.endStudyAndRedirect(link);
+                jatos.endStudyAndRedirect(url = link, message = "exit 0");
             }
             else {
                 writeToBody('You can press this button to download your data as a text file, or just close the window :)');
