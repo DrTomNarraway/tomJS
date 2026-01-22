@@ -1,13 +1,13 @@
 
 class Experiment {	
 
-	version = '19.01.26 16:18';
+	version = '21.01.26 15:24';
 
 	constructor(args={}) {
 		
 		console.log('booting tomJS version '+this.version);
 
-		this.boot_time = window.performance.now();
+		this.boot_time = Math.round(window.performance.now());
 
 		// debug
 		this.debug = {};
@@ -193,7 +193,12 @@ class Experiment {
 	endExperiment() {
 		this.running = false;
 		if (this.debug.fullscreen) document.exitFullscreen();
-		if (this.jatos)	jatos.startNextComponent("exit 0");
+		if (this.jatos)	{
+			const sessionData = new BlockData();
+			sessionData.calculateData(this.data);
+			jatos.setStudySessionData(sessionData.toString());
+			jatos.startNextComponent("exit 0");
+		}
 		else {			
 			this.resetCanvas();
 			this.writeToCanvas('You can close the window when you are ready :)');
@@ -316,6 +321,15 @@ class DataWrapper {
 
 	values() {
 		return Object.values(this);
+	}
+
+	toString() {
+		const keys = this.keys();
+		const values = this.values();
+		let out = "";
+		for (let a = 0; a < keys.length; a++) out += keys[a] + ": " + values[a] + ", ";
+		out = out.slice(0, -2); // drop last comma and space
+		return out;
 	}
 
 }
@@ -1646,7 +1660,7 @@ class EndBlock extends Slide {
 
 	// functions  ----------------------------------------------------------------------------------------------------------
 
-	gatherData() {		
+	gatherData() {
 		return filterObjectArray(tomJS.data, 'block', tomJS.block);
 	}
 
@@ -2265,7 +2279,7 @@ function fillArray(source, limit) {
  * Can automatically stop after a set number of fails in a row to prevent time waste.
  * Returns a new array of only entries which match the target value.
  */
-function filterObjectArray(array, key, target, auto_stop = 5) {
+function filterObjectArray(array, key, target, auto_stop = -1) {
 	let out = [];
 	let fails = 0;
 	for (let a of array) {
