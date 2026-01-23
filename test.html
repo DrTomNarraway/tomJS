@@ -8,10 +8,11 @@
 
         // define constants ================================================================================================
 
+        const ABV_BEL     = true;
         const BLOCK_REPS  = 1;
+        const COUNTDOWN   = false;
         const CONDITION   = [200, 600];
         const DIFFICULTY  = [0.01, 0.50];
-        const FIX_COLOUR  = ['orange', 'blue'];
         const ITI_DUR     = [800, 1000, 1200];
         const ORIENTATION = 2;
         const STIM_DUR    = 2000;
@@ -24,13 +25,9 @@
         // set up experiment ===============================================================================================
 
         const args = {
-            'verbose': true,
-            'consent': false,
-            'demographics': false,
-            'credit_card': false,
-            'fullscreen': false,
             'gridlines' : false,
             'rounding' : 5,
+            'verbose': true
         };
 
         const tomJS = new Experiment(args);
@@ -44,9 +41,7 @@
 
         // trial arguments =================================================================================================
 
-        const _blockwise = {
-            'fixation_colour': FIX_COLOUR,
-        };
+        const _blockwise = {};
 
         const _trialwise = {
             'condition' : CONDITION,
@@ -55,12 +50,15 @@
         };
 
         const _additional = {
-            'stimulus': STIMULUS,
+            'above_and_below': ABV_BEL,
             'gp_ori': ORIENTATION,
+            'iti_duration' : ITI_DUR,
+            'stimulus': STIMULUS,
             'stimulus_duration': STIM_DUR,
             'stimulus_fast' : TOO_FAST,
             'stimulus_slow' : TOO_SLOW,
-            'iti_duration' : ITI_DUR,
+            'warning_at' : 200,
+            'warning_for' : 200,
         };
 
         const _conditional = {};
@@ -87,22 +85,57 @@
             { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to end the experiment.', 'y': 0.75 },
         ]);
 
+        // mutators ========================================================================================================
+
+        const _mutator = new Mutator(()=>{tomJS.visual.canvas.requestFullscreen()});
+
         // timeline ========================================================================================================
 
         tomJS.appendToTimeline(_welcome);
 
-        tomJS.appendBlocks(
-            trial_type = VisualResponseSignal,
-            blockwise = _blockwise,
+        tomJS.appendBlock(
+            trial_type = ProgressBarResponseSignal,
             trialwise = _trialwise,
-            additional = _additional,
+            additional = { ..._additional, ...{ 'progress_bar_type': GoalpostBar, 'warning_colour':"White" } },
             conditional = _conditional,
-            block_reps = BLOCK_REPS,
             trial_reps = TRIAL_REPS,
             start_slide = null,
             end_slide = _end_block,
-            add_countdown = true,
-        )
+            add_countdown = COUNTDOWN
+        );
+
+        tomJS.appendBlock(
+            trial_type = ProgressBarResponseSignal,
+            trialwise = _trialwise,
+            additional = { ..._additional, ...{'progress_bar_type':LeakyBar}},
+            conditional = _conditional,
+            trial_reps = TRIAL_REPS,
+            start_slide = null,
+            end_slide = _end_block,
+            add_countdown = COUNTDOWN
+        );
+
+        tomJS.appendBlock(
+            trial_type = ProgressBarResponseSignal,
+            trialwise = _trialwise,
+            additional = { ..._additional, ...{ 'progress_bar_type': ProgressBar } },
+            conditional = _conditional,
+            trial_reps = TRIAL_REPS,
+            start_slide = null,
+            end_slide = _end_block,
+            add_countdown = COUNTDOWN
+        );
+
+        tomJS.appendBlock(
+            trial_type = TextResponseSignal,
+            trialwise = _trialwise,
+            additional = _additional,
+            conditional = _conditional,
+            trial_reps = TRIAL_REPS,
+            start_slide = null,
+            end_slide = _end_block,
+            add_countdown = COUNTDOWN
+        );
 
         tomJS.replaceEndBlockWithEndExperiment(_end_exp);
 
