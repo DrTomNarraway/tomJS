@@ -1,0 +1,170 @@
+
+<!DOCTYPE html>
+<html>	
+<body>
+<script src="jatos.js" id="jatos"></script>
+<script src="tomJS.js" id="tomJS"></script>
+<script>
+
+    // define constants ====================================================================================================
+
+    const CONDITION   = [200, 400, 600]; // target-signal SOA, milliseconds.
+    const DIFFICULTY  = [0.01, 0.03, 0.50]; // gabor contrast, percentage.
+    const ITI_DUR     = [800, 1000, 1200]; // duration of blank screen shown after each trial, milliseconds.
+
+    // set up experiment ===================================================================================================
+    
+    const args = { 
+        'contacts' : ["Tom Narraway: narraway@uni-bremen.de", "Heinrich Liesefeld: heinrich.liesefeld@uni-bremen.de"],
+        'verbose': true,
+        'gridlines' : false,
+        'rounding' : 5,
+    };
+
+    const vrs_obligs = "The success of scientific studies depends significantly on your cooperation." +
+        " We therefore ask you to remain focused and to work according to the instructions throughout the entire study." +
+        " In order to demonstrate your focus you must respond at the indicated time on at least 60% of trials;"+
+        " and you must respond correctly on at least 60% of trials." +
+        " If you wish to withdraw consent to the use of your data you are obligated to message or email Tom Narraway at the moment of your decision."
+    updateConsentForm('value', 'Obligations', vrs_obligs);
+    
+    const tomJS = new Experiment(args);
+
+    if (jatos.constructor != HTMLScriptElement) jatos.onConnected(()=>{tomJS.connectToJatos(false)});
+
+    const A = tomJS.controls.key_a_upper;
+    const B = tomJS.controls.key_b_upper;
+
+    const max_cond = arrayMax(CONDITION);
+    const min_cond = arrayMin(CONDITION);
+    const max_diff = arrayMax(DIFFICULTY);
+    const min_diff = arrayMin(DIFFICULTY);
+
+    const fontSize = Math.round(0.05 * tomJS.visual.stimulus_size) + "px";
+
+    // trial arguments =====================================================================================================
+
+    const _timing_training_trialwise = {
+        'condition': CONDITION,
+        'target': ['A', 'B'],
+    };
+
+    const _timing_training_additional = {
+        'stimulus': Text,
+        'iti_duration': ITI_DUR,
+        'signal_bar_type': GoalpostBar,
+    };
+
+    const _timing_training_conditional = {
+        'text': { '~this.args.target~ == A': '~A~', '~this.args.target~ == B': '~B~' },
+    };
+
+    const _blockwise = {};
+    
+    const _trialwise = {
+        'condition' : CONDITION,
+        'difficulty' : DIFFICULTY,
+        'target' : ['A', 'B'],
+    };
+    
+    const _additional = {
+        'stimulus': Gabor,
+        'gp_ori' : 2,
+        'iti_duration' : ITI_DUR,
+        'signal_bar_type' : GoalpostBar,
+    };
+
+    const _conditional = {};
+    
+    // slides ==============================================================================================================
+    
+    const _welcome = new Slide([	
+        { 'class': 'text', 'text': 'Please press ' + A + ' and then ' + B + ' a few times to make sure your', 'y': 0.25 },
+        { 'class': 'text', 'text': 'keyboard is being read by the experiment correctly.', 'y': 0.30 },
+        { 'class': 'text', 'text': '~tomJS.key~', 'upper': true, 'fontSize': fontSize },
+        { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
+    ]);
+
+    // response signal training --------------------------------------------------------------------------------------------
+
+    const _timing = new ExampleProgressBar([
+        { 'class': 'text', 'text': 'You will see bars at the top and bottom of the screen like the example below.', 'y': 0.25 },
+        { 'class': 'text', 'text': 'The next block will train you on timing your responses. For this training block you will see a ', 'y': 0.30 },
+        { 'class': 'text', 'text': 'letter in the middle of the screen, either F or J, just press that button when the bar turns blue.', 'y': 0.35 },
+        { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to start the second training block.', 'y': 0.75 },
+    ], false, {'progress_bar_type':GoalpostBar} );
+
+    const _timing_end_block = new EndBlock([
+        { 'class': 'text', 'text': 'End of timing practice. Please take a short break.', 'y': 0.25 },
+        { 'class': 'text', 'text': 'Your timing was great!', 'y': 0.48, 'conditions': ['~this.data.hits~ >= 80'] },
+        { 'class': 'text', 'text': 'Your timing was good.', 'y': 0.48, 'conditions': ['~this.data.hits~ < 80', '~this.data.hits~ >= 60'] },
+        { 'class': 'text', 'text': 'You must improve your timing.', 'y': 0.48, 'conditions': ['~this.data.hits~ < 60'] },
+        { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 }
+    ]);
+
+    // main experiment -----------------------------------------------------------------------------------------------------
+
+    const _main = new ExampleProgressBar([
+        { 'class': 'text', 'text': 'From now on you must respond to the tilt of the stimulus as soon as the bar goes blue.', 'y': 0.25 },
+        { 'class': 'text', 'text': 'This experiment is designed to have some very hard and some very easy trials.', 'y': 0.30 },
+        { 'class': 'text', 'text': 'The difficulty of the task was set according to the performance of other Prolific participants.', 'y': 0.35 },
+        { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to start the experiment.', 'y': 0.75 },
+    ], false, { 'max': 3000 });
+    
+    const _end_block = new EndBlock([
+        { 'class': 'text', 'text': 'End of block. Please take a short break.', 'y': 0.25 },
+        { 'class': 'text', 'text': 'Your accuracy was great!', 'y': 0.48, 'conditions': ['~this.data.accuracy~ >= 80'] },
+        { 'class': 'text', 'text': 'Your accuracy was good.', 'y': 0.48, 'conditions': ['~this.data.accuracy~ < 80', '~this.data.accuracy~ >= 60']},
+        { 'class': 'text', 'text': 'You must improve your accuracy.', 'y': 0.48, 'conditions': ['~this.data.accuracy~ < 60']},
+        { 'class': 'text', 'text': 'Your timing was great!', 'y': 0.52, 'conditions': ['~this.data.hits~ >= 80'] },
+        { 'class': 'text', 'text': 'Your timing was good.', 'y': 0.52, 'conditions': ['~this.data.hits~ < 80', '~this.data.hits~ >= 60'] },
+        { 'class': 'text', 'text': 'You must improve your timing.', 'y': 0.52, 'conditions': ['~this.data.hits~ < 60'] },
+        { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
+    ]);
+    
+    const _end_exp = new EndExperiment([
+        { 'class': 'text', 'text': 'End of Experiment. Thank you for your help.', 'y': 0.25 },
+        { 'class': 'text', 'text': 'You were correct on ~this.data.accuracy~% of all test trials.', 'y':0.48 },
+        { 'class': 'text', 'text': 'You responded on time on ~this.data.hits~% of all test trials.', 'y': 0.52 },
+        { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to end the experiment.', 'y': 0.75 },
+    ]);
+
+    // timeline ============================================================================================================
+    
+    tomJS.appendToTimeline(_welcome);
+
+    tomJS.appendToTimeline(_timing);
+    tomJS.appendBlock(
+        trial_type = trial_type = ProgressBarResponseSignal, 
+        trialwise = _timing_training_trialwise,
+        additional = _timing_training_additional, 
+        conditional = _timing_training_conditional, 
+        trial_reps = 9,
+        start_slide = null, 
+        end_slide = _timing_end_block, 
+        add_countdown = true
+    );
+
+    tomJS.appendToTimeline(_main);
+    tomJS.appendBlocks(
+        trial_type = ProgressBarResponseSignal,
+        blockwise = _blockwise,
+        trialwise = _trialwise,
+        additional = _additional,
+        conditional = _conditional,
+        block_reps = 2,
+        trial_reps = 3,
+        start_slide = null,
+        end_slide = _end_block,
+        add_countdown = true,
+    )
+
+    tomJS.replaceEndBlockWithEndExperiment(_end_exp);
+
+    // run =================================================================================================================
+    
+    tomJS.start();
+
+</script>
+</body>
+</html>

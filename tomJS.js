@@ -1,7 +1,7 @@
 
 class Experiment {	
 
-	version = '22.01.26 16:54';
+	version = '22.01.26 17:43';
 
 	constructor(args={}) {
 		
@@ -897,6 +897,8 @@ class ResponseSignal extends Trial {
 		if (!('condition'in args)) tomJS.error('no condition passed to response signal trial');
 		super(args);
 
+		tomJS.data[this.index].censor_after = args.censor_after ?? 1000;
+
 		// override
 		tomJS.data[this.index].stimulus_fast = args.stimulus_fast ?? 0;
 		tomJS.data[this.index].stimulus_slow = args.stimulus_slow ?? 0;
@@ -906,7 +908,7 @@ class ResponseSignal extends Trial {
 			'Incorrect'	: 'Hit',
 			'Fast'		: 'Miss', 
 			'Slow'		: 'Miss',
-			'Censored'	: 'Too Slow'
+			'Censored'	: 'Miss'
 		};
 
 		// signal
@@ -921,6 +923,7 @@ class ResponseSignal extends Trial {
 
 		// calculated
 		const d = tomJS.data[this.index];
+		tomJS.data[this.index].stimulus_duration = d.condition + d.signal_for + d.censor_after;
 		tomJS.data[this.index].trial_duration = d.fixation_duration + d.stimulus_duration;
 
 		// placeholder
@@ -1786,57 +1789,62 @@ class ExampleProgressBar extends Slide {
 
 	constructor(content = [], can_return = false, args = {}) {
 		super(content, can_return, args);
-		this.min = args.min ?? 0.200;
-        this.max = args.max ?? 3.000;
-		args.pb_x = args.pb_x ?? 0.5;
-		args.pb_y = args.pb_y ?? 0.5;
-		this.progress_bar = new ProgressBar(args);
-		this.start = null
+		
+		this.bar = new (args.progress_bar_type ?? ProgressBar)(args);
+		this.bar.set('x', args.x ?? 0.5);
+		this.bar.set('y', args.y ?? 0.5);
+
+        this.max = args.max ?? 2000;
+
+		this.signal_on  = args.signal_on  ?? 0.55;
+		this.signal_off = args.signal_off ?? 0.70;
+
+		this.bar_colour = args.bar_colour ?? "White";
+		this.signal_colour = args.signal_colour ?? "DodgerBlue";
+
+		this.start = null;
 	}
 
 	// super
 
 	onEnter() {
-        super.onEnter();
-        this.progress_bar.set('percent', 1);
+		super.onEnter();
+		if (this.bar.constructor.name == 'GoalpostBar') {
+			this.bar.set('bar_left_pos',  this.signal_on);
+			this.bar.set('bar_right_pos', this.signal_off);
+		};
 	}
 	
 	onUpdate() {
 		super.onUpdate();
 		this.updateProgressBar();
-		this.progress_bar.drawStimulus();
+		this.bar.drawStimulus();
 	}
 
 	// functions
 
-	updateProgressBar() {
-		const start = this.start;
-		const now = tomJS.now;
-		const condition = this.max * 1000;
-		const duration = this.max * 1000;
-		const progress = (now - start) + (duration - condition);
-		const percent = 1 - Math.min(progress / duration, 1);
-        if (percent >= 0.01) this.progress_bar.set('percent', percent);
-		else this.start = tomJS.now;
+	checkBarColour() {
+		const percent = this.returnBarPercent();
+		if (percent > this.signal_off) this.bar.set('bar_colour', this.bar_colour)
+		else if (percent > this.signal_on) this.bar.set('bar_colour', this.signal_colour)
+		else this.bar.set('bar_colour', this.bar_colour);
 	}
 
-}
-
-
-class ExampleVisualResponseSignal extends ExampleProgressBar {
-
-	constructor(content = [], can_return = false, args = {}) {
-		super(content, can_return, args);
-		this.early = args.early ?? 0.50;
-		this.late = args.late ?? 0.25;
-		this.colour = args.colour ?? "DodgerBlue";
+	returnBarPercent() {
+        const start    = this.start;
+		const now      = tomJS.now;
+		const duration = this.max;
+		const progress = now - start;
+		const percent  = progress / duration;
+		const invert   = 1 - percent;
+		return Math.min(invert, 1);
 	}
 
 	updateProgressBar() {
-		super.updateProgressBar();
-		if (percent <= this.early) this.progress_bar.set('colour_bar', this.colour);
-		if (percent <= this.late) this.progress_bar.set('colour_bar', "white");
-		if (percent == 0) this.start = tomJS.now;
+		const percent = this.returnBarPercent();
+		if (percent <= 0) this.start = tomJS.now;
+        this.bar.set('percent', percent);
+		this.checkBarColour();
 	}
 
 }
