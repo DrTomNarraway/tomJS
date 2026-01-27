@@ -1,13 +1,11 @@
 
 class Experiment {	
 
-	version = '22.01.26 17:43';
+	version = '27.01.26 11:33';
 
 	constructor(args={}) {
 		
-		console.log('booting tomJS version '+this.version);
-
-		this.boot_time = Math.round(window.performance.now());
+		console.log('booting tomJS version ' + this.version);
 
 		// debug
 		this.debug = {};
@@ -28,7 +26,8 @@ class Experiment {
 		this.visual.color = args.color ?? "white";				
 		this.visual.height = window.innerHeight - 16;
 		this.visual.width  = window.innerWidth - 16;
-		this.visual.screen_size   = Math.min(this.visual.height, this.visual.width); // find the smaller dimension
+		const screen_size = Math.min(this.visual.height, this.visual.width);
+		this.visual.screen_size = screen_size;
 		this.visual.stimulus_size = Math.round(this.visual.screen_size * 0.5);
 		this.createCanvas();
 		if (this.debug.verbose) console.log('visual', this.visual);
@@ -41,15 +40,15 @@ class Experiment {
 		
 		// controls
 		this.controls = {};
-		this.controls.keyboard  = new Keyboard();
-		this.controls.key_a     = args.key_a     ?? 'f';
-        this.controls.key_b     = args.key_b     ?? 'j';
-        this.controls.key_quit  = args.key_quit  ?? 'Escape';
-        this.controls.key_back  = args.key_back  ?? 'Backspace';
+		this.controls.keyboard    = new Keyboard();
+		this.controls.key_a       = args.key_a     ?? 'f';
+        this.controls.key_b       = args.key_b     ?? 'j';
+        this.controls.key_quit    = args.key_quit  ?? 'Escape';
+        this.controls.key_back    = args.key_back  ?? 'Backspace';
 		this.controls.key_a_upper = this.controls.key_a.toUpperCase();
 		this.controls.key_b_upper = this.controls.key_b.toUpperCase();
-		this.controls.resp_a    = args.resp_a    ?? 'A';
-		this.controls.resp_b    = args.resp_b    ?? 'B';
+		this.controls.resp_a      = args.resp_a    ?? 'A';
+		this.controls.resp_b      = args.resp_b    ?? 'B';
 		if (this.debug.verbose) console.log('controls',this.controls);
 
 		// current input data
@@ -58,7 +57,6 @@ class Experiment {
 		
 		// jatos
 		this.jatos = false;
-		this.study_name = args.study_name ?? false;
 
 		// demographics
 		this.demographics = {};
@@ -240,6 +238,11 @@ class Experiment {
 		this.timeline.enter();
 		requestAnimationFrame(this.run);
 	}
+
+	strokeRect(x, y, w, h, colour="white") {
+		this.visual.context.strokeStyle = colour;
+		this.visual.context.strokeRect(x, y, w, h);
+	}
 	
 	update () {
 		if (this.timeline.complete) this.nextState();
@@ -288,7 +291,8 @@ class Experiment {
 
 }
 
-// timeline ================================================================================================================
+
+// timeline ===================================================================
 
 
 /** tomJS timeline of tomJS states. */
@@ -299,6 +303,10 @@ class Timeline {
 		this.length = timeline.length;
 		this.position = 0;
 		this.timeline = timeline;
+	}
+	
+	currentState() {
+		return this.timeline[this.position].constructor.name;
 	}
 
 	enter() {
@@ -319,6 +327,7 @@ class Timeline {
 	}
 
 	update() {
+		if (this.complete) return;
 		if (this.timeline[this.position].complete) this.nextState()
 		else this.timeline[this.position].update();
 	}
@@ -336,7 +345,8 @@ class Timeline {
 
 }
 
-// data ====================================================================================================================
+
+// data =======================================================================
 
 
 class DataWrapper {
@@ -355,12 +365,15 @@ class DataWrapper {
 		const keys = this.keys();
 		const values = this.values();
 		let out = "";
-		for (let a = 0; a < keys.length; a++) out += keys[a] + ": " + values[a] + ", ";
+		for (let a = 0; a < keys.length; a++) {
+			out += keys[a] + ": " + values[a] + ", ";
+		};
 		out = out.slice(0, -2); // drop last comma and space
 		return out;
 	}
 
 }
+
 
 class BlockData extends DataWrapper {
 
@@ -407,6 +420,7 @@ class BlockData extends DataWrapper {
 
 }
 
+
 class TrialData extends DataWrapper {
 
 	constructor() {
@@ -448,7 +462,7 @@ class TrialData extends DataWrapper {
 }
 
 
-// states ==================================================================================================================
+// states =====================================================================
 
 
 class State {
@@ -456,6 +470,7 @@ class State {
 	constructor(args = {}) {
 		this.complete = false;
 		this.timeline = new Timeline();
+		this.name = this.constructor.name;
 	}
 
 	enter() {
@@ -463,26 +478,18 @@ class State {
 	}
 
 	exit() {
-		// does nothing
+		if (this.complete) return;
+		this.complete = true;
 	}
 
 	update() {
-		// does nothing
-	}
-
-}
-
-class EndState extends State {
-
-	constructor(args={}) {
-		super(args);
-		this.timeline = null;
+		if (this.complete) return;
 	}
 
 }
 
 
-// mutators ================================================================================================================
+// mutators ===================================================================
 
 
 class Mutator extends State {
@@ -505,7 +512,7 @@ class Mutator extends State {
 }
 
 
-// blocks ==================================================================================================================
+// blocks =====================================================================
 
 
 class Block extends State {
@@ -604,47 +611,16 @@ class Block extends State {
 
 }
 
-// trial bits ==============================================================================================================
 
-class TrialBit extends EndState {
+// trial bits =================================================================
+
+
+class TrialBit extends State {
 
 	constructor(trial, args={}) {
 		super();
 		this.trial = trial;
-	}
-
-	enter() {
-		// does nothing
-	}
-
-	exit() {
-		this.complete = true;
-	}
-
-	update() {
-		// does nothing
-	}
-
-}
-
-class ITIBit extends TrialBit {
-
-	constructor(trial, args={}) {super(trial, args)}
-
-	enter() {
-		super.enter();
-		tomJS.data[this.trial.index].iti_on = tomJS.now;
-		tomJS.data[this.trial.index].iti_on = tomJS.now + tomJS.data[this.trial.index].iti_duration;
-	}
-
-	exit() {
-		super.exit();
-		tomJS.data[this.trial.index].iti_off = tomJS.now;
-	}
-
-	update() {
-		super.update();
-		if (tomJS.now >= tomJS.data[this.trial.index].iti_off) this.exit();
+		this.timeline = null;
 	}
 
 }
@@ -663,7 +639,7 @@ class FeedbackBit extends TrialBit {
 
 	exit() {
 		super.exit();
-		tomJS.data[this.trial.index].feedback_off = tomJS.now;
+		tomJS.data[this.trial.index].feedback_off = tomJS.now;		
 	}
 
 	update() {
@@ -675,6 +651,7 @@ class FeedbackBit extends TrialBit {
 	}
 
 }
+
 
 class FixationBit extends TrialBit {
 
@@ -688,7 +665,7 @@ class FixationBit extends TrialBit {
 
 	exit() {
 		super.exit();
-		tomJS.data[this.trial.index].fixation_off = tomJS.now;
+		tomJS.data[this.trial.index].fixation_off = tomJS.now;		
 	}
 
 	update() {
@@ -702,6 +679,30 @@ class FixationBit extends TrialBit {
 	}
 
 }
+
+
+class ITIBit extends TrialBit {
+
+	constructor(trial, args={}) {super(trial, args)}
+
+	enter() {
+		super.enter();
+		tomJS.data[this.trial.index].iti_on  = tomJS.now;
+		tomJS.data[this.trial.index].iti_off = tomJS.now + tomJS.data[this.trial.index].iti_duration;
+	}
+
+	exit() {
+		super.exit();
+		tomJS.data[this.trial.index].iti_off = tomJS.now;		
+	}
+
+	update() {
+		super.update();
+		if (tomJS.now >= tomJS.data[this.trial.index].iti_off) this.exit();
+	}
+
+}
+
 
 class StimulusBit extends TrialBit {
 
@@ -745,7 +746,8 @@ class StimulusBit extends TrialBit {
 
 }
 
-// trials ==================================================================================================================
+
+// trials =====================================================================
 
 
 /**
@@ -758,7 +760,7 @@ class Trial extends State {
 	constructor(args={}) {
 		super(args);
 
-		this.index = args.index ?? 0;
+		this.index = args.index ?? 0;		
 
 		// create new stimulus object
 		if (!('stimulus' in args)) tomJS.error('no target stimulus passed to trial');
@@ -776,24 +778,27 @@ class Trial extends State {
 
 		// data
 		tomJS.data.push(new TrialData());
-		tomJS.data[this.index].block				= args.block ?? tomJS.block;
-		tomJS.data[this.index].trial				= args.trial ?? tomJS.trial;
-		tomJS.data[this.index].index				= this.index;
-		tomJS.data[this.index].condition			= args.condition ?? null;
-		tomJS.data[this.index].difficulty			= this.stimulus.data.difficulty;
-		tomJS.data[this.index].fixation_duration	= choose(args.fixation_duration, 1000);
-		tomJS.data[this.index].fixation_size		= choose(args.fixation_size, 0.10);
-		tomJS.data[this.index].fixation_colour		= args.fixation_colour ?? "white";
-		tomJS.data[this.index].stimulus_duration	= choose(args.stimulus_duration, 3000);
-		tomJS.data[this.index].stimulus_fast		= choose(args.stimulus_fast, 200);
-		tomJS.data[this.index].stimulus_slow		= choose(args.stimulus_slow, 3000);
-		tomJS.data[this.index].target				= this.stimulus.data.target;
-		tomJS.data[this.index].feedback_duration	= choose(args.feedback_duration, 1000);
-		tomJS.data[this.index].feedback_size		= choose(args.feedback_size, 0.05);
-		tomJS.data[this.index].iti_duration			= choose(args.iti_duration, 200);
+		this.data = tomJS.data[this.index];
+
+		this.data.block				= args.block ?? tomJS.block;
+		this.data.trial				= args.trial ?? tomJS.trial;
+		this.data.index				= this.index;
+		this.data.condition			= args.condition ?? null;
+		this.data.difficulty			= this.stimulus.data.difficulty;
+		this.data.fixation_duration	= choose(args.fixation_duration, 1000);
+		this.data.fixation_size		= choose(args.fixation_size, 0.10);
+		this.data.fixation_colour		= args.fixation_colour ?? "white";
+		this.data.stimulus_duration	= choose(args.stimulus_duration, 3000);
+		this.data.stimulus_fast		= choose(args.stimulus_fast, 200);
+		this.data.stimulus_slow		= choose(args.stimulus_slow, 3000);
+		this.data.target				= this.stimulus.data.target;
+		this.data.feedback_duration	= choose(args.feedback_duration, 1000);
+		this.data.feedback_size		= choose(args.feedback_size, 0.05);
+		this.data.iti_duration			= choose(args.iti_duration, 200);
+
 
 		// append data headings to global data heading storage
-		if (tomJS.headings[4] != 'block') joinUniques(tomJS.headings, tomJS.data[this.index].keys());
+		if (tomJS.headings[4] != 'block') joinUniques(tomJS.headings, this.data.keys());
 
 		// feedback information
 		this.feedback_colors = args.feedback_colors ?? {
@@ -814,7 +819,7 @@ class Trial extends State {
 
 		// ensure too slow response does not override stimulus duration, unless desired
 		if ('stimulus_duration' in args && ! 'stimulus_slow' in args)
-			tomJS.data[this.index].stimulus_slow = tomJS.data[this.index].stimulus_duration;
+			this.data.stimulus_slow = this.data.stimulus_duration;
 
 	}
 
@@ -822,15 +827,16 @@ class Trial extends State {
 
 	enter() {
 		super.enter();
-		tomJS.data[this.index].start = tomJS.now;
-		tomJS.data[this.index].fixation_size = Math.round((tomJS.data[this.index].fixation_size ) * tomJS.visual.stimulus_size) + "px";
-		tomJS.data[this.index].feedback_size = Math.round((tomJS.data[this.index].feedback_size ) * tomJS.visual.stimulus_size) + "px";
+		this.data.start = tomJS.now;
+		this.estimateOnsets();
+		this.data.fixation_size = Math.round((this.data.fixation_size ) * tomJS.visual.stimulus_size) + "px";
+		this.data.feedback_size = Math.round((this.data.feedback_size ) * tomJS.visual.stimulus_size) + "px";
 		this.timeline.enter();
 	}
 
-	exit() {
+	exit() {		
 		super.exit();
-		tomJS.data[this.index].end = tomJS.now;
+		this.data.end = tomJS.now;		
 	}
 
 	update() {
@@ -843,44 +849,51 @@ class Trial extends State {
 	// functions
 
 	calculateRT() {
-		const rg = tomJS.data[this.index].response_given;
-		const on = tomJS.data[this.index].stimulus_on;
-		tomJS.data[this.index].rt = roundTo((rg - on), tomJS.rounding);
+		const rg = this.data.response_given;
+		const on = this.data.stimulus_on;
+		this.data.rt = roundTo((rg - on), tomJS.rounding);
 	}
         
 	calculateScore() {
-		if (tomJS.data[this.index].response == tomJS.data[this.index].target) tomJS.data[this.index].score = 100 
-		else tomJS.data[this.index].score = 0;
+		if (this.data.response == this.data.target) this.data.score = 100 
+		else this.data.score = 0;
 	}
 
 	determineAccuracy() {
-		if (tomJS.data[this.index].response == tomJS.data[this.index].target) tomJS.data[this.index].accuracy = 1 
-		else tomJS.data[this.index].accuracy = 0;
+		if (this.data.response == this.data.target) this.data.accuracy = 1 
+		else this.data.accuracy = 0;
 	}
 
 	determineOutcome() {
-		const rsp = tomJS.data[this.index].response;
-		const rt  = tomJS.data[this.index].rt;
-		const tgt = tomJS.data[this.index].target;
-		const slw = tomJS.data[this.index].stimulus_slow;
-		const fst = tomJS.data[this.index].stimulus_fast;
-		if		(rsp == null) {tomJS.data[this.index].outcome = 'Censored'}
-		else if (rt >= slw)   {tomJS.data[this.index].outcome = 'Slow'}
-		else if (rt <= fst)   {tomJS.data[this.index].outcome = 'Fast'}
-		else if (rsp == tgt)  {tomJS.data[this.index].outcome = 'Correct'}
-        else				  {tomJS.data[this.index].outcome = 'Incorrect'};
+		const rsp = this.data.response;
+		const rt  = this.data.rt;
+		const tgt = this.data.target;
+		const slw = this.data.stimulus_slow;
+		const fst = this.data.stimulus_fast;
+		if		(rsp == null) {this.data.outcome = 'Censored'}
+		else if (rt >= slw)   {this.data.outcome = 'Slow'}
+		else if (rt <= fst)   {this.data.outcome = 'Fast'}
+		else if (rsp == tgt)  {this.data.outcome = 'Correct'}
+        else				  {this.data.outcome = 'Incorrect'};
+	}
+
+	estimateOnsets() {
+		this.data.fixation_on = this.data.start + 1;
+		this.data.stimulus_on = this.data.fixation_on + this.data.fixation_duration;
+		this.data.feedback_on = this.data.stimulus_on + this.data.stimulus_duration;
+		this.data.iti_on      = this.data.feedback_on + this.data.feedback_duration;
 	}
 
 	recordResponse() {
-		tomJS.data[this.index].response       = tomJS.dir;
-		tomJS.data[this.index].response_key   = tomJS.key; 
-		tomJS.data[this.index].response_given = tomJS.now;
+		this.data.response       = tomJS.dir;
+		this.data.response_key   = tomJS.key; 
+		this.data.response_given = tomJS.now;
 	}
 
 	updateFeedbackText() {
-		const outcome = tomJS.data[this.index].outcome;
-		tomJS.data[this.index].feedback_text   = this.feedback_texts[outcome];
-		tomJS.data[this.index].feedback_colour = this.feedback_colors[outcome];
+		const outcome = this.data.outcome;
+		this.data.feedback_text   = this.feedback_texts[outcome];
+		this.data.feedback_colour = this.feedback_colors[outcome];
 	}
 
 }
@@ -891,7 +904,7 @@ class FeedbackDeadline extends Trial {
 	constructor(args={}) {
 		if (!('condition'in args)) tomJS.error('no condition (deadline) passed to feedback deadline trial');
 		super(args);
-        tomJS.data[this.index].stimulus_slow = tomJS.data[this.index].condition;
+        this.data.stimulus_slow = this.data.condition;
 	}
 
 }
@@ -903,7 +916,7 @@ class PreFixationPicture extends Trial {
 		if (!('condition'in args)) tomJS.error('no condition passed to pre-fixation picture trial');
 		super(args);
 
-		tomJS.data[this.index].cue_duration = args.cue_duration ?? 1000;
+		this.data.cue_duration = args.cue_duration ?? 1000;
 
 	}
 
@@ -911,23 +924,23 @@ class PreFixationPicture extends Trial {
 
 
 	cueEnter() {
-		tomJS.data[this.index].cue_on = tomJS.now;
+		this.data.cue_on = tomJS.now;
 		this.substate = this.cueUpdate;
 	}
 
 	cueExit() {
-		tomJS.data[this.index].cue_off = tomJS.now;
+		this.data.cue_off = tomJS.now;
 		this.fixatienter();
 	}
 
 	cueQueue() {
-		tomJS.data[this.index].cue_on = tomJS.data[this.index].start + 1;
-		tomJS.data[this.index].cue_off   = tomJS.data[this.index].cue_on + tomJS.data[this.index].cue_duration;
+		this.data.cue_on = this.data.start + 1;
+		this.data.cue_off   = this.data.cue_on + this.data.cue_duration;
 	}
 
 	cueUpdate() {
-		tomJS.drawImage(tomJS.data[this.index].condition, this.args);
-		if (tomJS.now >= tomJS.data[this.index].cue_off) this.cueExit();
+		tomJS.drawImage(this.data.condition, this.args);
+		if (tomJS.now >= this.data.cue_off) this.cueExit();
 	}
 
 }
@@ -936,14 +949,14 @@ class PreFixationPicture extends Trial {
 class ResponseSignal extends Trial {
 
 	constructor(args={}) {
-		if (!('condition'in args)) tomJS.error('no condition passed to response signal trial');
+		if (!('condition'in args)) 
+			tomJS.error('no condition passed to response signal trial');
+		
 		super(args);
 
-		tomJS.data[this.index].censor_after = args.censor_after ?? 1000;
-
 		// override
-		tomJS.data[this.index].stimulus_fast = args.stimulus_fast ?? 0;
-		tomJS.data[this.index].stimulus_slow = args.stimulus_slow ?? 0;
+		this.data.stimulus_fast = args.stimulus_fast ?? 0;
+		this.data.stimulus_slow = args.stimulus_slow ?? 0;
 
 		this.feedback_texts  = args.feedback_texts  ?? { 
 			'Correct'	: 'Hit',
@@ -952,151 +965,68 @@ class ResponseSignal extends Trial {
 			'Slow'		: 'Miss',
 			'Censored'	: 'Miss'
 		};
-
+		
 		// signal
-		tomJS.data[this.index].above_and_below = args.above_and_below ?? false;
-		tomJS.data[this.index].signal_for  = choose(args.signal_for, 400);
-		tomJS.data[this.index].signal_x    = choose(args.signal_x, 0.5);
-		tomJS.data[this.index].signal_y    = choose(args.signal_y, 0.2);
+		this.data.above_and_below = args.above_and_below ?? false;
+		this.data.signal_for = choose(args.signal_for, 400);
+		this.data.signal_x   = choose(args.signal_x, 0.5);
+		this.data.signal_y   = choose(args.signal_y, 0.2);
 
 		// warning
-		tomJS.data[this.index].warning_at   = choose(args.warning_for, 0);
-		tomJS.data[this.index].warning_for  = choose(args.warning_for, 0);
+		this.data.warning_at  = choose(args.warning_for, 0);
+		this.data.warning_for = choose(args.warning_for, 0);
 
 		// calculated
-		const d = tomJS.data[this.index];
-		tomJS.data[this.index].stimulus_duration = d.condition + d.signal_for + d.censor_after;
-		tomJS.data[this.index].trial_duration = d.fixation_duration + d.stimulus_duration;
+		this.data.stimulus_duration += this.data.condition + this.data.signal_for;
+		this.data.trial_duration = this.data.fixation_duration + this.data.condition + this.data.signal_for;
 
 		// placeholder
-		tomJS.data[this.index].rtt         = null;
-		tomJS.data[this.index].signal_on   = null;
-		tomJS.data[this.index].signal_off  = null;
-		tomJS.data[this.index].warning_on  = null;
-		tomJS.data[this.index].warning_off = null;
-		tomJS.data[this.index].early       = null;
-		tomJS.data[this.index].late        = null;
+		this.data.rtt         = null;
+		this.data.signal_on   = null;
+		this.data.signal_off  = null;
+		this.data.warning_on  = null;
+		this.data.warning_off = null;
+		this.data.early       = null;
+		this.data.late        = null;
 
 		// headings
-		if (!(arraySearch(tomJS.headings, 'rtt'))) tomJS.headings = joinUniques(tomJS.headings, d.keys());
+		if (!(arraySearch(tomJS.headings, 'rtt'))) tomJS.headings = joinUniques(tomJS.headings, this.data.keys());
 	}
 
 	// override
 
 	determineOutcome() {
-		const d = tomJS.data[this.index]
-		const rsp = d.response;
-		const rsg = d.response_given;
-		const erl = d.early;
-		const lte = d.late;
-		const tgt = d.target;
+		const rsp = this.data.response;
+		const rsg = this.data.response_given;
+		const erl = this.data.early;
+		const lte = this.data.late;
+		const tgt = this.data.target;
 		let _outcome;
 		if		(rsp == null) {_outcome = 'Censored'}
 		else if (rsg <= erl)  {_outcome = 'Fast'}
 		else if (rsg >= lte)  {_outcome = 'Slow'}
 		else if (rsp == tgt)  {_outcome = 'Correct'}
         else				  {_outcome = 'Incorrect'};
-		tomJS.data[this.index].outcome = _outcome;
+		this.data.outcome = _outcome;
 	}
 
 	// super
 
 	calculateRT() {
 		super.calculateRT();
-		const rg = tomJS.data[this.index].response_given;
-		const rs = tomJS.data[this.index].signal_on;
-		tomJS.data[this.index].rtt = roundTo((rg - rs), tomJS.rounding);
+		const rg = this.data.response_given;
+		const rs = this.data.signal_on;
+		this.data.rtt = roundTo((rg - rs), tomJS.rounding);
 	}
 
 	enter() {
 		super.enter();
-
-		// signal onset and offset
-		tomJS.data[this.index].signal_on  = tomJS.data[this.index].stimulus_on + tomJS.data[this.index].condition;
-		tomJS.data[this.index].signal_off = tomJS.data[this.index].signal_on + tomJS.data[this.index].signal_for;
-
-		// warning onset and offset
-		tomJS.data[this.index].warning_on  = tomJS.data[this.index].signal_on  - tomJS.data[this.index].warning_at;
-		tomJS.data[this.index].warning_off = tomJS.data[this.index].warning_on + tomJS.data[this.index].warning_for;
-
-		// response window
-		tomJS.data[this.index].early = tomJS.data[this.index].signal_on  - tomJS.data[this.index].stimulus_fast;
-		tomJS.data[this.index].late  = tomJS.data[this.index].signal_off + tomJS.data[this.index].stimulus_slow;
-	}
-
-}
-
-
-class TextResponseSignal extends ResponseSignal {
-
-	constructor (args={}) {
-		if (!('condition'in args)) tomJS.error('no condition passed to text response signal trial');
-		super(args);
-
-		tomJS.data[this.index].signal_colour = args.signal_colour ?? "white";
-		tomJS.data[this.index].signal_size   = args.signal_size   ?? 0.10;
-		tomJS.data[this.index].signal_text   = args.signal_text   ?? "+++++";
-
-		tomJS.data[this.index].warning_colour = args.warning_colour ?? "white";
-		tomJS.data[this.index].warning_text   = args.warning_text   ?? "+";		
-
-		const d = tomJS.data[this.index];
-
-		// response signal
-		this.signal = new Text(args);
-		this.signal.set('text', d.signal_text);
-		this.signal.set('x', d.signal_x);
-		this.signal.set('y', d.signal_y);
-		this.signal.set('size', d.signal_size);
-		this.signal.set('fontSize', this.signal.calculateFontSize(d.signal_size));
-
-		if (d.above_and_below) {
-			this.signal_lower = new Text(args);
-			this.signal_lower.set('text', d.signal_text);
-			this.signal_lower.set('x', d.signal_x);
-			this.signal_lower.set('y', d.signal_y);
-			this.signal_lower.set('size', d.signal_size);
-			this.signal_lower.set('fontSize', this.signal.calculateFontSize(d.signal_size));
-		}
-
-		// warning signal
-		this.warning = new Text(args);
-		this.warning.set('text', d.warning_text);
-		this.warning.set('x', d.signal_x);
-		this.warning.set('y', d.signal_y);
-		this.warning.set('size', d.signal_size);
-		this.warning.set('fontSize', this.signal.calculateFontSize(d.signal_size));
-
-		if (d.above_and_below) {
-			this.warning_lower = new Text(args);
-			this.warning_lower.set('text', d.warning_text);
-			this.warning_lower.set('x', d.signal_x);
-			this.warning_lower.set('y', d.signal_y);
-			this.warning_lower.set('size', d.signal_size);
-			this.warning_lower.set('fontSize', this.signal.calculateFontSize(d.signal_size));
-		}
-	}
-
-	// super -----------------------------------------------------------------------------------------------------------	
-
-    stimulusUpdate() {
-        super.stimulusUpdate();
-        this.drawResponseSignal();
-	}
-
-	// functions -----------------------------------------------------------------------------------------------------------
-
-	drawResponseSignal() {
-		const d = tomJS.data[this.index];
-		if (tomJS.now < d.warning_on) { return }
-		else if (tomJS.now < d.warning_off) {
-			this.warning.draw();
-			if (d.above_and_below) this.warning_lower.draw();
-		}
-		else if (tomJS.now < d.signal_off) {
-			this.signal.draw();
-			if (d.above_and_below)  this.signal_lower.draw();
-		};
+		this.data.signal_on   = this.data.stimulus_on + this.data.condition;
+		this.data.signal_off  = this.data.signal_on   + this.data.signal_for;
+		this.data.warning_on  = this.data.signal_on   - this.data.warning_at;
+		this.data.warning_off = this.data.warning_on  + this.data.warning_for;
+		this.data.early       = this.data.signal_on   - this.data.stimulus_fast;
+		this.data.late        = this.data.signal_off  + this.data.stimulus_slow;
 	}
 
 }
@@ -1111,22 +1041,28 @@ class ProgressBarResponseSignal extends ResponseSignal {
 	constructor(args={}) {
 
 		if (!('condition'in args)) tomJS.error('no condition passed to visual response signal trial');
-		super(args);		
+		super(args);
 
-		tomJS.data[this.index].signal_colour  = args.signal_colour  ?? "DodgerBlue";
-		tomJS.data[this.index].warning_colour = args.warning_colour ?? "#99ccff";
-
-		const d = tomJS.data[this.index];
+		// this.data.signal_colour  = args.signal_colour  ?? "DodgerBlue";
+		// this.data.warning_colour = args.warning_colour ?? "#99ccff";
+		this.data.signal_colour  = args.signal_colour  ?? "LawnGreen";
+		this.data.warning_colour = args.warning_colour ?? "SpringGreen";
+		this.data.bar_colour     = args.bar_colour ?? "White";
+		this.data.border_colour  = args.border_colour ?? "Grey";
 
 		// progress bar
 		this.signal = new (args.progress_bar_type ?? ProgressBar)(args);
-		this.signal.set('x', d.signal_x);
-		this.signal.set('y', d.signal_y);
+		this.signal.set('x', this.data.signal_x);
+		this.signal.set('y', this.data.signal_y);
+		this.signal.set('bar_colour', this.data.bar_colour);
+		this.signal.set('border_colour', this.data.border_colour);
 		
-		if (d.above_and_below) {
+		if (this.data.above_and_below) {
 			this.signal_lower = new (args.progress_bar_type ?? ProgressBar)(args);
-			this.signal_lower.set('x', d.signal_x);
-			this.signal_lower.set('y', (1 - d.signal_y));
+			this.signal_lower.set('x', this.data.signal_x);
+			this.signal_lower.set('y', (1 - this.data.signal_y));
+			this.signal_lower.set('bar_colour', this.data.bar_colour);
+			this.signal_lower.set('border_colour', this.data.border_colour)
 		};
 	}
 
@@ -1134,87 +1070,71 @@ class ProgressBarResponseSignal extends ResponseSignal {
 
 	enter() {
 		super.enter();
-		this.customBarSetups();
+		this.signal.initialize(this.data);
+		if (this.data.above_and_below) this.signal_lower.initialize(this.data);
 	}
 
 	update() {
-		if (this.timeline.name != "feedback") this.updateProgressBar();
-        this.drawProgressBar();
-        super.update();
+		super.update();
+		this.updateProgressBar();
+        this.drawProgressBar();        
 	}
 
-	// functions	
-
-	customBarSetups() {
-		const d = tomJS.data[this.index];
-		switch(this.signal.constructor.name) {
-			case 'GoalpostBar':				
-				const l = (d.fixation_duration + d.condition)  / d.trial_duration;
-				const r = (d.fixation_duration + d.condition + d.signal_for) / d.trial_duration;
-				this.signal.set('bar_left_pos',  l);
-				this.signal.set('bar_right_pos', r);
-				if (d.above_and_below) {
-					this.signal_lower.set('bar_left_pos',  l);
-					this.signal_lower.set('bar_right_pos', r);
-				};
-				break;
-			case 'WindowedBar':
-				const w = d.signal_for / d.trial_duration;
-				const p = (d.fixation_duration + d.condition) / d.trial_duration;
-				this.signal.set('window_width', w);
-				this.signal.set('window_pos', p);
-				if (d.above_and_below) this.signal_lower.set('window_width',  w);
-				if (d.above_and_below) this.signal_lower.set('window_pos',  p);
-				break;
-		};
-	}
+	// functions
 
 	drawProgressBar() {
+		if (this.timeline.currentState() == "ITIBit") return;
         this.signal.draw();
-		if (tomJS.data[this.index].above_and_below) this.signal_lower.draw();
+		if (this.data.above_and_below) this.signal_lower.draw();
 	}
 
-	returnBarColour() {
-		const d = tomJS.data[this.index];
-		if (tomJS.now < d.warning_on)        return d.bar_colour
-		else if (tomJS.now < d.signal_on)    return d.warning_colour
-		else if (tomJS.now < d.signal_off)   return d.signal_colour
-		else if (tomJS.now < d.stimulus_off) return d.bar_colour
-		else								 return d.border_colour;
-	}
-
-	returnBarPercent() {
-		const d        = tomJS.data[this.index];
-        const start    = d.fixation_on;
+	getBarPercent() {
+        const start    = this.data.fixation_on;
 		const now      = tomJS.now;
-		const duration = d.trial_duration;
+		const duration = this.data.trial_duration;
 		const progress = now - start;
 		const percent  = progress / duration;
-		const invert   = 1 - percent;
-		return Math.min(invert, 1);
+		return clamp(percent, 0, 1);
+	}
+
+	getBarColour() {
+		if (tomJS.now < this.data.warning_on)      return this.data.bar_colour
+		else if (tomJS.now < this.data.signal_on)  return this.data.warning_colour
+		else if (tomJS.now < this.data.signal_off) return this.data.signal_colour
+		else									   return this.data.border_colour;
 	}
 
     updateProgressBar() {
-		const percent = this.returnBarPercent()
-		const colour  = this.returnBarColour()
-        this.signal.set('percent', percent);
+		if (this.timeline.currentState() == "FeedbackBit" | 
+			this.timeline.currentState() == "ITIBit") return;
+		this.setCurrentValues();
+		this.setColourValues();
+	}
+
+	setCurrentValues() {
+		const percent = this.getBarPercent();
+		this.signal.set('percent', percent);
+		if (this.data.above_and_below) this.signal_lower.set('percent', percent);
+	}
+
+	setColourValues() {
+		const colour  = this.getBarColour();
         this.signal.set('bar_colour', colour);
-		if (tomJS.data[this.index].above_and_below) {
-			this.signal_lower.set('percent', percent)
-			this.signal_lower.set('bar_colour', colour);
-		};
+		if (this.data.above_and_below) this.signal_lower.set('bar_colour', colour);
 	}
 	
 }
 
 
-// slides ==================================================================================================================
+// slides =====================================================================
 
 
-class Slide extends EndState {
+class Slide extends State {
 
 	constructor(content=[], args={}) {
 		super();
+
+		this.timeline = null;
 
 		this.content = content;
 		this.force_wait = args.force_wait ?? 1000;		
@@ -1887,7 +1807,7 @@ class ExampleProgressBar extends Slide {
 }
 
 
-// stimuli =================================================================================================================
+// stimuli ====================================================================
 
 
 class Stimulus {
@@ -1898,6 +1818,10 @@ class Stimulus {
 	}
 
 	draw() {
+		// does nothing
+	}
+
+	initialize(data) {
 		// does nothing
 	}
 
@@ -1931,7 +1855,7 @@ class Gabor extends Stimulus {
 		this.prepareImageData();
 	}
 
-	// super ---------------------------------------------------------------------------------------------------------------
+	// super
 
 	draw() {
 		super.draw();
@@ -1943,7 +1867,7 @@ class Gabor extends Stimulus {
 		tomJS.visual.context.putImageData(img, pos_x, pos_y);
 	}
 
-	// functions -----------------------------------------------------------------------------------------------------------
+	// functions
 
 	prepareImageData() {
 		const s   = this.data.gp_px;
@@ -2000,7 +1924,7 @@ class TwoLines extends Stimulus {
 		this.data.tl_keep_fix   = args.tl_keep_fix   ?? true;
 	}
 
-	// super ---------------------------------------------------------------------------------------------------------------
+	// super
 
 	draw() {
 		super.draw();
@@ -2009,7 +1933,7 @@ class TwoLines extends Stimulus {
 		this.drawOneLine('B');
 	}
 
-	// functions -----------------------------------------------------------------------------------------------------------
+	// functions
 
 	drawOneLine(side){
 		const w = (tomJS.stimulus_size * this.data.tl_width);
@@ -2046,7 +1970,7 @@ class PixelPatch extends Stimulus {
 		this.prepareImageData();
 	}
 
-	// super ---------------------------------------------------------------------------------------------------------------	
+	// super	
 
 	draw() {
 		const _g = this.data.grid_pixels;
@@ -2058,7 +1982,7 @@ class PixelPatch extends Stimulus {
 		tomJS.visual.context.putImageData(_img, _pos_x, _pos_y);
 	}
 
-	// functions -----------------------------------------------------------------------------------------------------------
+	// functions
 	
 	calculateCellDistribution() {
 		const _d = this.data.difficulty;
@@ -2096,7 +2020,6 @@ class PixelPatch extends Stimulus {
 
 }
 
-
 class ProgressBar extends Stimulus {
 
 	constructor(args = {}) {
@@ -2107,7 +2030,7 @@ class ProgressBar extends Stimulus {
         this.data.width          = args.progressbar_width		  ?? 0.50;
         this.data.x              = args.progressbar_x			  ?? 0.50;
 		this.data.y              = args.progressbar_y			  ?? 0.20;
-		this.data.percent        = args.progressbar_percent		  ?? 0.00;
+		this.data.percent        = args.progressbar_percent		  ?? 0;
 	}
 
 	// super
@@ -2130,7 +2053,7 @@ class ProgressBar extends Stimulus {
 	}
 
 	drawBar() {
-		const w = tomJS.visual.stimulus_size * this.data.width * (1 - this.data.percent);
+		const w = tomJS.visual.stimulus_size * this.data.width * this.data.percent;
 		const h = tomJS.visual.stimulus_size * this.data.height;
 		const x = (tomJS.visual.screen_size * this.data.x) - (tomJS.visual.stimulus_size * this.data.width * 0.5);
 		const y = (tomJS.visual.screen_size * this.data.y) - (h * 0.5);
@@ -2140,91 +2063,61 @@ class ProgressBar extends Stimulus {
 
 }
 
+class WindowedBar extends ProgressBar {
 
-class LeakyBar extends ProgressBar {
+	constructor(args = {}) {
+		super(args);
+		this.data.bar_width     = args.bar_width     ?? 0.02;
+		this.data.window_colour = args.window_colour ?? "White";
+		this.data.window_width  = args.window_width  ?? 0.20;
+		this.data.window_pos    = args.window_pos    ?? 0.80;
+	}
 
-	constructor(args={}) {
-		super(args);		
+	// super
+
+	draw() {
+		super.draw();
+		this.drawWindow();
+	}
+
+	initialize(data) {
+		super.initialize(data);
+
+		let x = data.signal_for / data.trial_duration;
+		this.data.window_width = x;
+		console.log(data.signal_for, data.trial_duration, x);
+
+		this.data.window_pos = (data.signal_on - data.fixation_on) / 
+			data.trial_duration;
 	}
 
 	// override
 
 	drawBar() {
-		const w = tomJS.visual.stimulus_size * this.data.width * this.data.percent;
+		const w = tomJS.visual.stimulus_size * this.data.bar_width;
 		const h = tomJS.visual.stimulus_size * this.data.height;
-		const x = (tomJS.visual.screen_size * this.data.x) - (w * 0.5);
+		const bar_x = tomJS.visual.screen_size * this.data.x;
+		const bar_w = tomJS.visual.stimulus_size * this.data.width;
+		const o = this.data.percent;
+		const x = bar_x + (bar_w * o) - (bar_w * 0.5) + (w * 0.5);
 		const y = (tomJS.visual.screen_size * this.data.y) - (h * 0.5);
 		const c = this.data.bar_colour;
 		tomJS.drawRect(x, y, w, h, c);
 	}
 
-}
-
-
-class GoalpostBar extends ProgressBar {
-
-	constructor(args = {}) {
-		super(args);
-		this.data.goalpost_colour = args.goalpost_colour ?? "DodgerBlue"; // html colour
-		this.data.goalpost_width  = args.goalpost_width  ?? 0.01; // stimulus units
-		this.data.bar_left_pos    = args.bar_left_pos    ?? 0.50;
-		this.data.bar_right_pos   = args.bar_right_pos   ?? 0.75;
-	}
-
-	// super
-
-	draw() {
-		super.draw();
-		this.drawPost('left');
-		this.drawPost('right');
-	}
-
-	// functions
-
-	drawPost(which){
-		const w = tomJS.visual.stimulus_size * this.data.goalpost_width;
-		const h = tomJS.visual.stimulus_size * this.data.height;
-		const o = which == 'left' ? this.data.bar_left_pos : this.data.bar_right_pos;
-		const bar_x = tomJS.visual.screen_size * this.data.x;
-		const bar_w = tomJS.visual.stimulus_size * this.data.width;
-		const x = bar_x + (bar_w * o) - (bar_w * 0.5) - (w * 0.5);
-		const y = (tomJS.visual.screen_size * this.data.y) - (h * 0.5);
-		const c = this.data.goalpost_colour;
-		tomJS.drawRect(x, y, w, h, c);
-	}
-
-}
-
-
-class WindowedBar extends ProgressBar {
-
-	constructor(args = {}) {
-		super(args);
-		this.data.window_colour = args.window_colour ?? "#99ccff";
-		this.data.window_width  = args.window_width  ?? 0.10;
-		this.data.window_pos    = args.window_pos    ?? 0.50;
-	}
-
-	// super
-
-	draw() {
-		super.draw();
-		this.drawBorder();
-		this.drawWindow();
-		this.drawBar();
-	}
-
 	// functions
 
 	drawWindow() {
-		const bar_w = tomJS.visual.stimulus_size * this.data.width;
-		const bar_x = tomJS.visual.screen_size * this.data.x;
-		const w = bar_w * this.data.window_width;
+		const w = tomJS.visual.stimulus_size * this.data.window_width * this.data.width;
 		const h = tomJS.visual.stimulus_size * this.data.height;
-		const x = bar_x + (bar_w * this.data.window_pos) - (bar_w * 0.5) - (w * 0.5);
-		const y = (tomJS.visual.screen_size  * this.data.y) - (h * 0.5);
+		const o = this.data.window_pos;
+		const bar_x = tomJS.visual.screen_size * this.data.x;
+		const bar_w = tomJS.visual.stimulus_size * this.data.window_width;
+		// const x = bar_x + (bar_w * o) - (bar_w * 0.5) - (w * 0.5);
+		const x = bar_x + (bar_w * o) - (w * 0.5);
+		const y = (tomJS.visual.screen_size * this.data.y) - (h * 0.5);
 		const c = this.data.window_colour;
-		tomJS.drawRect(x, y, w, h, c);
+		tomJS.strokeRect(x, y, w, h, c);
 	}
 
 }
@@ -2345,7 +2238,7 @@ class Text extends Stimulus {
 }
 
 
-// utils ===================================================================================================================
+// utils ======================================================================
 
 
 function arrayAverage(array) {
@@ -2660,7 +2553,7 @@ function writeToBody(text) {
 }
 
 
-// util classes ============================================================================================================
+// util classes ===============================================================
 
 
 class Keyboard {
@@ -2723,7 +2616,7 @@ class Keyboard {
 }
 
 
-// data ====================================================================================================================
+// data =======================================================================
 
 
 bremen = {
