@@ -3,7 +3,7 @@
 <html>
 <body>
     <script src="jatos.js" id="jatos"></script>
-    <script src="tomJS_timeline.js" id="tomJS"></script>
+    <script src="tomJS.js" id="tomJS"></script>
     <script>
 
         // define constants ===================================================
@@ -11,11 +11,11 @@
         const ABV_BEL     = true;
         const BLOCK_REPS  = 1;
         const COUNTDOWN   = false;
-        const CONDITION   = [200, 600];
+        const CONDITION   = [200, 400, 600];
         const DIFFICULTY  = [0.01, 0.50];
         const ITI_DUR     = [800, 1000, 1200];
         const ORIENTATION = 2;
-        const STIM_DUR    = 2000;
+        const STIM_DUR    = 3000;
         const STIMULUS    = Gabor;
         const TARGET      = ['A', 'B'];
         const TRIAL_REPS  = 1;
@@ -143,7 +143,7 @@
             add_countdown = COUNTDOWN
         );
 
-        // tomJS.replaceEndBlockWithEndExperiment(_end_exp);
+        tomJS.replaceEndBlockWithEndExperiment(_end_exp);
 
         // run ================================================================
 

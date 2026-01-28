@@ -1,22 +1,18 @@
 
 class Experiment {	
 
-	version = '22.01.26 17:43';
+	version = '28.01.26 16:55';
 
 	constructor(args={}) {
 		
-		console.log('booting tomJS version '+this.version);
-
-		this.boot_time = Math.round(window.performance.now());
+		console.log('booting tomJS version ' + this.version);
 
 		// debug
 		this.debug = {};
+		this.debug.verbose    = args.verbose    ?? false;
+		this.debug.gridlines  = args.gridlines  ?? false;
 		this.debug.fullscreen = args.fullscreen ?? true;
-		this.debug.pilot = args.pilot ?? false;
-		this.debug.verbose = args.verbose ?? false;
-		this.debug.gridlines = args.gridlines ?? false;
-		this.debug.save = args.save ?? true;
-		if (this.debug.verbose) console.log('debug',this.debug);
+		this.debug.save       = args.save       ?? true;
 
 		// visual
 		this.visual = {};
@@ -28,10 +24,10 @@ class Experiment {
 		this.visual.color = args.color ?? "white";				
 		this.visual.height = window.innerHeight - 16;
 		this.visual.width  = window.innerWidth - 16;
-		this.visual.screen_size   = Math.min(this.visual.height, this.visual.width); // find the smaller dimension
+		const screen_size = Math.min(this.visual.height, this.visual.width);
+		this.visual.screen_size = screen_size;
 		this.visual.stimulus_size = Math.round(this.visual.screen_size * 0.5);
 		this.createCanvas();
-		if (this.debug.verbose) console.log('visual', this.visual);
 
 		// apply visual settings to document
 		document.body.style.fontFamily      = this.visual.fontFamily;
@@ -41,16 +37,15 @@ class Experiment {
 		
 		// controls
 		this.controls = {};
-		this.controls.keyboard  = new Keyboard();
-		this.controls.key_a     = args.key_a     ?? 'f';
-        this.controls.key_b     = args.key_b     ?? 'j';
-        this.controls.key_quit  = args.key_quit  ?? 'Escape';
-        this.controls.key_back  = args.key_back  ?? 'Backspace';
+		this.controls.keyboard    = new Keyboard();
+		this.controls.key_a       = args.key_a     ?? 'f';
+        this.controls.key_b       = args.key_b     ?? 'j';
+        this.controls.key_quit    = args.key_quit  ?? 'Escape';
+        this.controls.key_back    = args.key_back  ?? 'Backspace';
 		this.controls.key_a_upper = this.controls.key_a.toUpperCase();
 		this.controls.key_b_upper = this.controls.key_b.toUpperCase();
-		this.controls.resp_a    = args.resp_a    ?? 'A';
-		this.controls.resp_b    = args.resp_b    ?? 'B';
-		if (this.debug.verbose) console.log('controls',this.controls);
+		this.controls.resp_a      = args.resp_a    ?? 'A';
+		this.controls.resp_b      = args.resp_b    ?? 'B';
 
 		// current input data
 		this.key = '';
@@ -58,7 +53,6 @@ class Experiment {
 		
 		// jatos
 		this.jatos = false;
-		this.study_name = args.study_name ?? false;
 
 		// demographics
 		this.demographics = {};
@@ -71,9 +65,7 @@ class Experiment {
 		// timeline
         this.now        = window.performance.now();
         this.running    = true;
-        this.timeline   = [];
-		this.trial_list = [];
-        this.time_pos = 0;
+        this.timeline   = new Timeline();
         this.block    = 0;
 		this.blocks   = 0;
         this.trial    = 0;
@@ -85,6 +77,9 @@ class Experiment {
 
 		// other
 		this.rounding = args.rounding ?? 5;
+
+		// research institute
+		this.institute = args.institute ?? institute.bremen;
 		
 	}
 
@@ -145,13 +140,6 @@ class Experiment {
         this.controls.key_b = B;
 		this.controls.key_a_upper = A.toUpperCase();
 		this.controls.key_b_upper = B.toUpperCase();
-		if (this.debug.verbose) console.log({'A':A, 'B':B});
-	}
-
-	drawBox(x, y, w, h, c = "white", l = 1) {
-		this.visual.context.strokeStyle = c;
-		this.visual.context.lineWidth = l;
-		this.visual.context.strokeRect(x, y, w, h);
 	}
 
 	drawGridLines() {
@@ -161,7 +149,7 @@ class Experiment {
 			let h = this.visual.screen_size * 0.001;
 			let x = (this.visual.screen_size * 0.5) - (w * 0.5);
 			let y = (this.visual.screen_size * 0.5 * (i/2)) - (h * 0.5);
-			this.drawRect(x, y, w, h, this.visual.colour);
+			this.fillRect(x, y, w, h, this.visual.colour);
 		};
 		// vertical
 		for (let i = 0; i < 5; i++) {
@@ -169,7 +157,7 @@ class Experiment {
 			let h = this.visual.screen_size;
 			let x = (this.visual.screen_size * 0.5 * (i/2)) - (w * 0.5);
 			let y = (this.visual.screen_size * 0.5) - (h * 0.5);
-			this.drawRect(x, y, w, h, this.visual.colour);
+			this.fillRect(x, y, w, h, this.visual.colour);
 		};
 	}
 
@@ -180,11 +168,6 @@ class Experiment {
 		const _x = tomJS.visual.screen_size * (args.x ?? 0.5) - (_size * 0.5);
 		const _y = tomJS.visual.screen_size * (args.y ?? 0.5) - (_size * 0.5);
 		tomJS.visual.context.drawImage(img, _x, _y, _size, _size);
-	}
-
-	drawRect(x, y, w, h, colour="white") {
-		this.visual.context.fillStyle = colour;
-		this.visual.context.fillRect(x, y, w, h);
 	}
 
 	endExperiment() {
@@ -204,37 +187,29 @@ class Experiment {
 
 	error(message) {
 		this.running = false;
-		this.drawRect(0, 0, this.visual.screen_size, this.visual.screen_size, "red");
+		this.fillRect(0, 0, this.visual.screen_size, this.visual.screen_size, "red");
 		this.writeToCanvas('ERROR: '+message);
+	}
+
+	/** Draw a filled rectangle. x and y degine the position of the top-left pixel. */
+	fillRect(x, y, width, height, colour="white") {
+		this.visual.context.fillStyle = colour;
+		this.visual.context.fillRect(x, y, width, height);
 	}
 
 	flushKeys() {
 		this.key = '';
 		this.dir = '';
 	}
-	
-	nextState () {
-        let _end = this.timeline.length - 1;
-        let _new_position = this.time_pos + 1;
-        if (_new_position > _end) {
-            this.timeline[this.time_pos].onExit();
-            if (this.debug.verbose) console.log('at end of timeline, ending experiment');
-            this.endExperiment();
-		} else {
-            this.timeline[this.time_pos].onExit();
-            this.time_pos = _new_position;
-            this.timeline[this.time_pos].onEnter();
-		};
-	}
 
 	replaceEndBlockWithEndExperiment(end_slide) {		
 		const i = this.timeline.length - 1;
-		const j = this.timeline[i].timeline.length - 1;
-		this.timeline[i].timeline[j] = end_slide;
+		const j = this.timeline.timeline[i].length - 1;
+		this.timeline.timeline[i].timeline.timeline[j] = end_slide;
 	}
 	
 	resetCanvas () {
-		this.drawRect(0, 0, this.visual.screen_size, this.visual.screen_size, this.visual.backgroundColor);
+		this.fillRect(0, 0, this.visual.screen_size, this.visual.screen_size, this.visual.backgroundColor);
 	}
 
 	run = () => {
@@ -253,14 +228,22 @@ class Experiment {
 	start () {
 		this.running = true;
 		this.resetCanvas();
-		this.timeline[0].onEnter();
+		this.timeline.enter();
 		requestAnimationFrame(this.run);
 	}
+
+	/** Draw a hollow rectangle. x and y degine the position of the top-left pixel. */
+	strokeRect(x, y, width, height, colour = "white", lineWidth = 1) {
+		this.visual.context.strokeStyle = colour;
+		this.visual.context.lineWidth = lineWidth;
+		this.visual.context.strokeRect(x, y, width, height);
+	}
 	
-	/** run current state or move to next? */
 	update () {
-		if (this.timeline[this.time_pos].ready_to_exit) this.nextState();
-		else this.timeline[this.time_pos].update();
+		if (this.complete) return;
+		this.complete = this.timeline.complete;
+		if (this.timeline.complete) this.nextState();
+		else this.timeline.update();
 		if (this.debug.gridlines) this.drawGridLines();
 	}
 
@@ -305,7 +288,62 @@ class Experiment {
 
 }
 
-// data ====================================================================================================================
+
+// timeline ===================================================================
+
+
+/** tomJS timeline of tomJS states. */
+class Timeline {
+
+	constructor(timeline=[], args={}) {
+		this.complete = false;
+		this.length = timeline.length;
+		this.position = 0;
+		this.timeline = timeline;
+	}
+	
+	currentState() {
+		return this.timeline[this.position].constructor.name;
+	}
+
+	enter() {
+		this.timeline[this.position].enter();
+	}
+
+	exit() {
+		this.timeline[this.position].exit();
+	}
+
+	push(state) {
+		this.timeline.push(state);
+		this.length += 1;
+	}
+
+	returnLength() {
+		return this.timeline.length;
+	}
+
+	update() {
+		if (this.complete) return;
+		if (this.timeline[this.position].complete) this.nextState()
+		else this.timeline[this.position].update();
+	}
+
+	nextState () {
+        if (this.position + 1 == this.length) {
+            this.timeline[this.position].exit();
+			this.complete = true;
+		} else {			
+            this.timeline[this.position].exit();
+            this.position += 1;
+            this.timeline[this.position].enter();
+		};
+	}
+
+}
+
+
+// data =======================================================================
 
 
 class DataWrapper {
@@ -324,12 +362,15 @@ class DataWrapper {
 		const keys = this.keys();
 		const values = this.values();
 		let out = "";
-		for (let a = 0; a < keys.length; a++) out += keys[a] + ": " + values[a] + ", ";
+		for (let a = 0; a < keys.length; a++) {
+			out += keys[a] + ": " + values[a] + ", ";
+		};
 		out = out.slice(0, -2); // drop last comma and space
 		return out;
 	}
 
 }
+
 
 class BlockData extends DataWrapper {
 
@@ -376,6 +417,7 @@ class BlockData extends DataWrapper {
 
 }
 
+
 class TrialData extends DataWrapper {
 
 	constructor() {
@@ -417,37 +459,36 @@ class TrialData extends DataWrapper {
 }
 
 
-// states ==================================================================================================================
+// states =====================================================================
 
 
 class State {
 
-	constructor(args = {}) {
-		this.tag = args.tag ?? '';
-		this.ready_to_exit = false;
+	constructor() {
+		this.complete = false;
+		this.timeline = new Timeline();
+		this.name = this.constructor.name;
 	}
 
-	update() {
-		this.onUpdate();
-	}
-
-	onEnter() {
-		this.ready_to_exit = false;
+	enter() {
+		if (this.complete) return;
 		tomJS.flushKeys();
 	}
 
-	onUpdate() {
-		// does nothing
+	exit() {
+		if (this.complete) return;
+		this.complete = true;
 	}
 
-	onExit() {
-		// does nothing		
+	update() {
+		if (this.complete) return;
+		if (this.timeline) this.complete = this.timeline.complete;
 	}
 
 }
 
 
-// mutators ================================================================================================================
+// mutators ===================================================================
 
 
 class Mutator extends State {
@@ -463,15 +504,14 @@ class Mutator extends State {
 		this.mutation = mutation;
 	}
 
-	onEnter() {
+	enter() {
 		this.mutation();
-		this.ready_to_exit = true;
 	}
 
 }
 
 
-// blocks ==================================================================================================================
+// blocks =====================================================================
 
 
 class Block extends State {
@@ -480,40 +520,34 @@ class Block extends State {
 		super(args);
 
 		// identification
-		this.tag = args.tag ?? '';
 		this.block = tomJS.blocks;
 		tomJS.blocks++;
 		this.n = 0;
-
-		// state
-		this.ready_to_exit = false;		
-		this.timeline      = this.generateTimeline(trial_type, trialwise, additional, conditional, trial_reps, start_slide, end_slide, add_countdown);
-        this.time_pos      = 0;	
-		
-		// placeholder
-		this.args = {};
+	
+		this.generateTimeline(trial_type, trialwise, additional, conditional, trial_reps, start_slide, end_slide, add_countdown);
 	}
 
 	// super
 
-	onEnter() {
-		super.onEnter();
-		this.timeline[0].onEnter();
+	enter() {
+		super.enter();
+		this.timeline.enter();
 	}
 
-	onExit() {
-		super.onExit();
+	exit() {
+		super.exit();
 		tomJS.block += 1;
         tomJS.trial = 0;
 	}
 
-	onUpdate() {
-		super.onUpdate();
-		if (this.timeline[this.time_pos].ready_to_exit) this.nextState();
-		else this.timeline[this.time_pos].update();
+	update() {
+		super.update();
+		this.complete = this.timeline.complete;
+		if (this.complete) return
+		else this.timeline.update();
 	}
 
-	// functions	
+	// functions
 
 	checkConditions(conds) {
 		if (Object.keys(conds).length == 0) return;
@@ -546,7 +580,7 @@ class Block extends State {
 	}
 
 	generateTimeline(trial_type, trialwise, additional, conditional, trial_reps, start_slide, end_slide, add_countdown) {
-		let _timeline = [];
+		let _timeline = new Timeline();
 		const _t_cells = returnTotalDictLength(trialwise);
 		let _trialwise = returnAllCombinationsFromDict(trialwise);
 		_trialwise = returnShuffledArray(_trialwise);
@@ -554,31 +588,16 @@ class Block extends State {
 		if (start_slide != null) _timeline.push(start_slide);
 		if (add_countdown) {_timeline.push(new Countdown(3000))};
 		for (let t = 0; t < _n_trials; t++) {
-			// let _args = Object.assign({ }, {'block':this.block, 'trial':t}, _trialwise[t%_t_cells], additional);
 			this.args = Object.assign({ }, {'block':this.block, 'trial':t, 'index':tomJS.trials}, _trialwise[t%_t_cells], additional);
 			this.checkConditions(conditional);
 			const _new_trial = new trial_type(this.args);
 			_timeline.push(_new_trial);
 			this.n++;
-			tomJS.trial_list.push(_new_trial);
 			tomJS.trials += 1;
 		};
 		if (end_slide != null) _timeline.push(end_slide);
 		this.args = null;
-		return _timeline;
-	}
-
-	nextState () {
-        let _end = this.timeline.length - 1;
-        let _new_position = this.time_pos + 1;
-        if (_new_position > _end) {
-            this.timeline[this.time_pos].onExit();
-            this.ready_to_exit = true;
-		} else {
-            this.timeline[this.time_pos].onExit();
-            this.time_pos = _new_position;
-            this.timeline[this.time_pos].onEnter();
-		};
+		this.timeline = _timeline;
 	}
 
 	parseText(_text) {
@@ -592,14 +611,143 @@ class Block extends State {
 }
 
 
-// trials ==================================================================================================================
+// trial bits =================================================================
 
 
-/**
- * Trial.
- * Standard two-alternative forced choice reaction time task.
- * @class Trial
- */
+class TrialBit extends State {
+
+	constructor(trial, args={}) {
+		super();
+		this.trial    = trial;
+		this.data     = trial.data;
+		this.timeline = null;
+	}
+
+}
+
+
+class FeedbackBit extends TrialBit {
+
+	constructor(trial, args={}) {super(trial, args)}
+
+	enter() {
+		super.enter();
+		this.trial.updateFeedbackText()
+		this.data.feedback_on  = tomJS.now;
+		this.data.feedback_off = tomJS.now + this.data.feedback_duration;
+	}
+
+	exit() {
+		super.exit();
+		this.data.feedback_off = tomJS.now;		
+	}
+
+	update() {
+		super.update();
+		const text = this.data.feedback_text;
+		const colour = this.data.feedback_colour;
+		tomJS.writeToCanvas(text,{'colour':colour, 'fontSize':this.data.feedback_size});
+		if (tomJS.now >= this.data.feedback_off) this.exit();
+	}
+
+}
+
+
+class FixationBit extends TrialBit {
+
+	constructor(trial, args={}) {super(trial, args)}
+
+	enter() {
+		super.enter();
+		this.data.fixation_on  = tomJS.now;
+		this.data.fixation_off = tomJS.now + this.data.fixation_duration;
+	}
+
+	exit() {
+		super.exit();
+		this.data.fixation_off = tomJS.now;		
+	}
+
+	update() {
+		super.update();
+		if (tomJS.now >= this.data.fixation_off) this.exit();
+		const args = {'colour':this.data.fixation_colour, 'fontSize':this.data.fixation_size};
+		tomJS.writeToCanvas('+', args);
+	}
+
+}
+
+
+class ITIBit extends TrialBit {
+
+	constructor(trial, args={}) {super(trial, args)}
+
+	enter() {
+		super.enter();
+		this.data.iti_on  = tomJS.now;
+		this.data.iti_off = tomJS.now + this.data.iti_duration;
+	}
+
+	exit() {
+		super.exit();
+		this.data.iti_off = tomJS.now;		
+	}
+
+	update() {
+		super.update();
+		if (tomJS.now >= this.data.iti_off) this.exit();
+	}
+
+}
+
+
+class StimulusBit extends TrialBit {
+
+	constructor(trial, args={}) {super(trial, args)}
+
+	enter() {	
+		super.enter();
+		this.data.stimulus_on  = tomJS.now;
+		this.data.stimulus_off = tomJS.now + this.data.stimulus_duration;
+	}
+
+	exit() {
+		super.exit();
+		this.data.stimulus_off = tomJS.now;
+	}
+
+	exitResponse() {
+		this.trial.recordResponse();
+		this.trial.calculateRT();
+		this.trial.determineAccuracy();
+		this.trial.determineOutcome();
+		this.trial.calculateScore();
+		this.exit();
+	}
+
+	exitTime() {
+		this.trial.determineOutcome();
+		this.exit();
+	}
+
+	update() {
+		super.update();
+		if (tomJS.controls.keyboard.anyKeysPressed([tomJS.controls.key_a, tomJS.controls.key_b])) {
+			this.exitResponse();
+		};
+		if (tomJS.now >= this.data.stimulus_off) {
+			this.exitTime();
+		};
+		this.trial.stimulus.draw();
+	}
+
+}
+
+
+// trials =====================================================================
+
+
+/** Standard two-alternative forced choice reaction time task. */
 class Trial extends State {
 
 	constructor(args={}) {
@@ -611,25 +759,38 @@ class Trial extends State {
 		if (!('stimulus' in args)) tomJS.error('no target stimulus passed to trial');
 		this.stimulus = new args.stimulus(args);
 
+		// data
 		tomJS.data.push(new TrialData());
-		tomJS.data[this.index].block				= args.block ?? tomJS.block;
-		tomJS.data[this.index].trial				= args.trial ?? tomJS.trial;
-		tomJS.data[this.index].index				= this.index;
-		tomJS.data[this.index].condition			= args.condition ?? null;
-		tomJS.data[this.index].difficulty			= this.stimulus.data.difficulty;
-		tomJS.data[this.index].fixation_duration	= choose(args.fixation_duration, 1000);
-		tomJS.data[this.index].fixation_size		= choose(args.fixation_size, 0.10);
-		tomJS.data[this.index].fixation_colour		= args.fixation_colour ?? "white";
-		tomJS.data[this.index].stimulus_duration	= choose(args.stimulus_duration, 3000);
-		tomJS.data[this.index].stimulus_fast		= choose(args.stimulus_fast, 200);
-		tomJS.data[this.index].stimulus_slow		= choose(args.stimulus_slow, 3000);
-		tomJS.data[this.index].target				= this.stimulus.data.target;
-		tomJS.data[this.index].feedback_duration	= choose(args.feedback_duration, 1000);
-		tomJS.data[this.index].feedback_size		= choose(args.feedback_size, 0.05);
-		tomJS.data[this.index].iti_duration			= choose(args.iti_duration, 0);
+		this.data = tomJS.data[this.index];
+
+		this.data.block				= args.block ?? tomJS.block;
+		this.data.trial				= args.trial ?? tomJS.trial;
+		this.data.index				= this.index;
+		this.data.condition			= args.condition ?? null;
+		this.data.difficulty		= this.stimulus.data.difficulty;
+		this.data.fixation_duration	= choose(args.fixation_duration, 1000);
+		this.data.fixation_size		= choose(args.fixation_size, 0.10);
+		this.data.fixation_colour	= args.fixation_colour ?? "white";
+		this.data.stimulus_duration	= choose(args.stimulus_duration, 3000);
+		this.data.stimulus_fast		= choose(args.stimulus_fast, 200);
+		this.data.stimulus_slow		= choose(args.stimulus_slow, 3000);
+		this.data.target			= this.stimulus.data.target;
+		this.data.feedback_duration	= choose(args.feedback_duration, 1000);
+		this.data.feedback_size		= choose(args.feedback_size, 0.05);
+		this.data.iti_duration		= choose(args.iti_duration, 200);
+
+		// timeline
+		if ('timeline' in args) this.timeline = args.timeline
+		else {
+			this.timeline = new Timeline();
+			this.timeline.push(new FixationBit(this, args));
+			this.timeline.push(new StimulusBit(this, args));
+			this.timeline.push(new FeedbackBit(this, args));
+			this.timeline.push(new ITIBit(this, args));
+		};
 
 		// append data headings to global data heading storage
-		if (tomJS.headings[4] != 'block') joinUniques(tomJS.headings, tomJS.data[this.index].keys());
+		if (tomJS.headings[4] != 'block') joinUniques(tomJS.headings, this.data.keys());
 
 		// feedback information
 		this.feedback_colors = args.feedback_colors ?? {
@@ -650,183 +811,81 @@ class Trial extends State {
 
 		// ensure too slow response does not override stimulus duration, unless desired
 		if ('stimulus_duration' in args && ! 'stimulus_slow' in args)
-			tomJS.data[this.index].stimulus_slow = tomJS.data[this.index].stimulus_duration;
-
-		// variables that current state
-		this.substate = null;
+			this.data.stimulus_slow = this.data.stimulus_duration;
 
 	}
 
-	// super ---------------------------------------------------------------------------------------------------------------
+	// super
 
-	onEnter() {
-		super.onEnter();
-		tomJS.data[this.index].start = tomJS.now;
-		tomJS.data[this.index].fixation_size = Math.round((tomJS.data[this.index].fixation_size ) * tomJS.visual.stimulus_size) + "px";
-		tomJS.data[this.index].feedback_size = Math.round((tomJS.data[this.index].feedback_size ) * tomJS.visual.stimulus_size) + "px";
-		this.queueSubstates();
-		this.setFirstSubstate();
+	enter() {
+		super.enter();
+		this.data.start = tomJS.now;
+		this.estimateOnsets();
+		this.data.fixation_size = Math.round((this.data.fixation_size ) * tomJS.visual.stimulus_size) + "px";
+		this.data.feedback_size = Math.round((this.data.feedback_size ) * tomJS.visual.stimulus_size) + "px";
+		this.timeline.enter();
 	}
 
-	onExit() {
-		super.onExit();
-		tomJS.data[this.index].end = tomJS.now;
+	exit() {		
+		super.exit();
+		this.data.end = tomJS.now;		
 	}
 
-	onUpdate() {
-		super.onUpdate();
-		this.substate();
+	update() {
+		super.update();
+		this.complete = this.timeline.complete;
+		if (this.complete) return
+		else this.timeline.update();
 	}
 
-	// fixation ------------------------------------------------------------------------------------------------------------
-
-	fixationEnter() {
-		tomJS.data[this.index].fixation_on = tomJS.now;
-		this.substate = this.fixationUpdate;
-	}
-
-	fixationExit() {
-		tomJS.data[this.index].fixation_off = tomJS.now;
-		this.stimulusEnter();
-	}
-
-	fixationQueue() {
-		tomJS.data[this.index].fixation_on = tomJS.data[this.index].start + 1;
-		tomJS.data[this.index].fixation_off   = tomJS.data[this.index].fixation_on + tomJS.data[this.index].fixation_duration;
-	}
-
-	fixationUpdate() {
-		tomJS.writeToCanvas('+', {'colour':tomJS.data[this.index].fixation_colour, 'fontSize':tomJS.data[this.index].fixation_size});
-		if (tomJS.now >= tomJS.data[this.index].fixation_off) this.fixationExit();
-	}
-
-	// stimulus ------------------------------------------------------------------------------------------------------------
-
-	stimulusEnter() {
-		tomJS.data[this.index].stimulus_on = tomJS.now;
-		this.substate = this.stimulusUpdate;		
-	}
-
-	stimulusExit() {
-		tomJS.data[this.index].stimulus_off = tomJS.now;
-		this.feedbackEnter();
-	}
-
-	stimulusExitResponse() {
-		this.recordResponse();
-		this.calculateRT();
-		this.determineAccuracy();
-		this.determineOutcome();
-		this.calculateScore();
-		this.stimulusExit();		
-	}
-
-	stimulusExitTime() {
-		this.determineOutcome();
-		this.stimulusExit();
-	}
-
-	stimulusQueue() {
-		tomJS.data[this.index].stimulus_on = tomJS.data[this.index].fixation_off + 1;
-		tomJS.data[this.index].stimulus_off   = tomJS.data[this.index].stimulus_on + tomJS.data[this.index].stimulus_duration;
-	}
-
-	stimulusUpdate() {
-		this.stimulus.drawStimulus(this.args);
-		if (tomJS.controls.keyboard.anyKeysPressed([tomJS.controls.key_a, tomJS.controls.key_b])) 
-			this.stimulusExitResponse();
-		if (tomJS.now >= tomJS.data[this.index].stimulus_off) 
-			this.stimulusExitTime();
-	}
-
-	// feedback ------------------------------------------------------------------------------------------------------------
-
-	feedbackEnter() {
-		this.updateFeedbackText()
-		tomJS.data[this.index].feedback_on = tomJS.now;
-		tomJS.data[this.index].feedback_off = tomJS.now + tomJS.data[this.index].feedback_duration;
-		this.substate = this.feedbackUpdate;
-	}
-
-	feedbackExit() {
-		tomJS.data[this.index].feedback_off = tomJS.now;
-		if (tomJS.data[this.index].iti_duration > 0) this.itiEnter();
-		else this.ready_to_exit = true;
-	}
-
-	feedbackQueue() {
-		tomJS.data[this.index].feedback_on = tomJS.data[this.index].stimulus_off + 1;
-		tomJS.data[this.index].feedback_off   = tomJS.data[this.index].feedback_on + tomJS.data[this.index].feedback_duration;
-	}
-
-	feedbackUpdate() {
-		const text = tomJS.data[this.index].feedback_text;
-		const colour = tomJS.data[this.index].feedback_colour;
-		tomJS.writeToCanvas(text,{'colour':colour, 'fontSize':tomJS.data[this.index].feedback_size});
-		if (tomJS.now >= tomJS.data[this.index].feedback_off) this.feedbackExit();
-	}
-
-	// inter-trial interval-------------------------------------------------------------------------------------------------
-
-	itiEnter() {
-		this.substate = this.itiUpdate;
-	}
-
-	itiUpdate() {
-		if (tomJS.now >= tomJS.data[this.index].feedback_off + tomJS.data[this.index].iti_duration) this.ready_to_exit = true;
-	}
-
-	// functions -----------------------------------------------------------------------------------------------------------
+	// functions
 
 	calculateRT() {
-		const rg = tomJS.data[this.index].response_given;
-		const on = tomJS.data[this.index].stimulus_on;
-		tomJS.data[this.index].rt = roundTo((rg - on), tomJS.rounding);
+		const rg = this.data.response_given;
+		const on = this.data.stimulus_on;
+		this.data.rt = roundTo((rg - on), tomJS.rounding);
 	}
         
 	calculateScore() {
-		if (tomJS.data[this.index].response == tomJS.data[this.index].target) tomJS.data[this.index].score = 100 
-		else tomJS.data[this.index].score = 0;
+		if (this.data.response == this.data.target) this.data.score = 100 
+		else this.data.score = 0;
 	}
 
 	determineAccuracy() {
-		if (tomJS.data[this.index].response == tomJS.data[this.index].target) tomJS.data[this.index].accuracy = 1 
-		else tomJS.data[this.index].accuracy = 0;
+		if (this.data.response == this.data.target) this.data.accuracy = 1 
+		else this.data.accuracy = 0;
 	}
 
 	determineOutcome() {
-		const rsp = tomJS.data[this.index].response;
-		const rt  = tomJS.data[this.index].rt;
-		const tgt = tomJS.data[this.index].target;
-		const slw = tomJS.data[this.index].stimulus_slow;
-		const fst = tomJS.data[this.index].stimulus_fast;
-		if		(rsp == null) {tomJS.data[this.index].outcome = 'Censored'}
-		else if (rt >= slw)   {tomJS.data[this.index].outcome = 'Slow'}
-		else if (rt <= fst)   {tomJS.data[this.index].outcome = 'Fast'}
-		else if (rsp == tgt)  {tomJS.data[this.index].outcome = 'Correct'}
-        else				  {tomJS.data[this.index].outcome = 'Incorrect'};
+		const rsp = this.data.response;
+		const rt  = this.data.rt;
+		const tgt = this.data.target;
+		const slw = this.data.stimulus_slow;
+		const fst = this.data.stimulus_fast;
+		if		(rsp == null) {this.data.outcome = 'Censored'}
+		else if (rt >= slw)   {this.data.outcome = 'Slow'}
+		else if (rt <= fst)   {this.data.outcome = 'Fast'}
+		else if (rsp == tgt)  {this.data.outcome = 'Correct'}
+        else				  {this.data.outcome = 'Incorrect'};
 	}
 
-	queueSubstates(){
-		this.fixationQueue();
-		this.stimulusQueue();
-		this.feedbackQueue();
+	estimateOnsets() {
+		this.data.fixation_on = this.data.start + 1;
+		this.data.stimulus_on = this.data.fixation_on + this.data.fixation_duration;
+		this.data.feedback_on = this.data.stimulus_on + this.data.stimulus_duration;
+		this.data.iti_on      = this.data.feedback_on + this.data.feedback_duration;
 	}
 
 	recordResponse() {
-		tomJS.data[this.index].response       = tomJS.dir;
-		tomJS.data[this.index].response_key   = tomJS.key; 
-		tomJS.data[this.index].response_given = tomJS.now;
-	}
-
-	setFirstSubstate() {
-		this.fixationEnter();
+		this.data.response       = tomJS.dir;
+		this.data.response_key   = tomJS.key; 
+		this.data.response_given = tomJS.now;
 	}
 
 	updateFeedbackText() {
-		const outcome = tomJS.data[this.index].outcome;
-		tomJS.data[this.index].feedback_text   = this.feedback_texts[outcome];
-		tomJS.data[this.index].feedback_colour = this.feedback_colors[outcome];
+		const outcome = this.data.outcome;
+		this.data.feedback_text   = this.feedback_texts[outcome];
+		this.data.feedback_colour = this.feedback_colors[outcome];
 	}
 
 }
@@ -837,7 +896,7 @@ class FeedbackDeadline extends Trial {
 	constructor(args={}) {
 		if (!('condition'in args)) tomJS.error('no condition (deadline) passed to feedback deadline trial');
 		super(args);
-        tomJS.data[this.index].stimulus_slow = tomJS.data[this.index].condition;
+        this.data.stimulus_slow = this.data.condition;
 	}
 
 }
@@ -849,59 +908,47 @@ class PreFixationPicture extends Trial {
 		if (!('condition'in args)) tomJS.error('no condition passed to pre-fixation picture trial');
 		super(args);
 
-		tomJS.data[this.index].cue_duration = args.cue_duration ?? 1000;
+		this.data.cue_duration = args.cue_duration ?? 1000;
 
 	}
 
-	// super ---------------------------------------------------------------------------------------------------------------
-
-	queueSubstates() {
-		this.cueQueue();
-		super.queueSubstates();
-	}
-
-	// override ------------------------------------------------------------------------------------------------------------
-
-	setFirstSubstate() {
-		this.substate = this.cueEnter;
-	}
-
-	// functions -----------------------------------------------------------------------------------------------------------
+	// functions
 
 
 	cueEnter() {
-		tomJS.data[this.index].cue_on = tomJS.now;
+		this.data.cue_on = tomJS.now;
 		this.substate = this.cueUpdate;
 	}
 
 	cueExit() {
-		tomJS.data[this.index].cue_off = tomJS.now;
-		this.fixationEnter();
+		this.data.cue_off = tomJS.now;
+		this.fixatienter();
 	}
 
 	cueQueue() {
-		tomJS.data[this.index].cue_on = tomJS.data[this.index].start + 1;
-		tomJS.data[this.index].cue_off   = tomJS.data[this.index].cue_on + tomJS.data[this.index].cue_duration;
+		this.data.cue_on = this.data.start + 1;
+		this.data.cue_off   = this.data.cue_on + this.data.cue_duration;
 	}
 
 	cueUpdate() {
-		tomJS.drawImage(tomJS.data[this.index].condition, this.args);
-		if (tomJS.now >= tomJS.data[this.index].cue_off) this.cueExit();
+		tomJS.drawImage(this.data.condition, this.args);
+		if (tomJS.now >= this.data.cue_off) this.cueExit();
 	}
+
 }
 
 
 class ResponseSignal extends Trial {
 
 	constructor(args={}) {
-		if (!('condition'in args)) tomJS.error('no condition passed to response signal trial');
+		if (!('condition'in args)) 
+			tomJS.error('no condition passed to response signal trial');
+		
 		super(args);
 
-		tomJS.data[this.index].censor_after = args.censor_after ?? 1000;
-
 		// override
-		tomJS.data[this.index].stimulus_fast = args.stimulus_fast ?? 0;
-		tomJS.data[this.index].stimulus_slow = args.stimulus_slow ?? 0;
+		this.data.stimulus_fast = args.stimulus_fast ?? 15;
+		this.data.stimulus_slow = args.stimulus_slow ?? 15;
 
 		this.feedback_texts  = args.feedback_texts  ?? { 
 			'Correct'	: 'Hit',
@@ -910,301 +957,194 @@ class ResponseSignal extends Trial {
 			'Slow'		: 'Miss',
 			'Censored'	: 'Miss'
 		};
-
+		
 		// signal
-		tomJS.data[this.index].above_and_below = args.above_and_below ?? false;
-		tomJS.data[this.index].signal_for  = choose(args.signal_for, 400);
-		tomJS.data[this.index].signal_x    = choose(args.signal_x, 0.5);
-		tomJS.data[this.index].signal_y    = choose(args.signal_y, 0.2);
+		this.data.above_and_below = args.above_and_below ?? false;
+		this.data.signal_for = choose(args.signal_for, 300);
+		this.data.signal_x   = choose(args.signal_x, 0.5);
+		this.data.signal_y   = choose(args.signal_y, 0.2);
 
 		// warning
-		tomJS.data[this.index].warning_at   = choose(args.warning_for, 0);
-		tomJS.data[this.index].warning_for  = choose(args.warning_for, 0);
+		this.data.warning_at  = choose(args.warning_for, 0);
+		this.data.warning_for = choose(args.warning_for, 0);
 
 		// calculated
-		const d = tomJS.data[this.index];
-		tomJS.data[this.index].stimulus_duration = d.condition + d.signal_for + d.censor_after;
-		tomJS.data[this.index].trial_duration = d.fixation_duration + d.stimulus_duration;
+		this.data.stimulus_duration += this.data.condition + this.data.signal_for;
+		this.data.trial_duration = this.data.fixation_duration + this.data.condition + this.data.signal_for;
 
 		// placeholder
-		tomJS.data[this.index].rtt         = null;
-		tomJS.data[this.index].signal_on   = null;
-		tomJS.data[this.index].signal_off  = null;
-		tomJS.data[this.index].warning_on  = null;
-		tomJS.data[this.index].warning_off = null;
-		tomJS.data[this.index].early       = null;
-		tomJS.data[this.index].late        = null;
+		this.data.rtt         = null;
+		this.data.signal_on   = null;
+		this.data.signal_off  = null;
+		this.data.warning_on  = null;
+		this.data.warning_off = null;
+		this.data.early       = null;
+		this.data.late        = null;
 
 		// headings
-		if (!(arraySearch(tomJS.headings, 'rtt'))) tomJS.headings = joinUniques(tomJS.headings, d.keys());
+		if (!(arraySearch(tomJS.headings, 'rtt'))) tomJS.headings = joinUniques(tomJS.headings, this.data.keys());
 	}
 
-	// override ------------------------------------------------------------------------------------------------------------
+	// override
 
 	determineOutcome() {
-		const d = tomJS.data[this.index]
-		const rsp = d.response;
-		const rsg = d.response_given;
-		const erl = d.early;
-		const lte = d.late;
-		const tgt = d.target;
+		const rsp = this.data.response;
+		const rsg = this.data.response_given;
+		const erl = this.data.early;
+		const lte = this.data.late;
+		const tgt = this.data.target;
 		let _outcome;
 		if		(rsp == null) {_outcome = 'Censored'}
 		else if (rsg <= erl)  {_outcome = 'Fast'}
 		else if (rsg >= lte)  {_outcome = 'Slow'}
 		else if (rsp == tgt)  {_outcome = 'Correct'}
         else				  {_outcome = 'Incorrect'};
-		tomJS.data[this.index].outcome = _outcome;
+		this.data.outcome = _outcome;
 	}
 
-	// super ---------------------------------------------------------------------------------------------------------------
+	// super
 
 	calculateRT() {
 		super.calculateRT();
-		const rg = tomJS.data[this.index].response_given;
-		const rs = tomJS.data[this.index].signal_on;
-		tomJS.data[this.index].rtt = roundTo((rg - rs), tomJS.rounding);
+		const rg = this.data.response_given;
+		const rs = this.data.signal_on;
+		this.data.rtt = roundTo((rg - rs), tomJS.rounding);
 	}
 
-	onEnter() {
-		super.onEnter();
-
-		// signal onset and offset
-		tomJS.data[this.index].signal_on  = tomJS.data[this.index].stimulus_on + tomJS.data[this.index].condition;
-		tomJS.data[this.index].signal_off = tomJS.data[this.index].signal_on + tomJS.data[this.index].signal_for;
-
-		// warning onset and offset
-		tomJS.data[this.index].warning_on  = tomJS.data[this.index].signal_on  - tomJS.data[this.index].warning_at;
-		tomJS.data[this.index].warning_off = tomJS.data[this.index].warning_on + tomJS.data[this.index].warning_for;
-
-		// response window
-		tomJS.data[this.index].early = tomJS.data[this.index].signal_on  - tomJS.data[this.index].stimulus_fast;
-		tomJS.data[this.index].late  = tomJS.data[this.index].signal_off + tomJS.data[this.index].stimulus_slow;
+	enter() {
+		super.enter();
+		this.data.signal_on   = this.data.stimulus_on + this.data.condition;
+		this.data.signal_off  = this.data.signal_on   + this.data.signal_for;
+		this.data.warning_on  = this.data.signal_on   - this.data.warning_at;
+		this.data.warning_off = this.data.warning_on  + this.data.warning_for;
+		this.data.early       = this.data.signal_on   - this.data.stimulus_fast;
+		this.data.late        = this.data.signal_off  + this.data.stimulus_slow;
 	}
 
 }
 
 
-class TextResponseSignal extends ResponseSignal {
-
-	constructor (args={}) {
-		if (!('condition'in args)) tomJS.error('no condition passed to text response signal trial');
-		super(args);
-
-		tomJS.data[this.index].signal_colour = args.signal_colour ?? "white";
-		tomJS.data[this.index].signal_size   = args.signal_size   ?? 0.10;
-		tomJS.data[this.index].signal_text   = args.signal_text   ?? "+++++";
-
-		tomJS.data[this.index].warning_colour = args.warning_colour ?? "white";
-		tomJS.data[this.index].warning_text   = args.warning_text   ?? "+";		
-
-		const d = tomJS.data[this.index];
-
-		// response signal
-		this.signal = new Text(args);
-		this.signal.set('text', d.signal_text);
-		this.signal.set('x', d.signal_x);
-		this.signal.set('y', d.signal_y);
-		this.signal.set('size', d.signal_size);
-		this.signal.set('fontSize', this.signal.calculateFontSize(d.signal_size));
-
-		if (d.above_and_below) {
-			this.signal_lower = new Text(args);
-			this.signal_lower.set('text', d.signal_text);
-			this.signal_lower.set('x', d.signal_x);
-			this.signal_lower.set('y', d.signal_y);
-			this.signal_lower.set('size', d.signal_size);
-			this.signal_lower.set('fontSize', this.signal.calculateFontSize(d.signal_size));
-		}
-
-		// warning signal
-		this.warning = new Text(args);
-		this.warning.set('text', d.warning_text);
-		this.warning.set('x', d.signal_x);
-		this.warning.set('y', d.signal_y);
-		this.warning.set('size', d.signal_size);
-		this.warning.set('fontSize', this.signal.calculateFontSize(d.signal_size));
-
-		if (d.above_and_below) {
-			this.warning_lower = new Text(args);
-			this.warning_lower.set('text', d.warning_text);
-			this.warning_lower.set('x', d.signal_x);
-			this.warning_lower.set('y', d.signal_y);
-			this.warning_lower.set('size', d.signal_size);
-			this.warning_lower.set('fontSize', this.signal.calculateFontSize(d.signal_size));
-		}
-	}
-
-	// super -----------------------------------------------------------------------------------------------------------	
-
-    stimulusUpdate() {
-        super.stimulusUpdate();
-        this.drawResponseSignal();
-	}
-
-	// functions -----------------------------------------------------------------------------------------------------------
-
-	drawResponseSignal() {
-		const d = tomJS.data[this.index];
-		if (tomJS.now < d.warning_on) { return }
-		else if (tomJS.now < d.warning_off) {
-			this.warning.drawStimulus();
-			if (d.above_and_below) this.warning_lower.drawStimulus();
-		}
-		else if (tomJS.now < d.signal_off) {
-			this.signal.drawStimulus();
-			if (d.above_and_below)  this.signal_lower.drawStimulus();
-		};
-	}
-
-}
-
-
-/**
- * Progress Bar Response Signal. 
- * A bar at the top of the screen informs the participant when, and how long they have, to respond.
- */
+/** A bar at the top of the screen informs the participant when, and how long they have, to respond. */
 class ProgressBarResponseSignal extends ResponseSignal {
 
 	constructor(args={}) {
 
 		if (!('condition'in args)) tomJS.error('no condition passed to visual response signal trial');
-		super(args);		
+		super(args);
 
-		tomJS.data[this.index].signal_colour  = args.signal_colour  ?? "DodgerBlue";
-		tomJS.data[this.index].warning_colour = args.warning_colour ?? "#99ccff";
-
-		const d = tomJS.data[this.index];
+		//this.data.signal_colour  = args.signal_colour  ?? "DodgerBlue";
+		this.data.signal_colour  = args.signal_colour  ?? "DeepSkyBlue";
+		this.data.warning_colour = args.warning_colour ?? "#99ccff";
+		this.data.bar_colour     = args.bar_colour ?? "White";
+		this.data.border_colour  = args.border_colour ?? "Grey";
 
 		// progress bar
 		this.signal = new (args.progress_bar_type ?? ProgressBar)(args);
-		this.signal.set('x', d.signal_x);
-		this.signal.set('y', d.signal_y);
+		this.signal.set('x', this.data.signal_x);
+		this.signal.set('y', this.data.signal_y);
+		this.signal.set('bar_colour', this.data.bar_colour);
+		this.signal.set('border_colour', this.data.border_colour);
 		
-		if (d.above_and_below) {
+		if (this.data.above_and_below) {
 			this.signal_lower = new (args.progress_bar_type ?? ProgressBar)(args);
-			this.signal_lower.set('x', d.signal_x);
-			this.signal_lower.set('y', (1 - d.signal_y));
+			this.signal_lower.set('x', this.data.signal_x);
+			this.signal_lower.set('y', (1 - this.data.signal_y));
+			this.signal_lower.set('bar_colour', this.data.bar_colour);
+			this.signal_lower.set('border_colour', this.data.border_colour)
 		};
 	}
 
 	// super
 
-	onEnter() {
-		super.onEnter();
-		this.customBarSetups();
+	enter() {
+		super.enter();
+		this.signal.initialize(this.data);
+		if (this.data.above_and_below) this.signal_lower.initialize(this.data);
 	}
 
-	fixationUpdate() {
+	update() {
+		super.update();
 		this.updateProgressBar();
-        this.drawProgressBar();
-        super.fixationUpdate();
+        this.drawProgressBar();        
 	}
 
-    stimulusUpdate() {
-        this.updateProgressBar();
-        this.drawProgressBar();
-        super.stimulusUpdate();
-	}
-
-    feedbackUpdate() {
-        this.drawProgressBar();
-        super.feedbackUpdate();
-	}
-
-	// functions	
-
-	customBarSetups() {
-		const d = tomJS.data[this.index];
-		switch(this.signal.constructor.name) {
-			case 'GoalpostBar':				
-				const l = (d.fixation_duration + d.condition)  / d.trial_duration;
-				const r = (d.fixation_duration + d.condition + d.signal_for) / d.trial_duration;
-				this.signal.set('bar_left_pos',  l);
-				this.signal.set('bar_right_pos', r);
-				if (d.above_and_below) {
-					this.signal_lower.set('bar_left_pos',  l);
-					this.signal_lower.set('bar_right_pos', r);
-				};
-				break;
-			case 'WindowedBar':
-				const w = d.signal_for / d.trial_duration;
-				const p = (d.fixation_duration + d.condition) / d.trial_duration;
-				this.signal.set('window_width', w);
-				this.signal.set('window_pos', p);
-				if (d.above_and_below) this.signal_lower.set('window_width',  w);
-				if (d.above_and_below) this.signal_lower.set('window_pos',  p);
-				break;
-		};
-	}
+	// functions
 
 	drawProgressBar() {
-        this.signal.drawStimulus();
-		if (tomJS.data[this.index].above_and_below) this.signal_lower.drawStimulus();
+		if (this.timeline.currentState() == "ITIBit") return;
+        this.signal.draw();
+		if (this.data.above_and_below) this.signal_lower.draw();
 	}
 
-	returnBarColour() {
-		const d = tomJS.data[this.index];
-		if (tomJS.now < d.warning_on)        return d.bar_colour
-		else if (tomJS.now < d.signal_on)    return d.warning_colour
-		else if (tomJS.now < d.signal_off)   return d.signal_colour
-		else if (tomJS.now < d.stimulus_off) return d.bar_colour
-		else								 return d.border_colour;
+	getBarPercent() {
+		return (tomJS.now - this.data.fixation_on) / this.data.trial_duration;
 	}
 
-	returnBarPercent() {
-		const d        = tomJS.data[this.index];
-        const start    = d.fixation_on;
-		const now      = tomJS.now;
-		const duration = d.trial_duration;
-		const progress = now - start;
-		const percent  = progress / duration;
-		const invert   = 1 - percent;
-		return Math.min(invert, 1);
+	getBarColour() {
+		if (tomJS.now < this.data.warning_on)      return this.data.bar_colour
+		else if (tomJS.now < this.data.signal_on)  return this.data.warning_colour
+		else if (tomJS.now < this.data.signal_off) return this.data.signal_colour
+		else									   return "#00000000";
 	}
 
     updateProgressBar() {
-		const percent = this.returnBarPercent()
-		const colour  = this.returnBarColour()
-        this.signal.set('percent', percent);
-        this.signal.set('bar_colour', colour);
-		if (tomJS.data[this.index].above_and_below) {
-			this.signal_lower.set('percent', percent)
-			this.signal_lower.set('bar_colour', colour);
-		};
+		if (this.timeline.currentState() == "FeedbackBit" | 
+			this.timeline.currentState() == "ITIBit") return;
+		this.setCurrentValues();
+		this.setColourValues();
 	}
 
+	setCurrentValues() {
+		const percent = this.getBarPercent();
+		this.signal.set('percent', percent);
+		if (this.data.above_and_below) this.signal_lower.set('percent', percent);
+	}
+
+	setColourValues() {
+		const colour  = this.getBarColour();
+        this.signal.set('bar_colour', colour);
+        this.signal.set('window_colour', colour);
+		if (this.data.above_and_below) {
+			this.signal_lower.set('bar_colour', colour);
+			this.signal_lower.set('window_colour', colour);
+		};
+	}
+	
 }
 
 
-// slides ==================================================================================================================
+// slides =====================================================================
 
 
 class Slide extends State {
 
-	constructor(content = [], can_return = true, args = {}) {
+	constructor(content=[], args={}) {
 		super();
-		this.id = 'Slide';
-		this.args = args;
 		this.content = content;
-		this.can_return = can_return;
+		this.force_wait = args.force_wait ?? 1000;		
+		this.timeline = null;
 		this.start = null;
-		this.force_wait = args.force_wait ?? 1000;
+		this.end = null;
 		this.realizeContent();
 	}
 
 	// super
 
-	onEnter() {
-		super.onEnter();
+	enter() {
+		super.enter();
 		this.start = tomJS.now;
 	}
 
-	onUpdate() {
-		super.onUpdate();
+	update() {
+		super.update();
 		this.drawContent();
 		if (tomJS.now < this.start + this.force_wait) return;
 		this.checkUserInput();
+	}
+
+	exit() {
+		super.exit();
+		this.end = tomJS.now;
 	}
 
 	// functions
@@ -1218,26 +1158,26 @@ class Slide extends State {
 	checkUserInput() {
 		const _a = tomJS.controls.key_a;
 		const _b = tomJS.controls.key_b;
-		if (tomJS.controls.keyboard.allKeysPressed([_a, _b])) this.ready_to_exit = true;
+		if (tomJS.controls.keyboard.allKeysPressed([_a, _b])) this.complete = true;
 	}
 
 	drawContent() {
 		for (const _content of this.content) {
 			switch(_content.class) {
 				case 'gabor':
-					if (tomJS.dir == 'A') this.gp_L.drawStimulus()
-					else this.gp_R.drawStimulus();
+					if (tomJS.dir == 'A') this.gp_L.draw()
+					else this.gp_R.draw();
 					break;
 				case 'image':
 					const _path = this.parseText(_content.path);
 					tomJS.drawImage(_path, _content);
 					break;
 				case 'pixelpatch':
-					if (tomJS.dir == 'A') this.pp_A.drawStimulus()
-					else this.pp_B.drawStimulus();
+					if (tomJS.dir == 'A') this.pp_A.draw()
+					else this.pp_B.draw();
 					break;
 				case 'table':
-					this.table.drawStimulus();
+					this.table.draw();
 					break;
 				case 'text':
 					if (!(this.checkConditions(_content))) break;
@@ -1247,7 +1187,7 @@ class Slide extends State {
 				case 'twolines':
 					const _tl_args = {..._content,...{'target':this.parseText(_content.target)}};
 					const _tl = new TwoLines(_tl_args);
-					_tl.drawStimulus();
+					_tl.draw();
 					break;
 			};
 		};
@@ -1284,41 +1224,36 @@ class Slide extends State {
 
 class Consent extends Slide {
 
-	constructor(args = {}) {
-		super([], false, args);
-		this.id = 'Consent';
+	constructor(args={}) {
+		super([], args);
 		this.exit_pressed = false;
 		this.exit_button  = null;
 		this.container    = null;
-		this.institute  = args.institute  ?? bremen.institute;
-		this.department = args.department ?? bremen.department;
-		this.group      = args.group      ?? bremen.group;
-		this.logo       = args.logo       ?? bremen.logo;
-		this.contact    = args.contact    ?? "Contacts";
-		this.contacts   = args.contacts   ?? ["Tom Narraway: "+bremen.email];
+		this.institute    = tomJS.institute;
 	}
 
 	// override
 
-	onUpdate() {		
-		tomJS.drawRect(0, 0, tomJS.visual.screen_size, tomJS.visual.screen_size, "white");
+	update() {
+		if (this.complete) return;
+		tomJS.fillRect(0, 0, tomJS.visual.screen_size, tomJS.visual.screen_size, "white");
 		if (tomJS.now < this.start + this.force_wait) return;
 	}
 
 	// super
 
-	onEnter() {
-		super.onEnter();
+	enter() {
+		this.createContainer();
+		super.enter();
 		document.body.style.backgroundColor = "white";
 		document.body.style.color = "black";
-		this.createContainer();
 		this.createTopPanel();
 		this.createMain();
-		createButton("exit", "Consent", this.onExitClicked, this, this.container);
+		createButton("exitButton", "Consent", this.exitButtonClicked, this, this.container);
 	}
 
-	onExit() {
-		super.onExit();
+	exit() {
+		super.exit();
 		this.container.remove();
 		document.body.style.backgroundColor = tomJS.visual.backgroundColor;
 		document.body.style.color = tomJS.visual.color;
@@ -1326,16 +1261,17 @@ class Consent extends Slide {
 
 	// functions
 
-	onExitClicked() {
-		this.state.ready_to_exit = true;
+	exitButtonClicked() {
+		this.state.complete = true;
+		if (tomJS.debug.fullscreen) document.documentElement.requestFullscreen();
 	}
 
-	createBremenLogo() {
-		const url = this.logo;
+	createLogo() {
+		const url = this.institute.logo;
 		const img = document.createElement('IMG');
-		img.id = "Bremen Logo";
+		img.id = "Logo";
 		img.src = url;
-		img.style.width = "418px";
+		img.style.width = "400px";
 		img.style.height = "150px";
 		return img;
 	}
@@ -1350,31 +1286,31 @@ class Consent extends Slide {
 		div.style.marginLeft = "10%";
 		// institute
 		let ins = document.createElement('label');
-		ins.textContent = this.institute;
+		ins.textContent = this.institute.institute;
 		ins.style.fontSize = tomJS.visual.h0;			
 		div.append(ins);
 		// department
 		let dep = document.createElement('label');
-		dep.textContent = this.department;
+		dep.textContent = this.institute.department;
 		dep.style.marginTop = "1em";
 		dep.style.fontSize = tomJS.visual.h1,	
 		div.append(dep);
 		// group
 		let grp = document.createElement('label');
-		grp.textContent = this.group;
+		grp.textContent = this.institute.group;
 		grp.style.marginTop = "1em";		
 		div.append(grp);
 		// contact
 		let ctc = document.createElement('label');
-		ctc.textContent = this.contact;
+		ctc.textContent = "Contact";
 		ctc.style.marginTop = "1em";
 		ctc.style.fontSize = tomJS.visual.h1;	
 		div.append(ctc);
 		// contacts
-		for (let i = 0; i < this.contacts.length; i++) {
+		for (let i = 0; i < this.institute.contacts.length; i++) {
 			let tmp = document.createElement('label');
-			tmp.textContent = this.contacts[i];
-			tmp.style.marginTop = "1em";	
+			tmp.textContent = this.institute.contacts[i];
+			tmp.style.marginTop = "1em";
 			div.append(tmp);
 		};
 		return div;
@@ -1429,7 +1365,7 @@ class Consent extends Slide {
 		div.style.width = "100%";
 		div.style.marginBottom = "32px";
 		div.style.marginTop = "32px";
-		const logo = this.createBremenLogo();
+		const logo = this.createLogo();
 		const info = this.createContactPanel();
 		div.append(logo, info);
 		this.container.append(div);
@@ -1440,26 +1376,24 @@ class Consent extends Slide {
 
 class Countdown extends Slide {
 
-	constructor(lifetime, content = [], can_return = false, args = {}) {
-		super(content, can_return, args);
-		this.id = 'Countdown';
+	constructor(lifetime, args={}, content=[]) {
+		super(content, args);
 		this.lifetime = lifetime;
 		this.fontSize = choose(args.fontSize, 0.05);
 	}
 
 	// super
 
-	onEnter() {
-		this.fontSize = Math.round((this.fontSize ) * tomJS.visual.stimulus_size) + "px";
-		super.onEnter();
+	enter() {
+		this.fontSize = Math.ceil((this.fontSize ) * tomJS.visual.stimulus_size) + "px";
+		super.enter();
 	}
 
-	onUpdate() {
-		let time = Math.ceil(this.start + this.lifetime - tomJS.now);
-		if (time <= 1) time = 1;
+	update() {
+		let time = Math.ceil((this.start + this.lifetime - tomJS.now) / 1000);
         tomJS.writeToCanvas(time, {'fontSize':this.fontSize});
-        if (tomJS.now >= this.start + this.lifetime) this.ready_to_exit = true;
-		super.onUpdate();
+        if (tomJS.now >= this.start + this.lifetime) this.complete = true;
+		super.update();
 	}
 
 }
@@ -1467,8 +1401,8 @@ class Countdown extends Slide {
 
 class CreditCard extends Slide {
 
-	constructor(args = {}) {
-		super([], false, args);
+	constructor(args={}) {
+		super([], args);
 		this.id = 'CreditCard';
 		this.cc_width  = "85.60 mm";
 		this.cc_height = "53.98 mm";
@@ -1483,7 +1417,7 @@ class CreditCard extends Slide {
 
 	// super
 
-	onEnter() {
+	enter() {
 		this.createContainer();
 		createLabel("instructions", this.instructions, this, this.container);
 		this.createWallet();
@@ -1493,15 +1427,14 @@ class CreditCard extends Slide {
 		createButton("Down", "-", ()=>{this.onUpDownClick(this, -1)}, this, this.controls, _up_down_args);
 		this.createSlider();
 		createButton("Up", "+", ()=>{this.onUpDownClick(this, 1)}, this, this.controls, _up_down_args);
-		createButton("Exit", "Confirm", this.onExitClick, this, this.container);
-		super.onEnter();
+		createButton("Exit", "Confirm", this.exitClick, this, this.container);
+		super.enter();
 	}
 
-	onExit() {
-		super.onExit();
+	exit() {
+		super.exit();
 		const _s = this.px_width * (this.slider.value / 100);
 		tomJS.visual.stimulus_size = Math.round(_s);
-		if (tomJS.debug.verbose) console.log(tomJS.visual);
 		this.container.remove();
 	}
 
@@ -1587,9 +1520,9 @@ class CreditCard extends Slide {
 		wallet.state = this;
 	}
 
-	onExitClick() {
+	exitClick() {
 		// this is the button
-		this.state.ready_to_exit = true;
+		this.state.complete = true;
 	}
 
 	onUpDownClick(s, x) {
@@ -1618,8 +1551,7 @@ class CreditCard extends Slide {
 class Demographics extends Slide {
 
 	constructor(args={}) {
-		super([], false, args);
-		this.id = 'Demographics';
+		super([], args);
 		this.age = null;
 		this.gender = null;
 		this.hand = null;
@@ -1628,43 +1560,39 @@ class Demographics extends Slide {
 		this.heading = args.heading ?? "Demographics Information";
 		this.instructions = args.instructions ?? "The following information is optional."+
 			" Pless press \"Submit\" when you are ready to continue. ";
-		this.bottom_text = "Pressing the button below will start the experiment, your browser will enter fullscreen mode," +
-			" and your cursor will be hidden while within the experiment window.";
 	}
 
 	// override
 
-	onUpdate() {		
+	update() {		
 		this.drawContent();
 		if (tomJS.now < this.start + this.force_wait) return;
 	}
 
 	// super
 
-	onEnter() {
-		super.onEnter();
+	enter() {
+		super.enter();
 		this.createContainer();
 		createLabel("Heading", this.heading, this, this.container, {'fontSize':tomJS.visual.h0});
 		createLabel("Instructions", this.instructions, this, this.container);
 		this.createFields();
-		createLabel("BottomText", this.bottom_text, this, this.container);
-		createButton("exit", "Submit", this.onExitClicked, this, this.container);
+		createButton("exitButton", "Submit", this.exitClicked, this, this.container);
 	}
 
-	onExit() {
-		super.onExit();
+	exit() {
+		super.exit();
 		tomJS.demographics.age    = this.Age.value;
 		tomJS.demographics.gender = this.Gender.value;
 		tomJS.demographics.hand   = this.Hand.value;
-		if (tomJS.debug.verbose) console.log('demographics',tomJS.demographics);		
 		this.container.remove();
 	}
 
 	// functions
 
-	onExitClicked() {
+	exitClicked() {
 		// this. is the button
-		this.state.ready_to_exit = true;
+		this.state.complete = true;
 	}
 
 	createContainer() {
@@ -1747,15 +1675,15 @@ class Demographics extends Slide {
 /** Slide shown at the end of a block. Access averaged data inside ~this.data~. */
 class EndBlock extends Slide {
 
-	constructor(content = [], can_return = false, args = {}) {
-		super(content, can_return, args);
+	constructor(content = [],args = {}) {
+		super(content, args);
 		this.data = new BlockData();
 	}
 
 	// super
 
-	onEnter () {
-        super.onEnter();
+	enter () {
+        super.enter();
         this.data.calculateData(this.gatherData());
 		if (tomJS.debug.save) tomJS.saveData();
 	}
@@ -1772,8 +1700,8 @@ class EndBlock extends Slide {
 /** Slide shown at the end of the experiment. Access averaged data inside ~this.data~. */
 class EndExperiment extends EndBlock {
 
-	constructor(content = [], can_return = false, args = {}) {
-		super(content, can_return, args);
+	constructor(content=[], args={}) {
+		super(content, args);
 	}
 
 	// override
@@ -1787,8 +1715,8 @@ class EndExperiment extends EndBlock {
 
 class ExampleProgressBar extends Slide {
 
-	constructor(content = [], can_return = false, args = {}) {
-		super(content, can_return, args);
+	constructor(content=[], args={}) {
+		super(content, args);
 		
 		this.bar = new (args.progress_bar_type ?? ProgressBar)(args);
 		this.bar.set('x', args.x ?? 0.5);
@@ -1800,82 +1728,83 @@ class ExampleProgressBar extends Slide {
 		this.signal_off = args.signal_off ?? 0.70;
 
 		this.bar_colour = args.bar_colour ?? "White";
-		this.signal_colour = args.signal_colour ?? "DodgerBlue";
+		this.signal_colour = args.signal_colour ?? "DeepSkyBlue";
 
 		this.start = null;
 	}
 
 	// super
 
-	onEnter() {
-		super.onEnter();
+	enter() {
+		super.enter();
 		if (this.bar.constructor.name == 'GoalpostBar') {
 			this.bar.set('bar_left_pos',  this.signal_on);
 			this.bar.set('bar_right_pos', this.signal_off);
 		};
 	}
 	
-	onUpdate() {
-		super.onUpdate();
+	update() {
+		super.update();
 		this.updateProgressBar();
-		this.bar.drawStimulus();
+		this.bar.draw();
 	}
 
 	// functions
 
-	checkBarColour() {
+	returnBarColour() {
 		const percent = this.returnBarPercent();
-		if (percent > this.signal_off) this.bar.set('bar_colour', this.bar_colour)
-		else if (percent > this.signal_on) this.bar.set('bar_colour', this.signal_colour)
-		else this.bar.set('bar_colour', this.bar_colour);
+		if      (percent < this.signal_on)  return this.bar_colour
+		else if (percent < this.signal_off) return this.signal_colour
+		else								return this.bar_colour;
 	}
 
 	returnBarPercent() {
-        const start    = this.start;
-		const now      = tomJS.now;
-		const duration = this.max;
-		const progress = now - start;
-		const percent  = progress / duration;
-		const invert   = 1 - percent;
-		return Math.min(invert, 1);
+		const percent = (tomJS.now - this.start) / this.max;
+		return clamp(percent, 0, 1)
+	}
+
+	setColours(colour) {
+		this.bar.set('bar_colour', colour);
+		this.bar.set('window_colour', colour);
 	}
 
 	updateProgressBar() {
+		const colour = this.returnBarColour();
 		const percent = this.returnBarPercent();
-		if (percent <= 0) this.start = tomJS.now;
+		if (percent >= 1) this.start = tomJS.now;
         this.bar.set('percent', percent);
-		this.checkBarColour();
+		this.setColours(colour);
 	}
 
 }
 
 
-// stimuli =================================================================================================================
+// stimuli ====================================================================
 
 
 class Stimulus {
 
 
 	constructor() {
-		this.data = {};		
-		this.properties = {};
+		this.data = {};
 	}
 
-	drawStimulus() {
+	draw() {
 		// does nothing
 	}
 
-
-	resetStimulus() {
+	initialize(data) {
 		// does nothing
 	}
 
-	
+	reset() {
+		// does nothing
+	}
+
 	set(key, value, reset = true) {
 		this.data[key] = value;
-		if (reset) this.resetStimulus();
+		if (reset) this.reset();
 	}
-
 
 }
 
@@ -1898,10 +1827,10 @@ class Gabor extends Stimulus {
 		this.prepareImageData();
 	}
 
-	// super ---------------------------------------------------------------------------------------------------------------
+	// super
 
-	drawStimulus() {
-		super.drawStimulus();
+	draw() {
+		super.draw();
 		const _s = this.data.gp_px;
 		const img = tomJS.visual.context.createImageData(_s, _s);
 		assignImageData(this.image_data, img.data);
@@ -1910,7 +1839,7 @@ class Gabor extends Stimulus {
 		tomJS.visual.context.putImageData(img, pos_x, pos_y);
 	}
 
-	// functions -----------------------------------------------------------------------------------------------------------
+	// functions
 
 	prepareImageData() {
 		const s   = this.data.gp_px;
@@ -1967,16 +1896,16 @@ class TwoLines extends Stimulus {
 		this.data.tl_keep_fix   = args.tl_keep_fix   ?? true;
 	}
 
-	// super ---------------------------------------------------------------------------------------------------------------
+	// super
 
-	drawStimulus() {
-		super.drawStimulus();
+	draw() {
+		super.draw();
 		if (this.data.tl_keep_fix) tomJS.writeToCanvas('+');
 		this.drawOneLine('A');
 		this.drawOneLine('B');
 	}
 
-	// functions -----------------------------------------------------------------------------------------------------------
+	// functions
 
 	drawOneLine(side){
 		const w = (tomJS.stimulus_size * this.data.tl_width);
@@ -1990,7 +1919,7 @@ class TwoLines extends Stimulus {
 		const offset_x = w * 0.5;
 		const x = (side === "A") ? pos_x - offset_x - distance : pos_x - offset_x + distance;
 		const c = (side === this.data.target) ? this.data.tl_color_L : this.data.tl_color_R ;
-		tomJS.drawRect(x, y, w, h, c);
+		tomJS.fillRect(x, y, w, h, c);
 	}
 
 }
@@ -2013,11 +1942,11 @@ class PixelPatch extends Stimulus {
 		this.prepareImageData();
 	}
 
-	// super ---------------------------------------------------------------------------------------------------------------	
+	// super	
 
-	drawStimulus() {
+	draw() {
 		const _g = this.data.grid_pixels;
-		super.drawStimulus();
+		super.draw();
 		const _img = tomJS.visual.context.createImageData(_g, _g);
 		assignImageData(this.image_data, _img.data);
 		let _pos_x = tomJS.visual.screen_size * this.data.pp_x - Math.round(_g * 0.5);
@@ -2025,7 +1954,7 @@ class PixelPatch extends Stimulus {
 		tomJS.visual.context.putImageData(_img, _pos_x, _pos_y);
 	}
 
-	// functions -----------------------------------------------------------------------------------------------------------
+	// functions
 	
 	calculateCellDistribution() {
 		const _d = this.data.difficulty;
@@ -2074,13 +2003,13 @@ class ProgressBar extends Stimulus {
         this.data.width          = args.progressbar_width		  ?? 0.50;
         this.data.x              = args.progressbar_x			  ?? 0.50;
 		this.data.y              = args.progressbar_y			  ?? 0.20;
-		this.data.percent        = args.progressbar_percent		  ?? 0.00;
+		this.data.percent        = args.progressbar_percent		  ?? 0;
 	}
 
 	// super
 
-	drawStimulus() {
-		super.drawStimulus();
+	draw() {
+		super.draw();
 		this.drawBorder();
 		this.drawBar();
 	}
@@ -2093,16 +2022,16 @@ class ProgressBar extends Stimulus {
 		const x = (tomJS.visual.screen_size * this.data.x) - (w * 0.5);
 		const y = (tomJS.visual.screen_size * this.data.y) - (h * 0.5);
 		const c = this.data.border_colour;
-		tomJS.drawRect(x, y, w, h, c);
+		tomJS.fillRect(x, y, w, h, c);
 	}
 
 	drawBar() {
-		const w = tomJS.visual.stimulus_size * this.data.width * (1 - this.data.percent);
+		const w = tomJS.visual.stimulus_size * this.data.width * this.data.percent;
 		const h = tomJS.visual.stimulus_size * this.data.height;
 		const x = (tomJS.visual.screen_size * this.data.x) - (tomJS.visual.stimulus_size * this.data.width * 0.5);
 		const y = (tomJS.visual.screen_size * this.data.y) - (h * 0.5);
 		const c = this.data.bar_colour;
-		tomJS.drawRect(x, y, w, h, c);
+		tomJS.fillRect(x, y, w, h, c);
 	}
 
 }
@@ -2111,7 +2040,7 @@ class ProgressBar extends Stimulus {
 class LeakyBar extends ProgressBar {
 
 	constructor(args={}) {
-		super(args);		
+		super(args);
 	}
 
 	// override
@@ -2128,70 +2057,60 @@ class LeakyBar extends ProgressBar {
 }
 
 
-class GoalpostBar extends ProgressBar {
+class GuitarHeroBar extends ProgressBar {
 
-	constructor(args = {}) {
+	constructor(args={}) {
 		super(args);
-		this.data.goalpost_colour = args.goalpost_colour ?? "DodgerBlue"; // html colour
-		this.data.goalpost_width  = args.goalpost_width  ?? 0.01; // stimulus units
-		this.data.bar_left_pos    = args.bar_left_pos    ?? 0.50;
-		this.data.bar_right_pos   = args.bar_right_pos   ?? 0.75;
+		this.data.bar_width        = args.bar_width     ?? 0.01;
+		this.data.bar_height       = args.bar_height    ?? 0.12;
+		this.data.window_colour    = args.window_colour ?? "LightGrey";
+		this.data.window_width     = args.window_width  ?? 0.20;
+		this.data.window_pos       = args.window_pos    ?? 0.80;
+		this.data.window_linewidth = args.linewidth     ?? 2;
 	}
 
 	// super
 
-	drawStimulus() {
-		super.drawStimulus();
-		this.drawPost('left');
-		this.drawPost('right');
-	}
-
-	// functions
-
-	drawPost(which){
-		const w = tomJS.visual.stimulus_size * this.data.goalpost_width;
-		const h = tomJS.visual.stimulus_size * this.data.height;
-		const o = which == 'left' ? this.data.bar_left_pos : this.data.bar_right_pos;
-		const bar_x = tomJS.visual.screen_size * this.data.x;
-		const bar_w = tomJS.visual.stimulus_size * this.data.width;
-		const x = bar_x + (bar_w * o) - (bar_w * 0.5) - (w * 0.5);
-		const y = (tomJS.visual.screen_size * this.data.y) - (h * 0.5);
-		const c = this.data.goalpost_colour;
-		tomJS.drawRect(x, y, w, h, c);
-	}
-
-}
-
-
-class WindowedBar extends ProgressBar {
-
-	constructor(args = {}) {
-		super(args);
-		this.data.window_colour = args.window_colour ?? "#99ccff";
-		this.data.window_width  = args.window_width  ?? 0.10;
-		this.data.window_pos    = args.window_pos    ?? 0.50;
-	}
-
-	// super
-
-	drawStimulus() {
-		super.drawStimulus();
-		this.drawBorder();
+	draw() {
+		super.draw();
 		this.drawWindow();
-		this.drawBar();
+	}
+
+	initialize(data) {
+		super.initialize(data);
+		this.data.window_width = data.signal_for / data.trial_duration;
+		this.data.window_pos = (data.signal_on - data.fixation_on) / 
+			data.trial_duration;
+	}
+
+	// override
+
+	drawBar() {
+		const w = tomJS.visual.stimulus_size * this.data.bar_width;
+		const h = tomJS.visual.stimulus_size * this.data.bar_height;
+		const p = clamp(this.data.percent, 0, 1);
+		const x = (tomJS.visual.screen_size * this.data.x) + 
+			(tomJS.visual.stimulus_size * this.data.width * p) - 
+			(tomJS.visual.stimulus_size * this.data.width * 0.5) - 
+			(w * 0.5);
+		const y = (tomJS.visual.screen_size * this.data.y) - (h * 0.5);
+		const c = this.data.bar_colour;
+		tomJS.fillRect(x, y, w, h, c);
 	}
 
 	// functions
 
 	drawWindow() {
-		const bar_w = tomJS.visual.stimulus_size * this.data.width;
-		const bar_x = tomJS.visual.screen_size * this.data.x;
-		const w = bar_w * this.data.window_width;
+		const w = tomJS.visual.stimulus_size * this.data.window_width * 0.5;
 		const h = tomJS.visual.stimulus_size * this.data.height;
-		const x = bar_x + (bar_w * this.data.window_pos) - (bar_w * 0.5) - (w * 0.5);
-		const y = (tomJS.visual.screen_size  * this.data.y) - (h * 0.5);
+		const o = this.data.window_pos;
+		const bar_x = tomJS.visual.screen_size * this.data.x;
+		const bar_w = tomJS.visual.stimulus_size * this.data.width;
+		const x = bar_x + (bar_w * o) - (bar_w * 0.5);
+		const y = (tomJS.visual.screen_size * this.data.y) - (h * 0.5);
 		const c = this.data.window_colour;
-		tomJS.drawRect(x, y, w, h, c);
+		const l = this.data.window_linewidth;
+		tomJS.strokeRect(x, y, w, h, c, l);
 	}
 
 }
@@ -2220,8 +2139,8 @@ class Table extends Stimulus {
 
 	// super
 
-	drawStimulus() {
-		super.drawStimulus();
+	draw() {
+		super.draw();
 		this.drawAllCells();
 		this.writeAllCells();
 	}
@@ -2298,8 +2217,8 @@ class Text extends Stimulus {
 
 	// super
 
-	drawStimulus() {
-		super.drawStimulus();
+	draw() {
+		super.draw();
 		tomJS.writeToCanvas(this.data.text, this.data);
 	}
 
@@ -2312,7 +2231,7 @@ class Text extends Stimulus {
 }
 
 
-// utils ===================================================================================================================
+// utils ======================================================================
 
 
 function arrayAverage(array) {
@@ -2627,7 +2546,7 @@ function writeToBody(text) {
 }
 
 
-// util classes ============================================================================================================
+// util classes ===============================================================
 
 
 class Keyboard {
@@ -2690,15 +2609,17 @@ class Keyboard {
 }
 
 
-// data ====================================================================================================================
+// data =======================================================================
 
 
-bremen = {
-	'institute'  : "Institut fuer Psychologie",
-	'department' : "Fachbereich 11",
-	'group'      : "Psychologische Forschungsmethoden und Kognitive Psychologie",
-	'email'      : "narraway@uni-bremen.de",
-	'logo'       : "https://www.uni-bremen.de/_assets/8ec6f74154680cbbd6366024eea31e0b/Images/logo_ub_2021.png"
+institute = {
+	'bremen' : {
+		'institute'  : "Institut fuer Psychologie",
+		'department' : "Fachbereich 11",
+		'group'      : "Psychologische Forschungsmethoden und Kognitive Psychologie",
+		'contacts'   : ["Tom Narraway: narraway@uni-bremen.de", "Heinrich Liesefeld: heinrich.liesefeld@uni-bremen.de"],
+		'logo'       : "https://www.uni-bremen.de/_assets/8ec6f74154680cbbd6366024eea31e0b/Images/logo_ub_2021.png"
+	}
 }
 
 
