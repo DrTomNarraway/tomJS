@@ -1403,12 +1403,11 @@ class CreditCard extends Slide {
 
 	constructor(args={}) {
 		super([], args);
-		this.id = 'CreditCard';
 		this.cc_width  = "85.60 mm";
 		this.cc_height = "53.98 mm";
 		this.px_width  = 385;
 		this.px_height = 245;
-		this.min   = 50;
+		this.min   = 25;
 		this.max   = 200;
 		this.value = 100;
 		this.instructions = args.instructions ?? "Please hold an ID-1 card (e.g. credit card or driving license) to" +
@@ -1433,8 +1432,9 @@ class CreditCard extends Slide {
 
 	exit() {
 		super.exit();
-		const _s = this.px_width * (this.slider.value / 100);
-		tomJS.visual.stimulus_size = Math.round(_s);
+		const _s = Math.round(this.px_width * (this.slider.value / 100));
+		console.log(_s);
+		tomJS.visual.stimulus_size = _s;
 		this.container.remove();
 	}
 
@@ -1521,12 +1521,12 @@ class CreditCard extends Slide {
 	}
 
 	exitClick() {
-		// this is the button
+		// this. is the button
 		this.state.complete = true;
 	}
 
 	onUpDownClick(s, x) {
-		// this is the button
+		// this. is the button
 		const n = Math.round(s.slider.value) + x;
 		const m = clamp(n, s.min, s.max);
 		s.slider.value = m;
@@ -1534,7 +1534,7 @@ class CreditCard extends Slide {
 	}
 
 	onSlide() {
-		// this is the slider
+		// this. is the slider
 		this.state.setCreditCardScale();
 	}
 
