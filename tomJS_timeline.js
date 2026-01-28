@@ -2064,10 +2064,11 @@ class WindowedBar extends ProgressBar {
 
 	constructor(args = {}) {
 		super(args);
-		this.data.bar_width     = args.bar_width     ?? 0.02;
-		this.data.window_colour = args.window_colour ?? "White";
-		this.data.window_width  = args.window_width  ?? 0.20;
-		this.data.window_pos    = args.window_pos    ?? 0.80;
+		this.data.bar_width        = args.bar_width     ?? 0.02;
+		this.data.window_colour    = args.window_colour ?? "White";
+		this.data.window_width     = args.window_width  ?? 0.20;
+		this.data.window_pos       = args.window_pos    ?? 0.80;
+		this.data.window_linewidth = args.linewidth     ?? 2;
 	}
 
 	// super
@@ -2108,13 +2109,14 @@ class WindowedBar extends ProgressBar {
 		const w = tomJS.visual.stimulus_size * this.data.window_width * this.data.width;
 		const h = tomJS.visual.stimulus_size * this.data.height;
 		const o = this.data.window_pos;
+		const l = this.data.window_linewidth;
 		const bar_x = tomJS.visual.screen_size * this.data.x;
 		const bar_w = tomJS.visual.stimulus_size * this.data.window_width;
 		// const x = bar_x + (bar_w * o) - (bar_w * 0.5) - (w * 0.5);
 		const x = bar_x + (bar_w * o) - (w * 0.5);
 		const y = (tomJS.visual.screen_size * this.data.y) - (h * 0.5);
 		const c = this.data.window_colour;
-		tomJS.strokeRect(x, y, w, h, c);
+		tomJS.strokeRect(x, y, w, h, c, l);
 	}
 
 }
