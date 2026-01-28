@@ -1,7 +1,7 @@
 
 class Experiment {	
 
-	version = '27.01.26 11:33';
+	version = '28.01.26 10:55';
 
 	constructor(args={}) {
 		
@@ -144,12 +144,6 @@ class Experiment {
 		if (this.debug.verbose) console.log({'A':A, 'B':B});
 	}
 
-	drawBox(x, y, w, h, c = "white", l = 1) {
-		this.visual.context.strokeStyle = c;
-		this.visual.context.lineWidth = l;
-		this.visual.context.strokeRect(x, y, w, h);
-	}
-
 	drawGridLines() {
 		// horizontal
 		for (let i = 0; i < 5; i++) {
@@ -157,7 +151,7 @@ class Experiment {
 			let h = this.visual.screen_size * 0.001;
 			let x = (this.visual.screen_size * 0.5) - (w * 0.5);
 			let y = (this.visual.screen_size * 0.5 * (i/2)) - (h * 0.5);
-			this.drawRect(x, y, w, h, this.visual.colour);
+			this.fillRect(x, y, w, h, this.visual.colour);
 		};
 		// vertical
 		for (let i = 0; i < 5; i++) {
@@ -165,7 +159,7 @@ class Experiment {
 			let h = this.visual.screen_size;
 			let x = (this.visual.screen_size * 0.5 * (i/2)) - (w * 0.5);
 			let y = (this.visual.screen_size * 0.5) - (h * 0.5);
-			this.drawRect(x, y, w, h, this.visual.colour);
+			this.fillRect(x, y, w, h, this.visual.colour);
 		};
 	}
 
@@ -176,11 +170,6 @@ class Experiment {
 		const _x = tomJS.visual.screen_size * (args.x ?? 0.5) - (_size * 0.5);
 		const _y = tomJS.visual.screen_size * (args.y ?? 0.5) - (_size * 0.5);
 		tomJS.visual.context.drawImage(img, _x, _y, _size, _size);
-	}
-
-	drawRect(x, y, w, h, colour="white") {
-		this.visual.context.fillStyle = colour;
-		this.visual.context.fillRect(x, y, w, h);
 	}
 
 	endExperiment() {
@@ -200,8 +189,14 @@ class Experiment {
 
 	error(message) {
 		this.running = false;
-		this.drawRect(0, 0, this.visual.screen_size, this.visual.screen_size, "red");
+		this.fillRect(0, 0, this.visual.screen_size, this.visual.screen_size, "red");
 		this.writeToCanvas('ERROR: '+message);
+	}
+
+	/** Draw a filled rectangle. x and y degine the position of the top-left pixel. */
+	fillRect(x, y, width, height, colour="white") {
+		this.visual.context.fillStyle = colour;
+		this.visual.context.fillRect(x, y, width, height);
 	}
 
 	flushKeys() {
@@ -216,7 +211,7 @@ class Experiment {
 	}
 	
 	resetCanvas () {
-		this.drawRect(0, 0, this.visual.screen_size, this.visual.screen_size, this.visual.backgroundColor);
+		this.fillRect(0, 0, this.visual.screen_size, this.visual.screen_size, this.visual.backgroundColor);
 	}
 
 	run = () => {
@@ -239,9 +234,11 @@ class Experiment {
 		requestAnimationFrame(this.run);
 	}
 
-	strokeRect(x, y, w, h, colour="white") {
+	/** Draw a hollow rectangle. x and y degine the position of the top-left pixel. */
+	strokeRect(x, y, width, height, colour = "white", lineWidth = 1) {
 		this.visual.context.strokeStyle = colour;
-		this.visual.context.strokeRect(x, y, w, h);
+		this.visual.context.lineWidth = lineWidth;
+		this.visual.context.strokeRect(x, y, width, height);
 	}
 	
 	update () {
@@ -1258,7 +1255,7 @@ class Consent extends Slide {
 	// override
 
 	update() {		
-		tomJS.drawRect(0, 0, tomJS.visual.screen_size, tomJS.visual.screen_size, "white");
+		tomJS.fillRect(0, 0, tomJS.visual.screen_size, tomJS.visual.screen_size, "white");
 		if (tomJS.now < this.start + this.force_wait) return;
 	}
 
@@ -1947,7 +1944,7 @@ class TwoLines extends Stimulus {
 		const offset_x = w * 0.5;
 		const x = (side === "A") ? pos_x - offset_x - distance : pos_x - offset_x + distance;
 		const c = (side === this.data.target) ? this.data.tl_color_L : this.data.tl_color_R ;
-		tomJS.drawRect(x, y, w, h, c);
+		tomJS.fillRect(x, y, w, h, c);
 	}
 
 }
@@ -2049,7 +2046,7 @@ class ProgressBar extends Stimulus {
 		const x = (tomJS.visual.screen_size * this.data.x) - (w * 0.5);
 		const y = (tomJS.visual.screen_size * this.data.y) - (h * 0.5);
 		const c = this.data.border_colour;
-		tomJS.drawRect(x, y, w, h, c);
+		tomJS.fillRect(x, y, w, h, c);
 	}
 
 	drawBar() {
@@ -2058,7 +2055,7 @@ class ProgressBar extends Stimulus {
 		const x = (tomJS.visual.screen_size * this.data.x) - (tomJS.visual.stimulus_size * this.data.width * 0.5);
 		const y = (tomJS.visual.screen_size * this.data.y) - (h * 0.5);
 		const c = this.data.bar_colour;
-		tomJS.drawRect(x, y, w, h, c);
+		tomJS.fillRect(x, y, w, h, c);
 	}
 
 }
@@ -2102,7 +2099,7 @@ class WindowedBar extends ProgressBar {
 		const x = bar_x + (bar_w * o) - (bar_w * 0.5) + (w * 0.5);
 		const y = (tomJS.visual.screen_size * this.data.y) - (h * 0.5);
 		const c = this.data.bar_colour;
-		tomJS.drawRect(x, y, w, h, c);
+		tomJS.fillRect(x, y, w, h, c);
 	}
 
 	// functions
