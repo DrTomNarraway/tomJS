@@ -1,7 +1,7 @@
 
 class Experiment {	
 
-	version = '28.01.26 16:55';
+	version = '29.01.26 16:32';
 
 	constructor(args={}) {
 		
@@ -9,17 +9,12 @@ class Experiment {
 
 		// debug
 		this.debug = {};
-		this.debug.verbose    = args.verbose    ?? false;
 		this.debug.gridlines  = args.gridlines  ?? false;
 		this.debug.fullscreen = args.fullscreen ?? true;
 		this.debug.save       = args.save       ?? true;
 
 		// visual
 		this.visual = {};
-		this.visual.fontFamily = args.fontFamily ?? "Arial";
-		this.visual.fontSize = args.fontSize ?? "16px";
-		this.visual.h0 = args.h0 ?? "28px";
-		this.visual.h1 = args.h1 ?? "20px";
 		this.visual.backgroundColor = args.backgroundColor ?? "black";
 		this.visual.color = args.color ?? "white";				
 		this.visual.height = window.innerHeight - 16;
@@ -28,6 +23,8 @@ class Experiment {
 		this.visual.screen_size = screen_size;
 		this.visual.stimulus_size = Math.round(this.visual.screen_size * 0.5);
 		this.createCanvas();
+		this.setCanvasSize(this.visual.screen_size);
+		this.setFont();
 
 		// apply visual settings to document
 		document.body.style.fontFamily      = this.visual.fontFamily;
@@ -63,9 +60,10 @@ class Experiment {
 		this.demographics.n = Math.round(Math.random() * 2);
 
 		// timeline
-        this.now        = window.performance.now();
-        this.running    = true;
-        this.timeline   = new Timeline();
+        this.now      = window.performance.now();
+        this.running  = true;
+		this.complete = false;
+        this.timeline = new Timeline();
         this.block    = 0;
 		this.blocks   = 0;
         this.trial    = 0;
@@ -121,12 +119,11 @@ class Experiment {
 	createCanvas() {
 		this.visual.canvas = document.createElement('canvas');		
 		this.visual.canvas.id = "canvas";
-		this.visual.canvas.height = this.visual.screen_size;
-		this.visual.canvas.width  = this.visual.screen_size; // make canvas square
+		this.visual.canvas.width = "95vmin";
+		this.visual.canvas.height = "95vmin";
 		this.visual.canvas.style.position = "absolute"; 
 		this.visual.canvas.style.backgroundColor = this.visual.backgroundColor;
 		this.visual.canvas.style.color = this.visual.colour;
-		this.visual.canvas.style.left = (this.visual.width - this.visual.screen_size + 16) / 2 + "px"; // position canvas in center
 		this.visual.canvas.style.cursor = "none";
 		document.body.appendChild(this.visual.canvas); // add canvas to window
 		this.visual.context = this.visual.canvas.getContext("2d");
@@ -171,8 +168,9 @@ class Experiment {
 	}
 
 	endExperiment() {
-		this.running = false;
-		if (this.debug.fullscreen) document.exitFullscreen();
+		this.running  = false;
+		this.complete = true;
+		if (document.fullscreenElement != null) document.exitFullscreen();
 		if (this.jatos)	{
 			const sessionData = new BlockData();
 			sessionData.calculateData(this.data);
@@ -204,7 +202,7 @@ class Experiment {
 
 	replaceEndBlockWithEndExperiment(end_slide) {		
 		const i = this.timeline.length - 1;
-		const j = this.timeline.timeline[i].length - 1;
+		const j = this.timeline.timeline[i].timeline.length - 1;
 		this.timeline.timeline[i].timeline.timeline[j] = end_slide;
 	}
 	
@@ -213,7 +211,7 @@ class Experiment {
 	}
 
 	run = () => {
-		if (!this.running) return;
+		if (this.complete) return;
 		this.now = Math.round(window.performance.now());
 		this.resetCanvas();		
 		this.update();
@@ -225,8 +223,22 @@ class Experiment {
 		if (this.jatos) jatos.submitResultData(csv);
 	}
 
+	setCanvasSize(size) {
+		this.visual.canvas.width  = size;
+		this.visual.canvas.height = size;
+		this.visual.canvas.style.left = (this.visual.width - this.visual.screen_size + 16) / 2 + "px";
+	}
+
+	setFont(fontFamily="Arial", t=0.05, h1=0.07, h0=0.10) {
+		this.visual.fontFamily = fontFamily;
+		this.visual.h0       = (this.visual.stimulus_size * h0) + "px";
+		this.visual.h1       = (this.visual.stimulus_size * h1) + "px";
+		this.visual.fontSize = (this.visual.stimulus_size * t)  + "px";
+	}
+
 	start () {
 		this.running = true;
+		this.complete = false;
 		this.resetCanvas();
 		this.timeline.enter();
 		requestAnimationFrame(this.run);
@@ -239,10 +251,9 @@ class Experiment {
 		this.visual.context.strokeRect(x, y, width, height);
 	}
 	
-	update () {
-		if (this.complete) return;
+	update () {				
 		this.complete = this.timeline.complete;
-		if (this.timeline.complete) this.nextState();
+		if (this.complete) this.endExperiment();
 		else this.timeline.update();
 		if (this.debug.gridlines) this.drawGridLines();
 	}
@@ -471,7 +482,7 @@ class State {
 	}
 
 	enter() {
-		if (this.complete) return;
+		this.complete = false;
 		tomJS.flushKeys();
 	}
 
@@ -499,8 +510,8 @@ class Mutator extends State {
 	 * @param {Object{}} args - An object of optional arguents to pass down the chain.
 	 */
 
-	constructor(mutation, args = {}) {
-		super(args);
+	constructor(mutation, args={}) {
+		super();
 		this.mutation = mutation;
 	}
 
@@ -517,7 +528,7 @@ class Mutator extends State {
 class Block extends State {
 
 	constructor(trial_type, trialwise={}, additional={}, conditional={}, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
-		super(args);
+		super();
 
 		// identification
 		this.block = tomJS.blocks;
@@ -601,11 +612,12 @@ class Block extends State {
 	}
 
 	parseText(_text) {
-		if (_text.includes('~')) {
-			let _split = _text.split('~');
-			_text = _split[0] + eval(_split[1]) + _split[2];
+		let _t = "" + _text;
+		if (_t.includes('~')) {
+			let _split = _t.split('~');
+			_t = _split[0] + eval(_split[1]) + _split[2];
 		};
-		return _text;
+		return _t;
 	}
 
 }
@@ -763,21 +775,21 @@ class Trial extends State {
 		tomJS.data.push(new TrialData());
 		this.data = tomJS.data[this.index];
 
-		this.data.block				= args.block ?? tomJS.block;
-		this.data.trial				= args.trial ?? tomJS.trial;
-		this.data.index				= this.index;
+		this.data.block				= Number(args.block ?? tomJS.block);
+		this.data.trial				= Number(args.trial ?? tomJS.trial);
+		this.data.index				= Number(this.index);
 		this.data.condition			= args.condition ?? null;
 		this.data.difficulty		= this.stimulus.data.difficulty;
-		this.data.fixation_duration	= choose(args.fixation_duration, 1000);
-		this.data.fixation_size		= choose(args.fixation_size, 0.10);
+		this.data.fixation_duration	= Number(choose(args.fixation_duration, 1000));
+		this.data.fixation_size		= Number(choose(args.fixation_size, 0.10));
 		this.data.fixation_colour	= args.fixation_colour ?? "white";
-		this.data.stimulus_duration	= choose(args.stimulus_duration, 3000);
-		this.data.stimulus_fast		= choose(args.stimulus_fast, 200);
-		this.data.stimulus_slow		= choose(args.stimulus_slow, 3000);
+		this.data.stimulus_duration	= Number(choose(args.stimulus_duration, 3000));
+		this.data.stimulus_fast		= Number(choose(args.stimulus_fast, 200));
+		this.data.stimulus_slow		= Number(choose(args.stimulus_slow, 3000));
 		this.data.target			= this.stimulus.data.target;
-		this.data.feedback_duration	= choose(args.feedback_duration, 1000);
-		this.data.feedback_size		= choose(args.feedback_size, 0.05);
-		this.data.iti_duration		= choose(args.iti_duration, 200);
+		this.data.feedback_duration	= Number(choose(args.feedback_duration, 1000));
+		this.data.feedback_size		= Number(choose(args.feedback_size, 0.05));
+		this.data.iti_duration		= Number(choose(args.iti_duration, 200));
 
 		// timeline
 		if ('timeline' in args) this.timeline = args.timeline
@@ -938,6 +950,7 @@ class PreFixationPicture extends Trial {
 }
 
 
+/** A row of +s indicate when the partiicoant should respond. */
 class ResponseSignal extends Trial {
 
 	constructor(args={}) {
@@ -947,8 +960,8 @@ class ResponseSignal extends Trial {
 		super(args);
 
 		// override
-		this.data.stimulus_fast = args.stimulus_fast ?? 15;
-		this.data.stimulus_slow = args.stimulus_slow ?? 15;
+		this.data.stimulus_fast = Number(args.stimulus_fast ?? 15);
+		this.data.stimulus_slow = Number(args.stimulus_slow ?? 15);
 
 		this.feedback_texts  = args.feedback_texts  ?? { 
 			'Correct'	: 'Hit',
@@ -960,13 +973,13 @@ class ResponseSignal extends Trial {
 		
 		// signal
 		this.data.above_and_below = args.above_and_below ?? false;
-		this.data.signal_for = choose(args.signal_for, 300);
-		this.data.signal_x   = choose(args.signal_x, 0.5);
-		this.data.signal_y   = choose(args.signal_y, 0.2);
+		this.data.signal_for = Number(choose(args.signal_for, 300));
+		this.data.signal_x   = Number(choose(args.signal_x, 0.5));
+		this.data.signal_y   = Number(choose(args.signal_y, 0.2));
 
 		// warning
-		this.data.warning_at  = choose(args.warning_for, 0);
-		this.data.warning_for = choose(args.warning_for, 0);
+		this.data.warning_at  = Number(choose(args.warning_for, 200));
+		this.data.warning_for = Number(choose(args.warning_for, 200));
 
 		// calculated
 		this.data.stimulus_duration += this.data.condition + this.data.signal_for;
@@ -980,6 +993,17 @@ class ResponseSignal extends Trial {
 		this.data.warning_off = null;
 		this.data.early       = null;
 		this.data.late        = null;
+
+		// response signal
+		this.signal = new (args.signal ?? Text)(args);
+		this.signal.set('x', this.data.signal_x);
+		this.signal.set('y', this.data.signal_y);
+		
+		if (this.data.above_and_below) {
+			this.signal_lower = new (args.signal ?? Text)(args);
+			this.signal_lower.set('x', this.data.signal_x);
+			this.signal_lower.set('y', (1 - this.data.signal_y));
+		};
 
 		// headings
 		if (!(arraySearch(tomJS.headings, 'rtt'))) tomJS.headings = joinUniques(tomJS.headings, this.data.keys());
@@ -1021,6 +1045,29 @@ class ResponseSignal extends Trial {
 		this.data.late        = this.data.signal_off  + this.data.stimulus_slow;
 	}
 
+	update() {
+		super.update();
+		this.updateSignal();
+		this.drawSignal();
+	}
+
+	// functions
+
+	drawSignal() {
+		this.signal.draw();
+		if (this.data.above_and_below) this.signal_lower.draw();
+	}
+
+	updateSignal() {
+		let text = "";
+		if (tomJS.now < this.data.warning_on)      text = ""
+		else if (tomJS.now < this.data.signal_on)  text = "+"
+		else if (tomJS.now < this.data.signal_off) text = "+++++"
+		else									   text = "";
+		this.signal.set('text', text);
+		if (this.data.above_and_below) this.signal_lower.set('text', text);
+	}
+
 }
 
 
@@ -1032,21 +1079,24 @@ class ProgressBarResponseSignal extends ResponseSignal {
 		if (!('condition'in args)) tomJS.error('no condition passed to visual response signal trial');
 		super(args);
 
-		//this.data.signal_colour  = args.signal_colour  ?? "DodgerBlue";
+		// override
+		this.data.warning_at  = Number(choose(args.warning_for, 0));
+		this.data.warning_for = Number(choose(args.warning_for, 0));
+
 		this.data.signal_colour  = args.signal_colour  ?? "DeepSkyBlue";
 		this.data.warning_colour = args.warning_colour ?? "#99ccff";
 		this.data.bar_colour     = args.bar_colour ?? "White";
 		this.data.border_colour  = args.border_colour ?? "Grey";
 
-		// progress bar
-		this.signal = new (args.progress_bar_type ?? ProgressBar)(args);
+		// signal
+		this.signal = new (args.signal ?? ProgressBar)(args);
 		this.signal.set('x', this.data.signal_x);
 		this.signal.set('y', this.data.signal_y);
 		this.signal.set('bar_colour', this.data.bar_colour);
 		this.signal.set('border_colour', this.data.border_colour);
 		
 		if (this.data.above_and_below) {
-			this.signal_lower = new (args.progress_bar_type ?? ProgressBar)(args);
+			this.signal_lower = new (args.signal ?? ProgressBar)(args);
 			this.signal_lower.set('x', this.data.signal_x);
 			this.signal_lower.set('y', (1 - this.data.signal_y));
 			this.signal_lower.set('bar_colour', this.data.bar_colour);
@@ -1399,17 +1449,18 @@ class Countdown extends Slide {
 }
 
 
+/** Calculate the standard stimulius size using a physical ID-1 card. */
 class CreditCard extends Slide {
 
 	constructor(args={}) {
 		super([], args);
-		this.cc_width  = "85.60 mm";
-		this.cc_height = "53.98 mm";
-		this.px_width  = 385;
-		this.px_height = 245;
-		this.min   = 25;
-		this.max   = 200;
-		this.value = 100;
+		this.cc_width  = "86mm";
+		this.cc_height = "54mm";
+		this.width     = 86;
+		this.height    = 54;
+		this.min       = 50;
+		this.max       = 200;
+		this.value     = 100;
 		this.instructions = args.instructions ?? "Please hold an ID-1 card (e.g. credit card or driving license) to" +
 			" the screen and surround your card with the white border such that no grey is visible.";
 	}
@@ -1417,8 +1468,10 @@ class CreditCard extends Slide {
 	// super
 
 	enter() {
+		super.enter();
+		this.adjustWindowSize();
 		this.createContainer();
-		createLabel("instructions", this.instructions, this, this.container);
+		createLabel("instructions", this.instructions, this, this.container, {'width':'50%'});
 		this.createWallet();
 		this.createCreditCard();
 		this.createControls();
@@ -1427,25 +1480,38 @@ class CreditCard extends Slide {
 		this.createSlider();
 		createButton("Up", "+", ()=>{this.onUpDownClick(this, 1)}, this, this.controls, _up_down_args);
 		createButton("Exit", "Confirm", this.exitClick, this, this.container);
-		super.enter();
 	}
 
 	exit() {
 		super.exit();
-		const _s = Math.round(this.px_width * (this.slider.value / 100));
-		console.log(_s);
-		tomJS.visual.stimulus_size = _s;
+		this.adjustWindowSize();		
+		this.adjustStimulusSize();
 		this.container.remove();
 	}
 
 	// functions
 
+	adjustStimulusSize() {
+		const w = this.credit_card.clientWidth;
+		const _s = Math.round(w * (this.slider.value / 100));
+		tomJS.visual.stimulus_size = _s;
+	}
+
+	adjustWindowSize() {
+		tomJS.visual.height = window.innerHeight - 16;
+		tomJS.visual.width  = window.innerWidth - 16;
+		const screen_size = Math.min(tomJS.visual.height, tomJS.visual.width);
+		tomJS.visual.screen_size = screen_size;
+		tomJS.setCanvasSize(screen_size);
+		tomJS.setFont();
+	}
+
 	createCreditCard() {
 		const credit_card = document.createElement('div');
 		credit_card.id = "CreditCard";
 		credit_card.style.backgroundColor = "grey";
-		credit_card.style.width  = this.px_width  + "px";
-		credit_card.style.height = this.px_height + "px";
+		credit_card.style.width  = this.cc_width;
+		credit_card.style.height = this.cc_height;
 		credit_card.style.margin = "auto";
 		credit_card.style.borderRadius = "7%";
 		credit_card.style.borderWidth = "1vmin";
@@ -1512,7 +1578,7 @@ class CreditCard extends Slide {
 		wallet.id = "Wallet";
 		wallet.style.display = "flex";
 		wallet.style.width = "100%";
-		wallet.style.height = this.px_height * 2.10 + "px";
+		wallet.style.height = this.height * 2.10 + "mm";
 		wallet.style.justifyContent  = "center";
 		wallet.style.alignItems  = "center";
 		this.container.append(wallet);
@@ -1540,9 +1606,9 @@ class CreditCard extends Slide {
 
 	setCreditCardScale() {
 		const c = this.credit_card;
-		const s = (this.slider.value / 100);
-		c.style.width  = Math.round(this.px_width  * s) + "px";
-		c.style.height = Math.round(this.px_height * s) + "px";
+		const s = this.slider.value / 100;
+		c.style.width  = Math.round(this.width  * s) + "mm";
+		c.style.height = Math.round(this.height * s) + "mm";
 	}
 
 }
@@ -1624,7 +1690,7 @@ class Demographics extends Slide {
 		div.style.alignItems     = "center";
 		div.style.display        = "flex";
 		// create label
-		createLabel(id+"Label", textContent, this, div, {'width':'50vmin', 'marginRight':'3vh'});
+		createLabel(id+"Label", textContent, this, div, {'width':'50vmin', 'marginRight':'3vh', 'textAlign':'right'});
 		// create input options
 		let input;
 		switch(type) {
@@ -1718,7 +1784,7 @@ class ExampleProgressBar extends Slide {
 	constructor(content=[], args={}) {
 		super(content, args);
 		
-		this.bar = new (args.progress_bar_type ?? ProgressBar)(args);
+		this.bar = new (args.signal ?? ProgressBar)(args);
 		this.bar.set('x', args.x ?? 0.5);
 		this.bar.set('y', args.y ?? 0.5);
 
@@ -1727,8 +1793,9 @@ class ExampleProgressBar extends Slide {
 		this.signal_on  = args.signal_on  ?? 0.55;
 		this.signal_off = args.signal_off ?? 0.70;
 
-		this.bar_colour = args.bar_colour ?? "White";
-		this.signal_colour = args.signal_colour ?? "DeepSkyBlue";
+		this.bar_colour     = args.bar_colour     ?? "White";
+		this.signal_colour  = args.signal_colour  ?? "DeepSkyBlue";
+		this.late_colour    = args.late_colour    ?? "#00000000";
 
 		this.start = null;
 	}
@@ -1755,12 +1822,11 @@ class ExampleProgressBar extends Slide {
 		const percent = this.returnBarPercent();
 		if      (percent < this.signal_on)  return this.bar_colour
 		else if (percent < this.signal_off) return this.signal_colour
-		else								return this.bar_colour;
+		else								return this.late_colour;
 	}
 
 	returnBarPercent() {
-		const percent = (tomJS.now - this.start) / this.max;
-		return clamp(percent, 0, 1)
+		return (tomJS.now - this.start) / this.max;
 	}
 
 	setColours(colour) {
@@ -1771,7 +1837,7 @@ class ExampleProgressBar extends Slide {
 	updateProgressBar() {
 		const colour = this.returnBarColour();
 		const percent = this.returnBarPercent();
-		if (percent >= 1) this.start = tomJS.now;
+		if (percent >= 1.5) this.start = tomJS.now;
         this.bar.set('percent', percent);
 		this.setColours(colour);
 	}
@@ -1999,8 +2065,8 @@ class ProgressBar extends Stimulus {
 		super(args);
 		this.data.bar_colour     = args.progressbar_bar_colour	  ?? "white";
 		this.data.border_colour  = args.progressbar_border_colour ?? "grey";
-        this.data.height         = args.progressbar_height		  ?? 0.10;
-        this.data.width          = args.progressbar_width		  ?? 0.50;
+        this.data.height         = args.progressbar_height		  ?? 0.15;
+        this.data.width          = args.progressbar_width		  ?? 0.75;
         this.data.x              = args.progressbar_x			  ?? 0.50;
 		this.data.y              = args.progressbar_y			  ?? 0.20;
 		this.data.percent        = args.progressbar_percent		  ?? 0;
@@ -2046,12 +2112,12 @@ class LeakyBar extends ProgressBar {
 	// override
 
 	drawBar() {
-		const w = tomJS.visual.stimulus_size * this.data.width * this.data.percent;
+		const w = tomJS.visual.stimulus_size * this.data.width * (1 - this.data.percent);
 		const h = tomJS.visual.stimulus_size * this.data.height;
 		const x = (tomJS.visual.screen_size * this.data.x) - (w * 0.5);
 		const y = (tomJS.visual.screen_size * this.data.y) - (h * 0.5);
 		const c = this.data.bar_colour;
-		tomJS.drawRect(x, y, w, h, c);
+		tomJS.fillRect(x, y, w, h, c);
 	}
 
 }
@@ -2062,7 +2128,7 @@ class GuitarHeroBar extends ProgressBar {
 	constructor(args={}) {
 		super(args);
 		this.data.bar_width        = args.bar_width     ?? 0.01;
-		this.data.bar_height       = args.bar_height    ?? 0.12;
+		this.data.bar_height       = args.bar_height    ?? 0.17;
 		this.data.window_colour    = args.window_colour ?? "LightGrey";
 		this.data.window_width     = args.window_width  ?? 0.20;
 		this.data.window_pos       = args.window_pos    ?? 0.80;
@@ -2079,8 +2145,8 @@ class GuitarHeroBar extends ProgressBar {
 	initialize(data) {
 		super.initialize(data);
 		this.data.window_width = data.signal_for / data.trial_duration;
-		this.data.window_pos = (data.signal_on - data.fixation_on) / 
-			data.trial_duration;
+		this.data.window_pos = 1 - this.data.window_width;
+		console.log(data);
 	}
 
 	// override
@@ -2101,7 +2167,7 @@ class GuitarHeroBar extends ProgressBar {
 	// functions
 
 	drawWindow() {
-		const w = tomJS.visual.stimulus_size * this.data.window_width * 0.5;
+		const w = tomJS.visual.stimulus_size * this.data.window_width * this.data.width;
 		const h = tomJS.visual.stimulus_size * this.data.height;
 		const o = this.data.window_pos;
 		const bar_x = tomJS.visual.screen_size * this.data.x;
@@ -2260,7 +2326,7 @@ function arraySearch(array, target) {
 
 
 function assignImageData(source, sink) {
-	if (source.length != sink.length) console.log('ERROR: source and sink are not the same length.',
+	if (source.length != sink.length) console.warn('ERROR: source and sink are not the same length.',
 		Math.sqrt(source.length), Math.sqrt(sink.length));
 	for (let i = 0; i < sink.length; i += 4) {
 		sink[i+0] = source[i+0];	// R
@@ -2367,6 +2433,7 @@ function createLabel(id, content, state, parent, args={}) {
 	label.style.marginLeft   = args.marginLeft   ?? "0";
 	label.style.marginRight  = args.marginRight  ?? "0";
 	label.style.marginTop    = args.marginTop    ?? '1%';
+	label.style.textAlign    = args.textAlign    ?? "left";
 	label.state = state;
 	state[id] = label;
 	parent.append(label);

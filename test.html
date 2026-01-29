@@ -6,146 +6,118 @@
     <script src="tomJS.js" id="tomJS"></script>
     <script>
 
-        // define constants ===================================================
+        const _args = {'fullscreen':false};
 
-        const ABV_BEL     = true;
-        const BLOCK_REPS  = 1;
-        const COUNTDOWN   = false;
-        const CONDITION   = [200, 400, 600];
-        const DIFFICULTY  = [0.01, 0.50];
-        const ITI_DUR     = [800, 1000, 1200];
-        const ORIENTATION = 2;
-        const STIM_DUR    = 3000;
-        const STIMULUS    = Gabor;
-        const TARGET      = ['A', 'B'];
-        const TRIAL_REPS  = 1;
+        const tomJS = new Experiment(_args);
 
-        // set up experiment ==================================================
+        const _blockwise = {}; 
 
-        const args = {
-            'gridlines' : false,
-            'rounding' : 5,
-            'verbose': true
-        };
+        const _trialwise = {'condition':[200, 600], 'target':['A', 'B']};
+        
+        const _additional = { 'gp_ori': 2, 'stimulus': Gabor, 'difficulty':0.50 };
 
-        const tomJS = new Experiment(args);
-
-        if (jatos.constructor != HTMLScriptElement) {
-            jatos.onConnected(()=>{tomJS.connectToJatos(false)});
-        };
-
-        const A = tomJS.controls.key_a_upper;
-        const B = tomJS.controls.key_b_upper;
-
-        const fontSize = Math.round(0.05 * tomJS.visual.stimulus_size) + "px";
-
-        // trial arguments ====================================================
-
-        const _blockwise = {};
-
-        const _trialwise = {
-            'condition': CONDITION,
-            'difficulty': DIFFICULTY,
-            'target': TARGET,
-        };
-
-        const _additional = {
-            'above_and_below': ABV_BEL,
-            'gp_ori': ORIENTATION,
-            'iti_duration': ITI_DUR,
-            'stimulus': STIMULUS,
-        };
-
-        const _conditional = {};
-
-        // slides =============================================================
-
-        const _welcome = new Slide([
-            { 
-                'class': 'text', 
-                'text': 'DEBUG VERSION', 
-                'y':0.25 
-            },
-            {
-                'class': 'text', 
-                'text': '~tomJS.key~', 
-                'upper': true, 
-                'fontSize': fontSize 
-            },
-            { 
-                'class': 'text', 
-                'text': 'Press ' + A + ' and ' + B + ' to continue.', 
-                'y': 0.75 
+        const _conditional = {
+            'fixation_duration': { 
+                '~this.args.condition~ == 200': 1400,
             }
+        };
+        
+        const _welcome = new Slide([
+            {'class': 'text', 'text': 'DEBUG VERSION', 'y':0.25},
+            {'class': 'text', 'text': '~tomJS.key~', 'upper': true},
+            {'class': 'text', 'text': 'Press F and J to continue.', 'y': 0.75}
         ]);
 
+        const _stars = new Slide([
+            { 'class': 'text', 'text': 'This block uses a conventional response signal, appearing crosses.', 'y': 0.25 },
+            { 'class': 'text', 'text': 'A single cross will warn that the row of crosses is about to appear.', 'y': 0.30 },
+            { 'class': 'text', 'text': 'Respond while the row of crosses is on screen.', 'y': 0.35 },
+            { 'class': 'text', 'text': 'Press F and J to continue.', 'y': 0.75 }
+        ]);
+
+        const _standard = new ExampleProgressBar([
+            { 'class': 'text', 'text': 'This block uses the progress bar which grows from left to right.', 'y': 0.25 },
+            { 'class': 'text', 'text': 'Respond when the bar turns blue.', 'y': 0.30 },
+            { 'class': 'text', 'text': 'Press F and J to start.', 'y': 0.75 },
+        ], { 'signal': ProgressBar, 'signal_on': 0.80, 'signal_off': 1.00 });
+
+        const _leaky = new ExampleProgressBar([
+            { 'class': 'text', 'text': 'This block uses a "leaky" bar which empties toward the center.', 'y': 0.25 },
+            { 'class': 'text', 'text': 'Respond when the bar turns blue.', 'y': 0.30 },
+            { 'class': 'text', 'text': 'Press F and J to start.', 'y': 0.75 },
+        ], { 'signal': LeakyBar, 'signal_on': 0.80, 'signal_off': 1.00 });
+
+        const _guitar = new ExampleProgressBar([
+            { 'class': 'text', 'text': 'This block uses a "Guitar Hero" bar which has a "note" moving towards the "pick".', 'y': 0.25 },
+            { 'class': 'text', 'text': 'Respond when the note is inside the pick area.', 'y': 0.30 },
+            { 'class': 'text', 'text': 'Press F and J to start.', 'y': 0.75 },
+        ], { 'signal': GuitarHeroBar, 'signal_on': 0.80, 'signal_off': 1.00 });
+
         const _end_block = new EndBlock([
-            { 
-                'class': 'text', 
-                'text': 'End of block. Please take a short break.', 
-                'y': 0.25 
-            },
-            { 
-                'class': 'text', 
-                'text': 'Accuracy: ~this.data.accuracy~', 
-                'y': 0.48
-            },
-            { 
-                'class': 'text', 
-                'text': 'Hit Rate: ~this.data.hits~', 
-                'y': 0.52
-            },
-            { 
-                'class': 'text', 
-                'text': 'Press ' + A + ' and ' + B + ' to continue.', 
-                'y': 0.75 
-            }
+            {'class': 'text', 'text': 'END OF BLOCK', 'y': 0.25},
+            {'class': 'text', 'text': 'Accuracy: ~this.data.accuracy~', 'y':0.475},
+            {'class': 'text', 'text': 'Hits: ~this.data.hits~', 'y':0.525 },
+            {'class': 'text', 'text': 'Press F and J to continue.', 'y': 0.75}
         ]);
 
         const _end_exp = new EndExperiment([
-            { 
-                'class': 'text', 
-                'text': 'DEBUG VERSION', 
-                'y': 0.25 
-            },
-            { 
-                'class': 'text', 
-                'text': 'Accuracy: ~this.data.accuracy~'  , 
-                'y': 0.48 
-            },
-            { 
-                'class': 'text', 
-                'text': 'Hit Rate: ~this.data.hits~', 
-                'y': 0.52
-            },
-            { 
-                'class': 'text', 
-                'text': 'Press ' + A + ' and ' + B + ' to end the experiment.', 
-                'y': 0.75 
-            }
-        ]);
-
-        // timeline ===========================================================
+            {'class': 'text', 'text': 'END OF EXPERIMENT', 'y': 0.25},
+            { 'class': 'text', 'text': 'Accuracy: ~this.data.accuracy~', 'y': 0.475 },
+            { 'class': 'text', 'text': 'Hits: ~this.data.hits~', 'y': 0.525 },
+            {'class': 'text', 'text': 'Press F and J to continue.', 'y': 0.75}
+        ]); 
 
         tomJS.appendToTimeline(_welcome);
 
+        tomJS.appendToTimeline(_stars);
+        tomJS.appendBlock(
+            trial_type = ResponseSignal,
+            trialwise = _trialwise,
+            additional = _additional,
+            conditional = _conditional,
+            trial_reps = 1,
+            start_slide = null,
+            end_slide = _end_block,
+            add_countdown = true
+        );
+
+        tomJS.appendToTimeline(_standard);
         tomJS.appendBlock(
             trial_type = ProgressBarResponseSignal,
             trialwise = _trialwise,
-            additional = { 
-				..._additional, 
-				...{'progress_bar_type': WindowedBar}
-			},
+            additional = { ..._additional, ...{ 'signal': ProgressBar }},
             conditional = _conditional,
-            trial_reps = TRIAL_REPS,
+            trial_reps = 1,
             start_slide = null,
             end_slide = _end_block,
-            add_countdown = COUNTDOWN
+            add_countdown = true
+        );
+
+        tomJS.appendToTimeline(_leaky);
+        tomJS.appendBlock(
+            trial_type = ProgressBarResponseSignal,
+            trialwise = _trialwise,
+            additional = { ..._additional, ...{ 'signal': LeakyBar } },
+            conditional = _conditional,
+            trial_reps = 1,
+            start_slide = null,
+            end_slide = _end_block,
+            add_countdown = true
+        );
+
+        tomJS.appendToTimeline(_guitar);
+        tomJS.appendBlock(
+            trial_type = ProgressBarResponseSignal,
+            trialwise = _trialwise,
+            additional = { ..._additional, ...{ 'signal': GuitarHeroBar } },
+            conditional = _conditional,
+            trial_reps = 1,
+            start_slide = null,
+            end_slide = _end_block,
+            add_countdown = true
         );
 
         tomJS.replaceEndBlockWithEndExperiment(_end_exp);
-
-        // run ================================================================
 
         tomJS.start();
 
