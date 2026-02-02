@@ -1,7 +1,7 @@
 
 class Experiment {	
 
-	version = '29.01.26 16:32';
+	version = '02.02.26 14:38';
 
 	constructor(args={}) {
 		
@@ -1085,8 +1085,9 @@ class ProgressBarResponseSignal extends ResponseSignal {
 
 		this.data.signal_colour  = args.signal_colour  ?? "DeepSkyBlue";
 		this.data.warning_colour = args.warning_colour ?? "#99ccff";
-		this.data.bar_colour     = args.bar_colour ?? "White";
-		this.data.border_colour  = args.border_colour ?? "Grey";
+		this.data.bar_colour     = args.bar_colour     ?? "White";
+		this.data.border_colour  = args.border_colour  ?? "Grey";
+		this.data.empty_colour   = args.empty_colour   ?? "#00000000";
 
 		// signal
 		this.signal = new (args.signal ?? ProgressBar)(args);
@@ -1134,30 +1135,26 @@ class ProgressBarResponseSignal extends ResponseSignal {
 		if (tomJS.now < this.data.warning_on)      return this.data.bar_colour
 		else if (tomJS.now < this.data.signal_on)  return this.data.warning_colour
 		else if (tomJS.now < this.data.signal_off) return this.data.signal_colour
-		else									   return "#00000000";
+		else									   return this.data.empty_colour;
 	}
 
     updateProgressBar() {
 		if (this.timeline.currentState() == "FeedbackBit" | 
 			this.timeline.currentState() == "ITIBit") return;
-		this.setCurrentValues();
-		this.setColourValues();
-	}
-
-	setCurrentValues() {
 		const percent = this.getBarPercent();
-		this.signal.set('percent', percent);
-		if (this.data.above_and_below) this.signal_lower.set('percent', percent);
+		this.setBarColour();
+		this.setBarPercent(percent);
 	}
 
-	setColourValues() {
+	setBarColour() {
 		const colour  = this.getBarColour();
         this.signal.set('bar_colour', colour);
-        this.signal.set('window_colour', colour);
-		if (this.data.above_and_below) {
-			this.signal_lower.set('bar_colour', colour);
-			this.signal_lower.set('window_colour', colour);
-		};
+		if (this.data.above_and_below) this.signal_lower.set('bar_colour', colour);
+	}
+
+	setBarPercent(percent) {
+		this.signal.set('percent', percent);
+		if (this.data.above_and_below) this.signal_lower.set('percent', percent);
 	}
 	
 }
@@ -1212,15 +1209,15 @@ class Slide extends State {
 	}
 
 	drawContent() {
-		for (const _content of this.content) {
-			switch(_content.class) {
+		for (const _c of this.content) {
+			switch(_c.class) {
 				case 'gabor':
 					if (tomJS.dir == 'A') this.gp_L.draw()
 					else this.gp_R.draw();
 					break;
 				case 'image':
-					const _path = this.parseText(_content.path);
-					tomJS.drawImage(_path, _content);
+					const _path = this.parseText(_c.path);
+					tomJS.drawImage(_path, _c);
 					break;
 				case 'pixelpatch':
 					if (tomJS.dir == 'A') this.pp_A.draw()
@@ -1230,14 +1227,25 @@ class Slide extends State {
 					this.table.draw();
 					break;
 				case 'text':
-					if (!(this.checkConditions(_content))) break;
-					const _text = this.parseText(_content.text);
-					tomJS.writeToCanvas(_text, _content);
+					if (!(this.checkConditions(_c))) break;
+					const _text = this.parseText(_c.text);
+					tomJS.writeToCanvas(_text, _c);
 					break;
 				case 'twolines':
-					const _tl_args = {..._content,...{'target':this.parseText(_content.target)}};
+					const _tl_args = {..._c,...{'target':this.parseText(_c.target)}};
 					const _tl = new TwoLines(_tl_args);
 					_tl.draw();
+					break;
+				case 'progressbar': 
+					const percent = (tomJS.now - this.bar_start) / this.bar_max;
+					if (percent >= 1.5) this.bar_start = tomJS.now;
+					const bar = this['progressbar'+_c.tag??''];
+					bar.set('percent', percent);
+					if (percent < 0 | percent > 1) bar.set('bar_colour', "#00000000")
+					else if (percent < _c.signal_on  ?? 0.50) bar.set('bar_colour', this.bar_colour)
+					else if (percent < _c.signal_off ?? 0.75) bar.set('bar_colour', this.signal_colour)
+					else bar.set('bar_colour', this.bar_colour)
+					bar.draw();
 					break;
 			};
 		};
@@ -1264,6 +1272,15 @@ class Slide extends State {
 					break;
 				case 'table':
 					this.table = new Table(c);
+					break;
+				case 'progressbar':
+					this.bar_start = tomJS.now;
+					this.bar_max   = c.bar_max ?? 2000;
+					this.bar_colour = c.bar_colour ?? "White";
+					this.signal_colour = c.signal_colour ?? "DeepSkyBlue";
+					this.signal_on = c.signal_on ?? 0.50;
+					this.signal_off = c.signal_off ?? 0.75;
+					this['progressbar'+c.tag ?? ''] = new (c.signal ?? ProgressBar)(c);
 					break;
 			};
 		};
@@ -1779,72 +1796,6 @@ class EndExperiment extends EndBlock {
 }
 
 
-class ExampleProgressBar extends Slide {
-
-	constructor(content=[], args={}) {
-		super(content, args);
-		
-		this.bar = new (args.signal ?? ProgressBar)(args);
-		this.bar.set('x', args.x ?? 0.5);
-		this.bar.set('y', args.y ?? 0.5);
-
-        this.max = args.max ?? 2000;
-
-		this.signal_on  = args.signal_on  ?? 0.55;
-		this.signal_off = args.signal_off ?? 0.70;
-
-		this.bar_colour     = args.bar_colour     ?? "White";
-		this.signal_colour  = args.signal_colour  ?? "DeepSkyBlue";
-		this.late_colour    = args.late_colour    ?? "#00000000";
-
-		this.start = null;
-	}
-
-	// super
-
-	enter() {
-		super.enter();
-		if (this.bar.constructor.name == 'GoalpostBar') {
-			this.bar.set('bar_left_pos',  this.signal_on);
-			this.bar.set('bar_right_pos', this.signal_off);
-		};
-	}
-	
-	update() {
-		super.update();
-		this.updateProgressBar();
-		this.bar.draw();
-	}
-
-	// functions
-
-	returnBarColour() {
-		const percent = this.returnBarPercent();
-		if      (percent < this.signal_on)  return this.bar_colour
-		else if (percent < this.signal_off) return this.signal_colour
-		else								return this.late_colour;
-	}
-
-	returnBarPercent() {
-		return (tomJS.now - this.start) / this.max;
-	}
-
-	setColours(colour) {
-		this.bar.set('bar_colour', colour);
-		this.bar.set('window_colour', colour);
-	}
-
-	updateProgressBar() {
-		const colour = this.returnBarColour();
-		const percent = this.returnBarPercent();
-		if (percent >= 1.5) this.start = tomJS.now;
-        this.bar.set('percent', percent);
-		this.setColours(colour);
-	}
-
-}
-
-
 // stimuli ====================================================================
 
 
@@ -2063,13 +2014,18 @@ class ProgressBar extends Stimulus {
 
 	constructor(args = {}) {
 		super(args);
-		this.data.bar_colour     = args.progressbar_bar_colour	  ?? "white";
-		this.data.border_colour  = args.progressbar_border_colour ?? "grey";
-        this.data.height         = args.progressbar_height		  ?? 0.15;
-        this.data.width          = args.progressbar_width		  ?? 0.75;
-        this.data.x              = args.progressbar_x			  ?? 0.50;
-		this.data.y              = args.progressbar_y			  ?? 0.20;
-		this.data.percent        = args.progressbar_percent		  ?? 0;
+		this.data.bar_colour      = args.progressbar_bar_colour	    ?? "White";
+		this.data.border_colour   = args.progressbar_border_colour  ?? "Grey";
+        this.data.height          = args.progressbar_height		    ?? 0.15;
+        this.data.width           = args.progressbar_width		    ?? 0.75;
+        this.data.x               = args.progressbar_x			    ?? 0.50;
+		this.data.y               = args.progressbar_y			    ?? 0.20;
+		this.data.percent         = args.progressbar_percent		?? 0;
+		this.data.scale           = args.progressbar_scale		    ?? 1;
+		this.data.bar_height      = args.progressbar_bar_height     ?? 0.90;
+		if (this.data.scale != 1) 
+			this.data.height *= this.data.scale
+			this.data.width *= this.data.scale;
 	}
 
 	// super
@@ -2093,7 +2049,7 @@ class ProgressBar extends Stimulus {
 
 	drawBar() {
 		const w = tomJS.visual.stimulus_size * this.data.width * this.data.percent;
-		const h = tomJS.visual.stimulus_size * this.data.height;
+		const h = tomJS.visual.stimulus_size * this.data.height * this.data.bar_height;
 		const x = (tomJS.visual.screen_size * this.data.x) - (tomJS.visual.stimulus_size * this.data.width * 0.5);
 		const y = (tomJS.visual.screen_size * this.data.y) - (h * 0.5);
 		const c = this.data.bar_colour;
@@ -2113,11 +2069,47 @@ class LeakyBar extends ProgressBar {
 
 	drawBar() {
 		const w = tomJS.visual.stimulus_size * this.data.width * (1 - this.data.percent);
-		const h = tomJS.visual.stimulus_size * this.data.height;
+		const h = tomJS.visual.stimulus_size * this.data.height * this.data.bar_height;
 		const x = (tomJS.visual.screen_size * this.data.x) - (w * 0.5);
 		const y = (tomJS.visual.screen_size * this.data.y) - (h * 0.5);
 		const c = this.data.bar_colour;
 		tomJS.fillRect(x, y, w, h, c);
+	}
+
+}
+
+
+class LeakyWindow extends LeakyBar {
+
+	constructor(args={}) {
+		super(args);
+		this.data.window_colour    = args.window_colour ?? "Silver";
+		this.data.window_width     = args.window_width  ?? 0.20;
+		this.data.window_linewidth = args.linewidth     ?? 2;
+	}
+
+	// super
+
+	draw() {
+		super.draw();
+		this.drawWindow();
+	}
+
+	initialize(data) {
+		super.initialize(data);
+		this.data.window_width = data.signal_for / data.trial_duration;
+	}
+
+	// functions
+
+	drawWindow() {
+		const w = tomJS.visual.stimulus_size * this.data.window_width * this.data.width;
+		const h = tomJS.visual.stimulus_size * this.data.height;
+		const x = (tomJS.visual.screen_size * this.data.x) - (w * 0.5);
+		const y = (tomJS.visual.screen_size * this.data.y) - (h * 0.5);
+		const c = this.data.window_colour;
+		const l = this.data.window_linewidth;
+		tomJS.strokeRect(x, y, w, h, c, l);
 	}
 
 }
@@ -2146,7 +2138,6 @@ class GuitarHeroBar extends ProgressBar {
 		super.initialize(data);
 		this.data.window_width = data.signal_for / data.trial_duration;
 		this.data.window_pos = 1 - this.data.window_width;
-		console.log(data);
 	}
 
 	// override
