@@ -4,11 +4,13 @@
 <body>
     <script src="jatos.js" id="jatos"></script>
     <script src="tomJS.js" id="tomJS"></script>
-    <script>
+    <script>		
+
+		const SIGNAL = NecroDancerBar;
 
         const _args = {'fullscreen':false};
 
-        const tomJS = new Experiment(_args);
+        const tomJS = new Experiment(_args);		
 
         const _blockwise = {}; 
 
@@ -21,7 +23,7 @@
         const _additional = { 
             'gp_ori': 2, 
             'stimulus': Gabor, 
-            'signal': LeakyWindow,
+            'signal': SIGNAL,
         };
 
         const _conditional = {
@@ -38,16 +40,16 @@
 
         const _above = new Slide([
             {'class': 'text', 'text': 'You will see a bar above the stimulus. Respond when the bar is within the indicated area and is blue.', 'y': 0.25 },
-            {'class': 'progressbar', 'signal': LeakyWindow, 'progressbar_y': 0.33, 'signal_on': 0.8, 'signal_off': 1, 'progressbar_scale':0.50 },
+            {'class': 'progressbar', 'signal': SIGNAL, 'progressbar_y': 0.33, 'signal_on': 0.8, 'signal_off': 1, 'progressbar_scale':0.50 },
             {'class': 'gabor', 'difficulty':0.50, 'gp_size':0.50, 'gp_ori':2 },
             {'class': 'text', 'text': 'Press F and J to start.', 'y': 0.75 },
         ]);
 
         const _below = new Slide([
             {'class': 'text', 'text': 'There will now also be a bar below the stimulus. The task is otherwise unchanged.', 'y': 0.25 },
-            {'class': 'progressbar', 'tag': 'abv', 'signal': LeakyWindow, 'progressbar_y': 0.33, 'signal_on': 0.8, 'signal_off': 1, 'progressbar_scale': 0.50 },
+            {'class': 'progressbar', 'tag': 'abv', 'signal': SIGNAL, 'progressbar_y': 0.33, 'signal_on': 0.8, 'signal_off': 1, 'progressbar_scale': 0.50 },
             {'class': 'gabor', 'difficulty': 0.50, 'gp_size': 0.50, 'gp_ori': 2 },
-            {'class': 'progressbar', 'tag': 'blw', 'signal': LeakyWindow, 'progressbar_y': 0.66, 'signal_on': 0.8, 'signal_off': 1, 'progressbar_scale': 0.50 },
+            {'class': 'progressbar', 'tag': 'blw', 'signal': SIGNAL, 'progressbar_y': 0.66, 'signal_on': 0.8, 'signal_off': 1, 'progressbar_scale': 0.50 },
             {'class': 'text', 'text': 'Press F and J to start.', 'y': 0.75 },
         ]);
 

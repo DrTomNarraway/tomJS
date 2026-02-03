@@ -1,7 +1,7 @@
 
 class Experiment {	
 
-	version = '02.02.26 14:38';
+	version = '03.02.26 16:51';
 
 	constructor(args={}) {
 		
@@ -1144,6 +1144,7 @@ class ProgressBarResponseSignal extends ResponseSignal {
 		const percent = this.getBarPercent();
 		this.setBarColour();
 		this.setBarPercent(percent);
+		this.setWidowColour();
 	}
 
 	setBarColour() {
@@ -1155,6 +1156,16 @@ class ProgressBarResponseSignal extends ResponseSignal {
 	setBarPercent(percent) {
 		this.signal.set('percent', percent);
 		if (this.data.above_and_below) this.signal_lower.set('percent', percent);
+	}
+
+	setWidowColour() {
+		let colour;
+		if (tomJS.now < this.data.warning_on)      colour = this.signal.window_colour
+		else if (tomJS.now < this.data.signal_on)  colour = this.data.warning_colour
+		else if (tomJS.now < this.data.signal_off) colour = this.data.signal_colour
+		else									   colour = this.signal.window_colour;
+		this.signal.set('window_colour', colour);
+		if (this.data.above_and_below) this.signal_lower.set('window_colour', colour);
 	}
 	
 }
@@ -1241,10 +1252,22 @@ class Slide extends State {
 					if (percent >= 1.5) this.bar_start = tomJS.now;
 					const bar = this['progressbar'+_c.tag??''];
 					bar.set('percent', percent);
-					if (percent < 0 | percent > 1) bar.set('bar_colour', "#00000000")
-					else if (percent < _c.signal_on  ?? 0.50) bar.set('bar_colour', this.bar_colour)
-					else if (percent < _c.signal_off ?? 0.75) bar.set('bar_colour', this.signal_colour)
-					else bar.set('bar_colour', this.bar_colour)
+					if (percent < 0 | percent > 1) {
+						bar.set('bar_colour', "#00000000");
+						bar.set('window_colour', this.window_colour);
+					}
+					else if (percent < _c.signal_on  ?? 0.50) {
+						bar.set('bar_colour', this.bar_colour);
+						bar.set('window_colour', this.window_colour);
+					}
+					else if (percent < _c.signal_off ?? 0.75) {
+						bar.set('bar_colour', this.signal_colour);
+						bar.set('window_colour', this.signal_colour);
+					}
+					else {
+						bar.set('bar_colour', this.bar_colour);
+						bar.set('window_colour', this.window_colour);
+					};
 					bar.draw();
 					break;
 			};
@@ -1278,6 +1301,7 @@ class Slide extends State {
 					this.bar_max   = c.bar_max ?? 2000;
 					this.bar_colour = c.bar_colour ?? "White";
 					this.signal_colour = c.signal_colour ?? "DeepSkyBlue";
+					this.window_colour = c.window_colour ?? "Silver";
 					this.signal_on = c.signal_on ?? 0.50;
 					this.signal_off = c.signal_off ?? 0.75;
 					this['progressbar'+c.tag ?? ''] = new (c.signal ?? ProgressBar)(c);
@@ -2016,13 +2040,12 @@ class ProgressBar extends Stimulus {
 		super(args);
 		this.data.bar_colour      = args.progressbar_bar_colour	    ?? "White";
 		this.data.border_colour   = args.progressbar_border_colour  ?? "Grey";
-        this.data.height          = args.progressbar_height		    ?? 0.15;
+        this.data.height          = args.progressbar_height		    ?? 0.13;
         this.data.width           = args.progressbar_width		    ?? 0.75;
         this.data.x               = args.progressbar_x			    ?? 0.50;
 		this.data.y               = args.progressbar_y			    ?? 0.20;
 		this.data.percent         = args.progressbar_percent		?? 0;
 		this.data.scale           = args.progressbar_scale		    ?? 1;
-		this.data.bar_height      = args.progressbar_bar_height     ?? 0.90;
 		if (this.data.scale != 1) 
 			this.data.height *= this.data.scale
 			this.data.width *= this.data.scale;
@@ -2164,6 +2187,77 @@ class GuitarHeroBar extends ProgressBar {
 		const bar_x = tomJS.visual.screen_size * this.data.x;
 		const bar_w = tomJS.visual.stimulus_size * this.data.width;
 		const x = bar_x + (bar_w * o) - (bar_w * 0.5);
+		const y = (tomJS.visual.screen_size * this.data.y) - (h * 0.5);
+		const c = this.data.window_colour;
+		const l = this.data.window_linewidth;
+		tomJS.strokeRect(x, y, w, h, c, l);
+	}
+
+}
+
+
+class NecroDancerBar extends ProgressBar {
+
+	constructor(args={}) {
+		super(args);
+		this.data.bar_width        = args.bar_width     ?? 0.01;
+		this.data.bar_height       = args.bar_height    ?? 0.17;
+		this.data.window_colour    = args.window_colour ?? "LightGrey";
+		this.data.window_width     = args.window_width  ?? 0.20;
+		this.data.window_pos       = args.window_pos    ?? 0.50;
+		this.data.window_linewidth = args.linewidth     ?? 2;
+		if (this.data.scale != 1) 
+			this.data.bar_height *= this.data.scale
+			this.data.bar_width *= this.data.scale;
+	}
+
+	// super
+
+	draw() {
+		super.draw();
+		this.drawRightBar();
+		this.drawWindow();
+	}
+
+	initialize(data) {
+		super.initialize(data);
+		this.data.window_width = data.signal_for / data.trial_duration;
+	}
+
+	// override
+
+	drawBar() {
+		const w = tomJS.visual.stimulus_size * this.data.bar_width;
+		const h = tomJS.visual.stimulus_size * this.data.bar_height;
+		const p = clamp(this.data.percent, 0, 1) * 0.5;
+		const x = (tomJS.visual.screen_size * this.data.x) + 
+			(tomJS.visual.stimulus_size * this.data.width * p) - 
+			(tomJS.visual.stimulus_size * this.data.width * 0.5) - 
+			(w * 0.5);
+		const y = (tomJS.visual.screen_size * this.data.y) - (h * 0.5);
+		const c = this.data.bar_colour;
+		tomJS.fillRect(x, y, w, h, c);
+	}
+
+	// functions
+
+	drawRightBar() {
+		const w = tomJS.visual.stimulus_size * this.data.bar_width;
+		const h = tomJS.visual.stimulus_size * this.data.bar_height;
+		const p = 1 - clamp(this.data.percent, 0, 1) * 0.5;
+		const x = (tomJS.visual.screen_size * this.data.x) + 
+			(tomJS.visual.stimulus_size * this.data.width * p) - 
+			(tomJS.visual.stimulus_size * this.data.width * 0.5) - 
+			(w * 0.5);
+		const y = (tomJS.visual.screen_size * this.data.y) - (h * 0.5);
+		const c = this.data.bar_colour;
+		tomJS.fillRect(x, y, w, h, c);
+	}
+
+	drawWindow() {
+		const w = tomJS.visual.stimulus_size * this.data.window_width * this.data.width;
+		const h = tomJS.visual.stimulus_size * this.data.height;
+		const x = (tomJS.visual.screen_size * this.data.x) - (w * 0.5);
 		const y = (tomJS.visual.screen_size * this.data.y) - (h * 0.5);
 		const c = this.data.window_colour;
 		const l = this.data.window_linewidth;
