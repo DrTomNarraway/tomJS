@@ -479,16 +479,20 @@ class State {
 		this.complete = false;
 		this.timeline = new Timeline();
 		this.name = this.constructor.name;
+		this.start = null;
+		this.end = null;
 	}
 
 	enter() {
 		this.complete = false;
+		this.start = tomJS.now;
 		tomJS.flushKeys();
 	}
 
 	exit() {
 		if (this.complete) return;
 		this.complete = true;
+		this.end = tomJS.now;
 	}
 
 	update() {
@@ -1181,28 +1185,16 @@ class Slide extends State {
 		this.content = content;
 		this.force_wait = args.force_wait ?? 1000;		
 		this.timeline = null;
-		this.start = null;
-		this.end = null;
 		this.realizeContent();
 	}
 
 	// super
-
-	enter() {
-		super.enter();
-		this.start = tomJS.now;
-	}
 
 	update() {
 		super.update();
 		this.drawContent();
 		if (tomJS.now < this.start + this.force_wait) return;
 		this.checkUserInput();
-	}
-
-	exit() {
-		super.exit();
-		this.end = tomJS.now;
 	}
 
 	// functions
@@ -1297,7 +1289,7 @@ class Slide extends State {
 					this.table = new Table(c);
 					break;
 				case 'progressbar':
-					this.bar_start = tomJS.now;
+					this.bar_start = this.start;
 					this.bar_max   = c.bar_max ?? 2000;
 					this.bar_colour = c.bar_colour ?? "White";
 					this.signal_colour = c.signal_colour ?? "DeepSkyBlue";
@@ -1476,7 +1468,7 @@ class Countdown extends Slide {
 	// super
 
 	enter() {
-		this.fontSize = Math.ceil((this.fontSize ) * tomJS.visual.stimulus_size) + "px";
+		this.fontSize = Math.ceil((this.fontSize) * tomJS.visual.stimulus_size) + "px";
 		super.enter();
 	}
 
