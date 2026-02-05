@@ -1,5 +1,5 @@
 
-export const Timeline = ((module)=>{
+const Timeline = ((module)=>{
 
     class Timeline {
 

@@ -1,7 +1,7 @@
 
-export const Block = ((module) => {
+const Block = ((module) => {
 	
-	class Block extends tomJS.State.State {
+	class Block extends State.State {
 
 		constructor(trial_type, trialwise={}, additional={}, conditional={}, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
 			super();
@@ -63,13 +63,13 @@ export const Block = ((module) => {
 		}
 
 		generateTimeline(trial_type, trialwise, additional, conditional, trial_reps, start_slide, end_slide, add_countdown) {
-			let _timeline = new Timeline();
-			const _t_cells = returnTotalDictLength(trialwise);
-			let _trialwise = returnAllCombinationsFromDict(trialwise);
-			_trialwise = returnShuffledArray(_trialwise);
+			let _timeline = new Timeline.Timeline();
+			const _t_cells = Utils.returnTotalDictLength(trialwise);
+			let _trialwise = tom.Utils.returnAllCombinationsFromDict(trialwise);
+			_trialwise = Utils.returnShuffledArray(_trialwise);
 			let _n_trials = _t_cells * trial_reps;
 			if (start_slide != null) _timeline.push(start_slide);
-			if (add_countdown) {_timeline.push(new Countdown(3000))};
+			if (add_countdown) {_timeline.push(new Slide.Countdown(3000))};
 			for (let t = 0; t < _n_trials; t++) {
 				this.args = Object.assign({ }, {'block':this.block, 'trial':t, 'index':tomJS.trials}, _trialwise[t%_t_cells], additional);
 				this.checkConditions(conditional);

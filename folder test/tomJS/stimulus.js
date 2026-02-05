@@ -1,5 +1,5 @@
 
-export const Stimulus = ((module)=>{
+const Stimulus = ((module)=>{
 
 	class Stimulus {
 

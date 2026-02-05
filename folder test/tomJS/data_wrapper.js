@@ -1,5 +1,5 @@
 
-export const Data = ((module) => {
+const DataWrapper = ((module) => {
 
 	class DataWrapper {
 

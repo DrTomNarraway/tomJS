@@ -1,5 +1,5 @@
 
-export const Utils = ((module)=>{
+const Utils = ((module)=>{
 
 	function arrayAverage(array) {
 		const _n = array.length;

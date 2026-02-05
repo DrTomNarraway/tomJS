@@ -1,11 +1,11 @@
 
-export const State = ((module) => {
+const State = ((module) => {
 
 	class State {
 
 		constructor() {
 			this.complete = false;
-			this.timeline = new tomJS.modules.Timeline.Timeline();
+			this.timeline = new Timeline.Timeline();
 			this.name = this.constructor.name;
 			this.start = null;
 			this.end = null;
@@ -13,14 +13,14 @@ export const State = ((module) => {
 
 		enter() {
 			this.complete = false;
-			this.start = tomJS.now;
+			this.start = window.performance.now();
 			tomJS.flushKeys();
 		}
 
 		exit() {
 			if (this.complete) return;
 			this.complete = true;
-			this.end = tomJS.now;
+			this.end = window.performance.now();
 		}
 
 		update() {

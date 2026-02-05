@@ -1,25 +1,60 @@
 
 class Experiment {
 
+		version = '05.02.26 11:45'
+
         constructor() {
-            this.importAll();
+			console.log(this.version);
+            
+			this.importAll();
+
+			this.data = [];
+			this.headings = [];
         }
+
+		createCanvas() {
+			this.canvas = new Canvas.Canvas();
+			this.canvas.update();
+		}
+
+		error(message) {
+			console.error(message);
+		}
+
+		import_old(path, after) {
+			const script = document.createElement('script');
+			script.onload = after;
+			script.src = path;
+			document.head.appendChild(script);
+		}
+
+		async import(path, after) {
+			const myPromise = new Promise(function(resolve, reject) {
+				const script = document.createElement('script');
+				script.onload = ()=>{after(); resolve(true)};
+				script.onerror = ()=>{reject(false)};
+				script.src = path;
+				document.head.appendChild(script);
+			});
+			const outcome = await myPromise;
+			if (!outcome) console.log(path, outcome);
+		}
 
         importAll() {
             // without dependency
-            import("./canvas.js").then((m)=>{this.Canvas = m.Canvas});
-            import("./data.js").then((m)=>{this.Data = m.Data});
-            import("./debug.js").then((m)=>{this.Debug = m.Debug});
-            import("./keyboard.js").then((m)=>{this.Keyboard = m.Keyboard});
-            import("./stimulus.js").then((m)=>{this.Stimulus = m.Stimulus});
-            import("./timeline.js").then((m)=>{this.Timeline = m.Timeline});
-            import("./utils.js").then((m)=>{this.Utils = m.Utils});
-            // // with dependency
-            import("./state.js").then((m)=>{this.State = m.State});
-            import("./block.js").then((m)=>{this.Block = m.Block});
-            import("./trial_bit.js").then((m)=>{this.TrialBit = m.TrialBit});
-            import("./trial.js").then((m)=>{this.Trial = m.Trial});
-            import("./slide.js").then((m)=>{this.Slide = m.Slide});
+			this.import('tomJS/canvas.js', ()=>{tomJS.Canvas = Canvas});
+			this.import('tomJS/data_wrapper.js', ()=>{tomJS.DataWrapper = DataWrapper});
+			this.import('tomJS/debug.js', ()=>{tomJS.Debug = Debug});
+			this.import('tomJS/keyboard.js', ()=>{tomJS.Keyboard = Keyboard});
+			this.import('tomJS/stimulus.js', ()=>{tomJS.Stimulus = Stimulus});
+			this.import('tomJS/timeline.js', ()=>{tomJS.Timeline = Timeline});
+			this.import('tomJS/utils.js', ()=>{tomJS.Utils = Utils});
+            // with dependency (i.e. order matters)
+			this.import('tomJS/state.js', ()=>{tomJS.State = State});
+			this.import('tomJS/block.js', ()=>{tomJS.Block = Block});
+			this.import('tomJS/trial.js', ()=>{tomJS.Trial = Trial});
+			this.import('tomJS/trial_bit.js', ()=>{tomJS.TrialBit = TrialBit});
+			this.import('tomJS/slide.js', ()=>{tomJS.Slide = Slide});
         }
 
 };

@@ -1,7 +1,7 @@
 
 class Experiment {	
 
-	version = '03.02.26 16:51';
+	version = '05.02.26 15:31';
 
 	constructor(args={}) {
 		
@@ -292,7 +292,7 @@ class Experiment {
 		let _x = args.x ?? 0.5;
 		let _y = args.y ?? 0.5;
 		let _pos_x = tomJS.visual.screen_size * _x;
-		let _pos_y = tomJS.visual.screen_size * _y + (0.33 * _pt.split('p')[0]);
+		let _pos_y = tomJS.visual.screen_size * _y + (0.33 * (""+_pt).split('p')[0]);
 		let _width = tomJS.visual.screen_size ?? 1;
 		tomJS.visual.context.fillText(_text, _pos_x, _pos_y, _width);
 	}
@@ -1120,13 +1120,13 @@ class ProgressBarResponseSignal extends ResponseSignal {
 	update() {
 		super.update();
 		this.updateProgressBar();
-        this.drawProgressBar();        
+        this.drawProgressBar();
 	}
 
 	// functions
 
 	drawProgressBar() {
-		if (this.timeline.currentState() == "ITIBit") return;
+		if (this.timeline.currentState() == "ITIBit") {tomJS.resetCanvas(); return;}
         this.signal.draw();
 		if (this.data.above_and_below) this.signal_lower.draw();
 	}
@@ -1186,14 +1186,21 @@ class Slide extends State {
 		this.force_wait = args.force_wait ?? 1000;		
 		this.timeline = null;
 		this.realizeContent();
+		this.can_proceed = false;		
 	}
 
 	// super
 
+	enter() {
+		super.enter();
+		this.can_proceed = false;
+		setTimeout(()=>{this.can_proceed = true}, this.force_wait);
+	}
+
 	update() {
 		super.update();
 		this.drawContent();
-		if (tomJS.now < this.start + this.force_wait) return;
+		if (!this.can_proceed) return;
 		this.checkUserInput();
 	}
 

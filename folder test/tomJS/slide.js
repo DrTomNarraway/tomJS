@@ -1,7 +1,7 @@
 
-export const Slide = ((module)=>{
+const Slide = ((module)=>{
 
-	class Slide extends tomJS.State.State {
+	class Slide extends State.State {
 
 		constructor(content=[], args={}) {
 			super();
@@ -16,7 +16,7 @@ export const Slide = ((module)=>{
 		update() {
 			super.update();
 			this.drawContent();
-			if (tomJS.now < this.start + this.force_wait) return;
+			if (window.performance.now() < this.start + this.force_wait) return;
 			this.checkUserInput();
 		}
 
@@ -63,8 +63,8 @@ export const Slide = ((module)=>{
 						_tl.draw();
 						break;
 					case 'progressbar': 
-						const percent = (tomJS.now - this.bar_start) / this.bar_max;
-						if (percent >= 1.5) this.bar_start = tomJS.now;
+						const percent = (window.performance.now() - this.bar_start) / this.bar_max;
+						if (percent >= 1.5) this.bar_start = window.performance.now();
 						const bar = this['progressbar'+_c.tag??''];
 						bar.set('percent', percent);
 						if (percent < 0 | percent > 1) {
@@ -142,7 +142,7 @@ export const Slide = ((module)=>{
 		update() {
 			if (this.complete) return;
 			tomJS.fillRect(0, 0, tomJS.visual.screen_size, tomJS.visual.screen_size, "white");
-			if (tomJS.now < this.start + this.force_wait) return;
+			if (window.performance.now() < this.start + this.force_wait) return;
 		}
 
 		// super
@@ -283,7 +283,7 @@ export const Slide = ((module)=>{
 		constructor(lifetime, args={}, content=[]) {
 			super(content, args);
 			this.lifetime = lifetime;
-			this.fontSize = choose(args.fontSize, 0.05);
+			this.fontSize = Utils.choose(args.fontSize, 0.05);
 		}
 
 		// super
@@ -294,9 +294,9 @@ export const Slide = ((module)=>{
 		}
 
 		update() {
-			let time = Math.ceil((this.start + this.lifetime - tomJS.now) / 1000);
+			let time = Math.ceil((this.start + this.lifetime - window.performance.now()) / 1000);
 			tomJS.writeToCanvas(time, {'fontSize':this.fontSize});
-			if (tomJS.now >= this.start + this.lifetime) this.complete = true;
+			if (window.performance.now() >= this.start + this.lifetime) this.complete = true;
 			super.update();
 		}
 
@@ -483,7 +483,7 @@ export const Slide = ((module)=>{
 
 		update() {		
 			this.drawContent();
-			if (tomJS.now < this.start + this.force_wait) return;
+			if (window.performance.now() < this.start + this.force_wait) return;
 		}
 
 		// super

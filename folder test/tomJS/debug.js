@@ -1,5 +1,5 @@
 
-export const Debug = ((module)=>{
+const Debug = ((module)=>{
 
     class Debug {
 

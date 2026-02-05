@@ -1,7 +1,7 @@
 
-export const TrialBit = ((module)=>{
+const TrialBit = ((module)=>{
 
-	class TrialBit extends tomJS.State.State {
+	class TrialBit extends State.State {
 
 		constructor(trial, args={}) {
 			super();

@@ -1,5 +1,5 @@
 
-export const Keyboard = ((module)=>{
+const Keyboard = ((module)=>{
 
 	class Keyboard {
 

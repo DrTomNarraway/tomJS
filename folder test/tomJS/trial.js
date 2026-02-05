@@ -1,8 +1,8 @@
 
-export const Trial = ((module)=>{
+const Trial = ((module)=>{
 
     /** Standard two-alternative forced choice reaction time task. */
-	class Trial extends tomJS.State.State {
+	class Trial extends State.State {
 
 		constructor(args={}) {
 			super(args);
@@ -14,7 +14,7 @@ export const Trial = ((module)=>{
 			this.stimulus = new args.stimulus(args);
 
 			// data
-			tomJS.data.push(new TrialData());
+			tomJS.data.push(new DataWrapper.TrialData());
 			this.data = tomJS.data[this.index];
 
 			this.data.block				= Number(args.block ?? tomJS.block);
@@ -22,29 +22,29 @@ export const Trial = ((module)=>{
 			this.data.index				= Number(this.index);
 			this.data.condition			= args.condition ?? null;
 			this.data.difficulty		= this.stimulus.data.difficulty;
-			this.data.fixation_duration	= Number(choose(args.fixation_duration, 1000));
-			this.data.fixation_size		= Number(choose(args.fixation_size, 0.10));
+			this.data.fixation_duration	= Number(Utils.choose(args.fixation_duration, 1000));
+			this.data.fixation_size		= Number(Utils.choose(args.fixation_size, 0.10));
 			this.data.fixation_colour	= args.fixation_colour ?? "white";
-			this.data.stimulus_duration	= Number(choose(args.stimulus_duration, 3000));
-			this.data.stimulus_fast		= Number(choose(args.stimulus_fast, 200));
-			this.data.stimulus_slow		= Number(choose(args.stimulus_slow, 3000));
+			this.data.stimulus_duration	= Number(Utils.choose(args.stimulus_duration, 3000));
+			this.data.stimulus_fast		= Number(Utils.choose(args.stimulus_fast, 200));
+			this.data.stimulus_slow		= Number(Utils.choose(args.stimulus_slow, 3000));
 			this.data.target			= this.stimulus.data.target;
-			this.data.feedback_duration	= Number(choose(args.feedback_duration, 1000));
-			this.data.feedback_size		= Number(choose(args.feedback_size, 0.05));
-			this.data.iti_duration		= Number(choose(args.iti_duration, 200));
+			this.data.feedback_duration	= Number(Utils.choose(args.feedback_duration, 1000));
+			this.data.feedback_size		= Number(Utils.choose(args.feedback_size, 0.05));
+			this.data.iti_duration		= Number(Utils.choose(args.iti_duration, 200));
 
 			// timeline
 			if ('timeline' in args) this.timeline = args.timeline
 			else {
-				this.timeline = new Timeline();
-				this.timeline.push(new FixationBit(this, args));
-				this.timeline.push(new StimulusBit(this, args));
-				this.timeline.push(new FeedbackBit(this, args));
-				this.timeline.push(new ITIBit(this, args));
+				this.timeline = new Timeline.Timeline();
+				this.timeline.push(new TrialBit.FixationBit(this, args));
+				this.timeline.push(new TrialBit.StimulusBit(this, args));
+				this.timeline.push(new TrialBit.FeedbackBit(this, args));
+				this.timeline.push(new TrialBit.ITIBit(this, args));
 			};
 
 			// append data headings to global data heading storage
-			if (tomJS.headings[4] != 'block') joinUniques(tomJS.headings, this.data.keys());
+			if (tomJS.headings[4] != 'block') Utils.joinUniques(tomJS.headings, this.data.keys());
 
 			// feedback information
 			this.feedback_colors = args.feedback_colors ?? {
