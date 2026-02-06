@@ -1,7 +1,7 @@
 
 class Experiment {	
 
-	version = '05.02.26 15:31';
+	version = '06.02.26 12:50';
 
 	constructor(args={}) {
 		
@@ -806,7 +806,7 @@ class Trial extends State {
 		};
 
 		// append data headings to global data heading storage
-		if (tomJS.headings[4] != 'block') joinUniques(tomJS.headings, this.data.keys());
+		if (!(tomJS.headings.includes('block'))) tomJS.headings = joinUniques(tomJS.headings, this.data.keys());
 
 		// feedback information
 		this.feedback_colors = args.feedback_colors ?? {
@@ -1010,7 +1010,7 @@ class ResponseSignal extends Trial {
 		};
 
 		// headings
-		if (!(arraySearch(tomJS.headings, 'rtt'))) tomJS.headings = joinUniques(tomJS.headings, this.data.keys());
+		if (!(tomJS.headings.includes('rtt'))) tomJS.headings = joinUniques(tomJS.headings, this.data.keys());
 	}
 
 	// override
@@ -2400,15 +2400,6 @@ function arrayMin(array) {
 }
 
 
-/**
- * Search an array for a target value. Returns true if the value is present, or false otherwise.
- * Returns true if the target is in the array, false otherwise.
- */
-function arraySearch(array, target) {
-	return array.find(x=>x==target) === target;
-}
-
-
 function assignImageData(source, sink) {
 	if (source.length != sink.length) console.warn('ERROR: source and sink are not the same length.',
 		Math.sqrt(source.length), Math.sqrt(sink.length));
@@ -2595,8 +2586,7 @@ function inAndTrue(object, key) {
 function joinUniques(...args) {
     const out = args[0];
 	for (let i = 1; i < args.length; i++) {
-		const array = args[i];
-		array.forEach(arg => arg in out ? null : out.push(arg));
+		args[i].forEach((arg) => {if (!(out.includes(arg))) {out.push(arg)}});
 	};
     return out;
 }
