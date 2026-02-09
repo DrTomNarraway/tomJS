@@ -1,0 +1,68 @@
+
+<!DOCTYPE html>
+<html>
+<body>
+    <script src="jatos.js" id="jatos"></script>
+    <script src="tomJS.js" id="tomJS"></script>
+    <script>		
+
+        const _args = { 'fullscreen': false };
+
+        const tomJS = new Experiment(_args);		
+
+        const _blockwise = {}; 
+
+        const _trialwise = {
+            'difficulty': [0.01, 0.50],
+            'target': ['A', 'B'],
+        };
+        
+        const _additional = {             
+            'stimulus': Gabor,
+            'ori': 2,
+        };
+
+        const _conditional = {}
+        
+        const _welcome = new Slide([
+            {'class': 'text', 'text': 'STIMBITS', 'y':0.25},
+            {'class': 'text', 'text': '~tomJS.keyboard.key~', 'upper': true},
+            {'class': 'text', 'text': 'Press F and J to continue.', 'y': 0.75}
+        ]);
+
+        const _end_block = new EndBlock([
+            {'class': 'text', 'text': 'END OF BLOCK', 'y': 0.25},
+            {'class': 'text', 'text': 'Accuracy: ~this.data.accuracy~', 'y':0.475},
+            {'class': 'text', 'text': 'Hits: ~this.data.hits~', 'y':0.525 },
+            {'class': 'text', 'text': 'Press F and J to continue.', 'y': 0.75}
+        ]);
+
+        const _end_exp = new EndExperiment([
+            {'class': 'text', 'text': 'END OF EXPERIMENT', 'y': 0.25},
+            {'class': 'text', 'text': 'Accuracy: ~this.data.accuracy~', 'y': 0.475},
+            {'class': 'text', 'text': 'Hits: ~this.data.hits~', 'y': 0.525},
+            {'class': 'text', 'text': 'Press F and J to continue.', 'y': 0.75}
+        ]); 
+
+        tomJS.appendToTimeline(_welcome);
+
+        tomJS.appendBlocks(
+            trial_type = Trial,
+            blockwise = _blockwise,
+            trialwise = _trialwise,
+            additional = _additional,
+            conditional = _conditional,
+            block_reps = 2,
+            trial_reps = 1,
+            start_slide = null,
+            end_slide = _end_block,
+            add_countdown = true
+        );
+
+        tomJS.replaceEndBlockWithEndExperiment(_end_exp);
+
+        tomJS.start();
+
+    </script>
+</body>
+</html>
