@@ -1,7 +1,7 @@
 
 class Experiment {	
 
-	version = '06.02.26 12:50';
+	version = '13.02.26 17:11';
 
 	constructor(args={}) {
 		
@@ -83,23 +83,23 @@ class Experiment {
 
 	// functions
 	
-	appendToTimeline (new_state) {
+	appendToTimeline(new_state) {
 		this.timeline.push(new_state);
 	}
 
-	appendBlock(trial_type, trialwise={}, additional={}, conditional={}, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
-		const _block = new Block(trial_type, trialwise, additional, conditional, trial_reps, start_slide, end_slide, add_countdown);
+	appendBlock(trial_type, trialwise={}, additional={}, conditional={}, attention={}, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
+		const _block = new Block(trial_type, trialwise, additional, conditional, attention, trial_reps, start_slide, end_slide, add_countdown);
 		this.appendToTimeline(_block);
 	}
 
-	appendBlocks(trial_type, blockwise={}, trialwise={}, additional={}, conditional={}, block_reps=1, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
+	appendBlocks(trial_type, blockwise={}, trialwise={}, additional={}, conditional={}, attention={}, block_reps=1, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
 		let _b_cells  = returnTotalDictLength(blockwise);
         for (let b = 0; b < block_reps; b++) {
             let _blockwise = returnAllCombinationsFromDict(blockwise);
-            _blockwise = returnShuffledArray(_blockwise);
+            _blockwise = shuffle(_blockwise);
             for (let i = 0; i < _b_cells; i++) {
 				let _additional = Object.assign({ }, _blockwise[i%_b_cells], additional);
-                this.appendBlock(trial_type, trialwise, _additional, conditional, trial_reps, start_slide, end_slide, add_countdown);
+                this.appendBlock(trial_type, trialwise, _additional, conditional, attention, trial_reps, start_slide, end_slide, add_countdown);
 			};
 		};
 	}
@@ -125,7 +125,7 @@ class Experiment {
 		this.visual.canvas.style.backgroundColor = this.visual.backgroundColor;
 		this.visual.canvas.style.color = this.visual.colour;
 		this.visual.canvas.style.cursor = "none";
-		document.body.appendChild(this.visual.canvas); // add canvas to window
+		document.body.appendChild(this.visual.canvas);
 		this.visual.context = this.visual.canvas.getContext("2d");
 	}
 
@@ -323,6 +323,14 @@ class Timeline {
 
 	exit() {
 		this.timeline[this.position].exit();
+	}
+
+	insert(state, position) {
+		const _before = this.timeline.slice(0, position);
+		const _after = this.timeline.slice(position);
+		const _timeline = _before.concat(state).concat(_after);
+		this.timeline = _timeline;
+		this.length += 1;
 	}
 
 	push(state) {
@@ -531,15 +539,12 @@ class Mutator extends State {
 
 class Block extends State {
 
-	constructor(trial_type, trialwise={}, additional={}, conditional={}, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
+	constructor(trial_type, trialwise={}, additional={}, conditional={}, attention={}, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
 		super();
-
-		// identification
 		this.block = tomJS.blocks;
 		tomJS.blocks++;
-		this.n = 0;
-	
-		this.generateTimeline(trial_type, trialwise, additional, conditional, trial_reps, start_slide, end_slide, add_countdown);
+		this.n = 0;	
+		this.generateTimeline(trial_type, trialwise, additional, conditional, attention, trial_reps, start_slide, end_slide, add_countdown);
 	}
 
 	// super
@@ -564,59 +569,68 @@ class Block extends State {
 
 	// functions
 
-	checkConditions(conds) {
-		if (Object.keys(conds).length == 0) return;
-		for (let _c = 0; _c < Object.keys(conds).length; _c++) {
-			const _key = Object.keys(conds)[_c];
-			const _cond = conds[_key];
+	checkConditions(conds, args) {
+		if (Object.keys(conds).length == 0) return conds;
+		let _conds = conds;
+		let _args = args;
+		for (let _c = 0; _c < Object.keys(_conds).length; _c++) {
+			const _key = Object.keys(_conds)[_c];
+			const _cond = _conds[_key];
 			for (let _o = 0; _o < Object.keys(_cond).length; _o++) {
-				const _operation = this.parseText(Object.keys(_cond)[_o]);
-				const _outcome   = this.parseText(Object.values(_cond)[_o]);
-				const _evaluation  = this.evaluate(_operation);
+				const _evaluation = this.evaluate(Object.keys(_cond)[_o], args);
 				if (_evaluation) { 
-					this.args[_key] = _outcome;
+					_args[_key] = parseText(Object.values(_cond)[_o]);
 					break;
 				};
 			};
 		};
+		return _args;
 	}
 
-	evaluate(operation) {
+	evaluate(operation, dict) {
 		const t = operation.split(' ');
+		const l = "" + dict[t[0]];
 		const o = t[1];
+		const r = "" + t[2];
 		switch(o) {
-			case '==' : return t[0] == t[2];
-			case '!=' : return t[0] != t[2];
-			case '<'  : return t[0] <  t[2];
-			case '>'  : return t[0] >  t[2];
-			case '<=' : return t[0] <= t[2];
-			case '>=' : return t[0] >= t[2];
-		}
+			case '==' : return l == r;
+			case '!=' : return l != r;
+			case '<'  : return l <  r;
+			case '>'  : return l >  r;
+			case '<=' : return l <= r;
+			case '>=' : return l >= r;
+		};
 	}
 
-	generateTimeline(trial_type, trialwise, additional, conditional, trial_reps, start_slide, end_slide, add_countdown) {
+	generateTimeline(trial_type, trialwise, additional, conditional, attention, trial_reps, start_slide, end_slide, add_countdown) {
 		let _timeline = new Timeline();
-		const _t_cells = returnTotalDictLength(trialwise);
 		let _trialwise = returnAllCombinationsFromDict(trialwise);
-		_trialwise = returnShuffledArray(_trialwise);
-		let _n_trials = _t_cells * trial_reps;
+		_trialwise = extendArray(_trialwise, trial_reps);
+		if (Object.keys(attention).length > 0) {
+			for (let t in attention.targets) {
+				let _args = attention;
+				_args.target = attention.targets[t];
+				_trialwise.push(_args);
+			};
+		};
+		_trialwise = shuffle(_trialwise);
 		if (start_slide != null) _timeline.push(start_slide);
 		if (add_countdown) {_timeline.push(new Countdown(3000))};
-		for (let t = 0; t < _n_trials; t++) {
-			this.args = Object.assign({ }, {'block':this.block, 'trial':t, 'index':tomJS.trials}, _trialwise[t%_t_cells], additional);
-			this.checkConditions(conditional);
-			const _new_trial = new trial_type(this.args);
+		for (let t = 0; t < _trialwise.length; t++) {
+			const _ids = {'block':this.block, 'trial':t, 'index':tomJS.trials};
+			let _args = Object.assign({}, _ids, _trialwise[t], additional);
+			_args = this.checkConditions(conditional, _args);
+			const _new_trial = new trial_type(_args);
 			_timeline.push(_new_trial);
 			this.n++;
-			tomJS.trials += 1;
+			tomJS.trials++;
 		};
 		if (end_slide != null) _timeline.push(end_slide);
-		this.args = null;
 		this.timeline = _timeline;
 	}
 
-	parseText(_text) {
-		let _t = "" + _text;
+	parseText(text) {
+		let _t = "" + text;
 		if (_t.includes('~')) {
 			let _split = _t.split('~');
 			_t = _split[0] + eval(_split[1]) + _split[2];
@@ -2023,7 +2037,7 @@ class PixelPatch extends Stimulus {
 		let _i = [];
 		for (let x = 0; x < _c; x++) {
 			const _row = Array(_a).fill(_A).concat(Array(_b).fill(_B)); // create a row of pixels
-			const _shf = returnShuffledArray(_row); // randomly shuffle the order of the pixels			
+			const _shf = shuffle(_row); // randomly shuffle the order of the pixels			
 			const _ext = _shf.flatMap(z => Array(_s).fill(z)); // extend the row horizontally
 			for (let y = 0; y < _s; y++) _i = _i.concat(_ext.flat()); // repeat the row vertically
 		};
@@ -2515,6 +2529,14 @@ function createLabel(id, content, state, parent, args={}) {
 }
 
 
+/** Append an array to itself N times and return a copy. */
+function extendArray(source, N) {
+	let _array = source;
+	for (let i = 0; i < (N-1); i++) {source.forEach((x)=>_array.push(x))};
+	return _array;
+}
+
+
 /** 
  * Search an array of objects for a target, then return the list of those targets. 
  * Skips objects in the array that do not contain the target.
@@ -2592,6 +2614,17 @@ function joinUniques(...args) {
 }
 
 
+/** Parse a string for ~s and replace the contained text with the evaluation of said text. */
+function parseText(text) {
+	let _t = "" + text;
+	if (_t.includes('~')) {
+		let _split = _t.split('~');
+		_t = _split[0] + eval(_split[1]) + _split[2];
+	};
+	return _t;
+}
+
+
 /** Remove all occurances of the specified value from the specified array. */
 function remove(array, target) {
 	if (array.indexOf(target) > -1) array.splice(array.indexOf(target), 1);
@@ -2611,11 +2644,8 @@ function returnAllCombinationsFromDict(_dict) {
 }
 
 
-/**
- * Copy an array and shuffle the copy. Does not affect the original array.
- * Return a randomly reordered version of an array.
- */
-function returnShuffledArray(array) {	
+/** Shuffle an array and return its copy. */
+function shuffle(array) {	
 	let _shuffled = array;
 	for (let i = 0; i < _shuffled.length; i++) {
 		let rng = Math.floor(Math.random()*_shuffled.length);
@@ -2797,8 +2827,8 @@ consent_form = {
 	"Obligations":
 		"The success of scientific studies depends significantly on your cooperation." +
 		" We therefore ask you to remain focused and to work according to the instructions throughout the entire study." +
-		" In order to demonstrate your focus you must respond correctly on at least 75% of trials." +
-		" If you wish to withdraw consent to the use of your data you are obligated to message Tom Narraway via Prolific before your submisison is approved or rejected.",
+		" In order to demonstrate your focus you must respond correctly on all but one attention checks, as per Prolific policy." +
+		" If you wish to withdraw consent to the use of your data you are obligated to contact Tom Narraway before your submisison is approved or rejected.",
 	"Voluntary Participation and Possibility of Dropping Out":
 		"Your participation in the study is voluntary. "+
 		" You may withdraw from the study at any time and without giving reasons, without incurring any disadvantages." +
