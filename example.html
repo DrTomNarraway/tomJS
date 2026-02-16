@@ -8,21 +8,22 @@
 
         // define constants ====================================================================================================
 
-        const BLOCK_REPS = 2 ; // 16;
+        const BLOCK_REPS = 2;
         const CONDITION  = [200, 400, 600]; // target-signal SOA, milliseconds.
         const DIFFICULTY = [0.01, 0.03, 0.50]; // gabor contrast, percentage.
         const FORCE_WAIT = 2500; //5000;
-        const GABOR_REPS = 1; // 5; // number of trial reps in gabor training block.
+        const GABOR_REPS = 1; // number of trial reps in gabor training block.
         const ITI_DUR    = [800, 1000, 1200]; // duration of blank screen shown after each trial, milliseconds.
         const SIGNAL     = NecroDancerBar; // type of progress bar to use
-        const TEST_REPS  = 2; // 3; // number of trial reps in test blocks.
-        const TIME_REPS  = 1; // 9; // number of trial reps in timing training block.
+        const TEST_REPS  = 1; // number of trial reps in test blocks.
+        const TIME_REPS  = 1; // number of trial reps in timing training block.
 
         // set up experiment ===================================================================================================
 
         const args = {
-            'fullscreen' : true,
-            'gridlines': false
+            'fullscreen': false,
+            'gridlines': false,
+            'verbose': true
         };
 
         const tomJS = new Experiment(args);
@@ -32,10 +33,10 @@
         const A = tomJS.controls.key_a_upper;
         const B = tomJS.controls.key_b_upper;
 
-        const max_cond = arrayMax(CONDITION);
-        const min_cond = arrayMin(CONDITION);
-        const max_diff = arrayMax(DIFFICULTY);
-        const min_diff = arrayMin(DIFFICULTY);
+        const max_cond = ArrayTools.max(CONDITION);
+        const min_cond = ArrayTools.min(CONDITION);
+        const max_diff = ArrayTools.max(DIFFICULTY);
+        const min_diff = ArrayTools.min(DIFFICULTY);
 
         // trial arguments =====================================================================================================
 
@@ -178,14 +179,14 @@
         const _checks = new Slide([
             { 'class': 'text', 'text': 'Some trials are attention checks meant to prevent low-effort submissions.', 'y': 0.15 },
             { 'class': 'text', 'text': 'Attention checks look like the example below: easy versions of the main task.', 'y': 0.20 },
-            { 'class': 'text', 'text': 'If you fail too many of these checks during the first few blocks,', 'y': 0.25 },
-            { 'class': 'text', 'text': 'the experiment will end and you will be asked to return your response.', 'y': 0.30 },
+            { 'class': 'text', 'text': 'As per Prolific policy, if you fail too many of these checks the experiment will end', 'y': 0.25 },
+            { 'class': 'text', 'text': 'and you will be asked to return your submission.', 'y': 0.30 },
             { 'class': 'progressbar', 'signal': SIGNAL, 'progressbar_y': 0.40, 'signal_on': 0.5, 'signal_off': 1, 'progressbar_scale': 0.50, 'window_width':0.50 },
             { 'class': 'gabor', 'difficulty': 1.00, 'gp_size': 0.40, 'gp_ori': 30, 'gp_y':0.55 },
             { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to start the first test block.', 'y': 0.75, 'conditions': ['~this.can_proceed~ == true'] }
         ], { 'force_wait': FORCE_WAIT });
 
-        const _half = new Slide([
+        const _half = new EndBlock([
             { 'class': 'text', 'text': 'You are now half-way through the experiment.', 'y': 0.15 },
             { 'class': 'text', 'text': 'So far your accuracy has been great!', 'y': 0.48, 'conditions': ['~this.data.accuracy~ >= 80'] },
             { 'class': 'text', 'text': 'So far your accuracy has been good.', 'y': 0.48, 'conditions': ['~this.data.accuracy~ < 80', '~this.data.accuracy~ >= 60'] },
@@ -194,7 +195,7 @@
             { 'class': 'text', 'text': 'So far your timing has been good.', 'y': 0.52, 'conditions': ['~this.data.hits~ < 80', '~this.data.hits~ >= 60'] },
             { 'class': 'text', 'text': 'Your timing needs improvement.', 'y': 0.52, 'conditions': ['~this.data.hits~ < 60'] },
             { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 }
-        ]);
+        ], { 'filter': 'block <= 0' });
 
         const _end_block = new EndBlock([
             { 'class': 'text', 'text': 'End of block. Please take a short break.', 'y': 0.25 },
@@ -278,8 +279,6 @@
             end_slide = _end_block,
             add_countdown = true,
         )
-
-        tomJS.appendToTimeline(_end_exp);
 
         // run =================================================================================================================
 

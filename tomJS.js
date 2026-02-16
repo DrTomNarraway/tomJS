@@ -1,7 +1,7 @@
 
 class Experiment {	
 
-	version = '13.02.26 17:11';
+	version = '16.02.26 16:42';
 
 	constructor(args={}) {
 		
@@ -12,6 +12,7 @@ class Experiment {
 		this.debug.gridlines  = args.gridlines  ?? false;
 		this.debug.fullscreen = args.fullscreen ?? true;
 		this.debug.save       = args.save       ?? true;
+		this.debug.verbose    = args.verbose    ?? false;
 
 		// visual
 		this.visual = {};
@@ -60,6 +61,7 @@ class Experiment {
 		this.demographics.n = Math.round(Math.random() * 2);
 
 		// timeline
+		this.built    = window.performance.now();
         this.now      = window.performance.now();
         this.running  = true;
 		this.complete = false;
@@ -68,10 +70,17 @@ class Experiment {
 		this.blocks   = 0;
         this.trial    = 0;
         this.trials   = 0;
+		this.started  = null;
 
 		// data
 		this.headings = ['participant','age','gender','hand'];
 		this.data = [];
+
+		// attention checks
+		this.attention = {};
+		this.attention.failed    = 0; // current fail count
+		this.attention.limit     = args.attention_limit ?? 3; // failted trail limit
+		this.attention.check_for = args.attention_check_for ?? 15; // minutes
 
 		// other
 		this.rounding = args.rounding ?? 5;
@@ -93,15 +102,23 @@ class Experiment {
 	}
 
 	appendBlocks(trial_type, blockwise={}, trialwise={}, additional={}, conditional={}, attention={}, block_reps=1, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
-		let _b_cells  = returnTotalDictLength(blockwise);
+		let _b_cells  = ObjectTools.length(blockwise);
         for (let b = 0; b < block_reps; b++) {
-            let _blockwise = returnAllCombinationsFromDict(blockwise);
-            _blockwise = shuffle(_blockwise);
+            let _blockwise = ObjectTools.allCombinations(blockwise);
+            _blockwise = ArrayTools.shuffle(_blockwise);
             for (let i = 0; i < _b_cells; i++) {
 				let _additional = Object.assign({ }, _blockwise[i%_b_cells], additional);
                 this.appendBlock(trial_type, trialwise, _additional, conditional, attention, trial_reps, start_slide, end_slide, add_countdown);
 			};
 		};
+	}
+
+	attentionCheckFailed() {
+		this.attention.failed++;
+		if (this.attention.failed >= this.attention.limit & 
+			((this.now - this.started)/1000/60) <= this.attention.check_for)
+			this.requestReturn();
+		if (this.debug.verbose) console.log(this.attention);
 	}
 
 	connectToJatos(counterbalance=false) {
@@ -210,6 +227,14 @@ class Experiment {
 		this.fillRect(0, 0, this.visual.screen_size, this.visual.screen_size, this.visual.backgroundColor);
 	}
 
+	requestReturn() {
+		this.running  = false;
+		this.complete = true;
+		if (document.fullscreenElement != null) document.exitFullscreen();
+		this.resetCanvas();
+		this.writeToCanvas('You have failed too many attention checks, please return your submission.');
+	}
+
 	run = () => {
 		if (this.complete) return;
 		this.now = Math.round(window.performance.now());
@@ -239,6 +264,7 @@ class Experiment {
 	start () {
 		this.running = true;
 		this.complete = false;
+		this.started = window.performance.now();
 		this.resetCanvas();
 		this.timeline.enter();
 		requestAnimationFrame(this.run);
@@ -311,6 +337,7 @@ class Timeline {
 		this.length = timeline.length;
 		this.position = 0;
 		this.timeline = timeline;
+		this.delete   = args.delete ?? true;
 	}
 	
 	currentState() {
@@ -354,6 +381,7 @@ class Timeline {
 			this.complete = true;
 		} else {			
             this.timeline[this.position].exit();
+			if (this.delete) delete this.timeline[this.position];
             this.position += 1;
             this.timeline[this.position].enter();
 		};
@@ -408,9 +436,9 @@ class BlockData extends DataWrapper {
 	}
 
 	calculateAverages(data) {
-		this.rt = Math.round(arrayAverage(extractFromObjectInArray(data, 'rt')));
-		this.accuracy = Math.round(arrayAverage(extractFromObjectInArray(data, 'accuracy'))*100);
-		this.score = Math.round(arrayAverage(extractFromObjectInArray(data, 'score')));
+		this.rt = Math.round(ArrayTools.average(ArrayTools.extract(data, 'rt')));
+		this.accuracy = Math.round(ArrayTools.average(ArrayTools.extract(data, 'accuracy'))*100);
+		this.score = Math.round(ArrayTools.average(ArrayTools.extract(data, 'score')));
 	}
 
 	calculateComplex() {
@@ -420,12 +448,12 @@ class BlockData extends DataWrapper {
 
 	calculatePercentages(data) {
 		const n = data.length;
-		let outcomes   = extractFromObjectInArray(data, 'outcome');
-		this.correct   = Math.round((countInArray(outcomes,'Correct')/n)*100);
-		this.incorrect = Math.round((countInArray(outcomes,'Incorrect')/n)*100);
-		this.fast      = Math.round((countInArray(outcomes,'Fast')/n)*100);
-		this.slow      = Math.round((countInArray(outcomes,'Slow')/n)*100);
-		this.censored  = Math.round((countInArray(outcomes,'Censored')/n)*100);
+		let outcomes   = ArrayTools.extract(data, 'outcome');
+		this.correct   = Math.round((ArrayTools.count(outcomes,'Correct')/n)*100);
+		this.incorrect = Math.round((ArrayTools.count(outcomes,'Incorrect')/n)*100);
+		this.fast      = Math.round((ArrayTools.count(outcomes,'Fast')/n)*100);
+		this.slow      = Math.round((ArrayTools.count(outcomes,'Slow')/n)*100);
+		this.censored  = Math.round((ArrayTools.count(outcomes,'Censored')/n)*100);
 	}
 
 	calculateData(data) {
@@ -569,8 +597,7 @@ class Block extends State {
 
 	// functions
 
-	checkConditions(conds, args) {
-		if (Object.keys(conds).length == 0) return conds;
+	checkConditions(conds, args) {		
 		let _conds = conds;
 		let _args = args;
 		for (let _c = 0; _c < Object.keys(_conds).length; _c++) {
@@ -579,7 +606,7 @@ class Block extends State {
 			for (let _o = 0; _o < Object.keys(_cond).length; _o++) {
 				const _evaluation = this.evaluate(Object.keys(_cond)[_o], args);
 				if (_evaluation) { 
-					_args[_key] = parseText(Object.values(_cond)[_o]);
+					_args[_key] = TextTools.parse(Object.values(_cond)[_o]);
 					break;
 				};
 			};
@@ -604,22 +631,26 @@ class Block extends State {
 
 	generateTimeline(trial_type, trialwise, additional, conditional, attention, trial_reps, start_slide, end_slide, add_countdown) {
 		let _timeline = new Timeline();
-		let _trialwise = returnAllCombinationsFromDict(trialwise);
-		_trialwise = extendArray(_trialwise, trial_reps);
+		let _trialwise = ObjectTools.allCombinations(trialwise);
+		_trialwise = ArrayTools.tape(_trialwise, additional);
+		_trialwise = ArrayTools.extend(_trialwise, trial_reps);
 		if (Object.keys(attention).length > 0) {
-			for (let t in attention.targets) {
-				let _args = attention;
-				_args.target = attention.targets[t];
-				_trialwise.push(_args);
+			for (let i = 0; i < attention.targets.length; i++) {
+				let _new = attention;
+				_new.target = attention.targets[i];
+				_new.attention_check = true;
+				_trialwise.push(_new);
 			};
 		};
-		_trialwise = shuffle(_trialwise);
+		if (Object.keys(conditional).length == 0) _trialwise = this.checkConditions(conditional, _trialwise);
+		_trialwise = ArrayTools.shuffle(_trialwise);
 		if (start_slide != null) _timeline.push(start_slide);
 		if (add_countdown) {_timeline.push(new Countdown(3000))};
 		for (let t = 0; t < _trialwise.length; t++) {
-			const _ids = {'block':this.block, 'trial':t, 'index':tomJS.trials};
-			let _args = Object.assign({}, _ids, _trialwise[t], additional);
-			_args = this.checkConditions(conditional, _args);
+			const _args = _trialwise[t];
+			_args.block = this.block;
+			_args.trial = t;
+			_args.index = tomJS.trials;
 			const _new_trial = new trial_type(_args);
 			_timeline.push(_new_trial);
 			this.n++;
@@ -786,7 +817,7 @@ class Trial extends State {
 		this.index = args.index ?? 0;
 
 		// create new stimulus object
-		if (!('stimulus' in args)) tomJS.error('no target stimulus passed to trial');
+		if (!('stimulus' in args)) tomJS.error('no target stimulus passed to trial');	
 		this.stimulus = new args.stimulus(args);
 
 		// data
@@ -820,7 +851,7 @@ class Trial extends State {
 		};
 
 		// append data headings to global data heading storage
-		if (!(tomJS.headings.includes('block'))) tomJS.headings = joinUniques(tomJS.headings, this.data.keys());
+		if (!(tomJS.headings.includes('block'))) tomJS.headings = ArrayTools.joinUniques(tomJS.headings, this.data.keys());
 
 		// feedback information
 		this.feedback_colors = args.feedback_colors ?? {
@@ -838,6 +869,9 @@ class Trial extends State {
 			'Slow': 'Too Slow', 
 			'Censored': 'Too Slow'
 		};
+
+		// mark if is attention check
+		this.attention_check = args.attention_check ?? false;
 
 		// ensure too slow response does not override stimulus duration, unless desired
 		if ('stimulus_duration' in args && ! 'stimulus_slow' in args)
@@ -858,8 +892,9 @@ class Trial extends State {
 
 	exit() {		
 		super.exit();
-		this.data.end = tomJS.now;		
-	}
+		this.data.end = tomJS.now;
+		if (this.attention_check & this.data.outcome != "Correct") tomJS.attentionCheckFailed();
+	}	
 
 	update() {
 		super.update();
@@ -1024,7 +1059,7 @@ class ResponseSignal extends Trial {
 		};
 
 		// headings
-		if (!(tomJS.headings.includes('rtt'))) tomJS.headings = joinUniques(tomJS.headings, this.data.keys());
+		if (!(tomJS.headings.includes('rtt'))) tomJS.headings = ArrayTools.joinUniques(tomJS.headings, this.data.keys());
 	}
 
 	// override
@@ -1798,6 +1833,7 @@ class EndBlock extends Slide {
 	constructor(content = [],args = {}) {
 		super(content, args);
 		this.data = new BlockData();
+		this.filter = args.filter ?? 'block == ~tomJS.block~';
 	}
 
 	// super
@@ -1808,10 +1844,10 @@ class EndBlock extends Slide {
 		if (tomJS.debug.save) tomJS.saveData();
 	}
 
-	// functions 
+	// functions
 
 	gatherData() {
-		return filterObjectArray(tomJS.data, 'block', tomJS.block);
+		return ArrayTools.filter(tomJS.data, this.filter);
 	}
 
 }
@@ -2037,7 +2073,7 @@ class PixelPatch extends Stimulus {
 		let _i = [];
 		for (let x = 0; x < _c; x++) {
 			const _row = Array(_a).fill(_A).concat(Array(_b).fill(_B)); // create a row of pixels
-			const _shf = shuffle(_row); // randomly shuffle the order of the pixels			
+			const _shf = ArrayTools.shuffle(_row); // randomly shuffle the order of the pixels			
 			const _ext = _shf.flatMap(z => Array(_s).fill(z)); // extend the row horizontally
 			for (let y = 0; y < _s; y++) _i = _i.concat(_ext.flat()); // repeat the row vertically
 		};
@@ -2398,22 +2434,6 @@ class Text extends Stimulus {
 // utils ======================================================================
 
 
-function arrayAverage(array) {
-	const _n = array.length;
-	return array.reduce((a,b)=>a+b,0)/_n;
-}
-
-
-function arrayMax(array) {
-	return array.reduce((a,b)=>Math.max(a,b));
-}
-
-
-function arrayMin(array) {
-	return array.reduce((a,b)=>Math.min(a,b));
-}
-
-
 function assignImageData(source, sink) {
 	if (source.length != sink.length) console.warn('ERROR: source and sink are not the same length.',
 		Math.sqrt(source.length), Math.sqrt(sink.length));
@@ -2426,10 +2446,7 @@ function assignImageData(source, sink) {
 }
 
 
-/**
- * Choose one of the options from the passed list at random, or return the fallback value instead.
- * Returns one argument from the provided list, or the fallback argument instead of crashing.
- */
+/** Choose one of the options from the passed list at random, or return the fallback value instead. */
 function choose(x, fallback = null) {
 	if (typeof x == 'number') return x;
 	if (typeof x == 'string') return x;
@@ -2447,22 +2464,7 @@ function choose(x, fallback = null) {
  */
 function clamp(number, min, max) {
 	return Math.max(Math.min(number, max), min);
-}
-
-
-/** Collapse an array of arrays into a single array containing all child items. Does not interact with originals. */
-function collapse(array) {
-	let out = [];
-	for (let a of array) out = [...out, ...a];
-	return out;
-}
-
-/** Search an array for a target and return the number of times that target appears. */
-function countInArray(array, target) {
-	let out = 0;
-	for (let a of array) if (a == target) out += 1;
-	return out;
-}
+};
 
 
 function createButton(id, textContent, onClick, state, parent, args={}) {
@@ -2529,141 +2531,6 @@ function createLabel(id, content, state, parent, args={}) {
 }
 
 
-/** Append an array to itself N times and return a copy. */
-function extendArray(source, N) {
-	let _array = source;
-	for (let i = 0; i < (N-1); i++) {source.forEach((x)=>_array.push(x))};
-	return _array;
-}
-
-
-/** 
- * Search an array of objects for a target, then return the list of those targets. 
- * Skips objects in the array that do not contain the target.
- */
-function extractFromObjectInArray(array, target) {
-	out = [];
-	for (let a of array) if (target in a) out.push(a[target]);
-	return out;
-}
-
-
-function fillArray(source, limit) {
-	array = [];
-	let sourceLen = source.length;
-	for (let i = 0; i < sourceLen; i++) {
-		for (let f = 0; f < (limit) / sourceLen; f++) {
-			array.push(source[i]);
-		};
-	};
-	return array;
-}
-
-
-/**
- * Search an array of objects for the target key value.
- * Can automatically stop after a set number of fails in a row to prevent time waste.
- * Returns a new array of only entries which match the target value.
- */
-function filterObjectArray(array, key, target, auto_stop = -1) {
-	let out = [];
-	let fails = 0;
-	for (let a of array) {
-		// check inclusion
-		if (a[key] == target) {
-			out.push(a);
-			fails = 0;
-		}   else fails++;
-		// check stop
-		if (auto_stop > 0 & fails >= auto_stop) break;
-	};
-	return out;
-}
-
-
-/**
- * Check if a key exists in an object, and if it equals a specified value.
- * Returns true if the key is present and equal, returns false otherwise.
- */
-function inAndEquals(object, key, target) {
-	if (!(key in object)) return false 
-	else return object[key] == target;
-}
-
-
-/**
- * Check if a key exists in an object, and if it is true. 
- * Returns true if the key is in the object and is true, otherwise returns false.
- */
-function inAndTrue(object, key) {
-	if (!(key in object)) return false 
-	else return object[key] == true;
-}
-
-
-/**
- * Join any number of arrays without duplication.
- * Returns an array containing only unique values from the passed arrays.
- */
-function joinUniques(...args) {
-    const out = args[0];
-	for (let i = 1; i < args.length; i++) {
-		args[i].forEach((arg) => {if (!(out.includes(arg))) {out.push(arg)}});
-	};
-    return out;
-}
-
-
-/** Parse a string for ~s and replace the contained text with the evaluation of said text. */
-function parseText(text) {
-	let _t = "" + text;
-	if (_t.includes('~')) {
-		let _split = _t.split('~');
-		_t = _split[0] + eval(_split[1]) + _split[2];
-	};
-	return _t;
-}
-
-
-/** Remove all occurances of the specified value from the specified array. */
-function remove(array, target) {
-	if (array.indexOf(target) > -1) array.splice(array.indexOf(target), 1);
-}
-
-
-/**
- * Create a list of key/value pairs by corssing each key with each value in the dict.
- * Return a list containing every combination of key and value.
- */
-function returnAllCombinationsFromDict(_dict) {
-	let out = [{}];
-	for (const [key, values] of Object.entries(_dict)) {
-		out = out.flatMap(obj => values.map(v => ({ ...obj, [key]: v })));
-	};
-	return out;
-}
-
-
-/** Shuffle an array and return its copy. */
-function shuffle(array) {	
-	let _shuffled = array;
-	for (let i = 0; i < _shuffled.length; i++) {
-		let rng = Math.floor(Math.random()*_shuffled.length);
-		let tmp = _shuffled[rng];
-		_shuffled[rng] = _shuffled[i];
-		_shuffled[i] = tmp;
-	};
-	return _shuffled;
-}
-
-
-function returnTotalDictLength(x) {
-	let out = 1;
-	for (i in x) { out *= x[i].length };
-	return out;
-}
-
-
 /**
  * Round a number to a certain number of decimal places.
  * Returns the number, rounded to the specified number of decimal places.
@@ -2718,6 +2585,146 @@ function writeToBody(text) {
 
 
 // util classes ===============================================================
+
+
+const ArrayTools = ((module) => {
+	
+	/** Return the average of all numerical values in the array. */
+	module.average = function average(array) {
+		const _n = array.length;
+		return array.reduce((a,b)=>a+b,0)/_n;
+	}
+	
+	/** Collapse an array of arrays into a single array containing all child items. */
+	module.collapse = function collapse(array) {
+		let out = [];
+		for (let a of array) out = [...out, ...a];
+		return out;
+	}
+
+	/** Search an array for a target and return the number of times that target appears. */
+	module.count = function count(array, target) {
+		let out = 0;
+		for (let a of array) if (a == target) out += 1;
+		return out;
+	}
+
+	/** Search an array of objects for a target, then return the list of those targets. */
+	module.extract = function extract(array, target) {
+		out = [];
+		for (let a of array) if (target in a) out.push(a[target]);
+		return out;
+	}
+
+	/** Append an array to itself N times and return a copy. */
+	module.extend = function extend(source, N) {
+		let _array = source;
+		for (let i = 0; i < (N-1); i++) {source.forEach((x)=>_array.push(x))};
+		return _array;
+	}
+
+	/** Search an array of objects for the target key value. */
+	module.filter = function filter(array, condition, auto_stop = -1) {
+		const _cond = TextTools.parse(condition);
+		const key = _cond.split(' ')[0];
+		const operation = _cond.split(' ')[1];
+		const target = _cond.split(' ')[2];
+		let out = [];
+		let fails = 0;
+		for (let a of array) {
+			// check inclusions
+			if (TextTools.evaluate(a[key], operation, target)) {
+				out.push(a);
+				fails = 0;
+			} else fails++;
+			// check stop
+			if (auto_stop > 0 & fails >= auto_stop) break;
+		};
+		return out;
+	}
+
+	/** Join any number of arrays without duplication. */
+	module.joinUniques = function joinUniques(...args) {
+		const out = args[0];
+		for (let i = 1; i < args.length; i++) {
+			args[i].forEach((arg) => {if (!(out.includes(arg))) {out.push(arg)}});
+		};
+		return out;
+	}
+
+	/** Return the highest numberical value in the array. */
+	module.max = function max(array) {
+		return array.reduce((a,b)=>Math.max(a,b));
+	}
+
+	/** Return the lowest numberical value in the array. */
+	module.min = function min(array) {
+		return array.reduce((a,b)=>Math.min(a,b));
+	}
+
+	/** Remove all occurances of the specified value from the specified array. */
+	module.remove = function remove(array, target) {
+		if (array.indexOf(target) > -1) array.splice(array.indexOf(target), 1);
+	}
+
+	/** Shuffle an array and return its copy. */
+	module.shuffle = function shuffle(array) {	
+		let _shuffled = array;
+		for (let i = 0; i < _shuffled.length; i++) {
+			let rng = Math.floor(Math.random()*_shuffled.length);
+			let tmp = _shuffled[rng];
+			_shuffled[rng] = _shuffled[i];
+			_shuffled[i] = tmp;
+		};
+		return _shuffled;
+	}
+
+	
+	/** Tape an object to the end of every object inside an array of objects. */
+	module.tape = function tape(array, object) {
+		let _array = array;
+		for (let i = 0; i < _array.length; i++) _array[i] = {..._array[i], ...object};
+		return _array;
+	}
+
+	return module;
+
+})({});
+
+
+const ObjectTools = ((module) => {
+	
+	/** Return a list containing every combination of key and value. */
+	module.allCombinations = function allCombinations(_dict) {
+		let out = [{}];
+		for (const [key, values] of Object.entries(_dict)) {
+			out = out.flatMap(obj => values.map(v => ({ ...obj, [key]: v })));
+		};
+		return out;
+	}
+
+	/** Check if a key exists in an object, and if it equals a specified value. */
+	module.inAndEquals = function inAndEquals(object, key, target) {
+		if (!(key in object)) return false 
+		else return object[key] == target;
+	}
+
+	/** Check if a key exists in an object, and if it is true. */
+	module.inAndTrue = function inAndTrue(object, key) {
+		if (!(key in object)) return false 
+		else return object[key] == true;
+	}
+	
+	/** Return the sum of lengths of all contents of the object. */
+	module.length = function length(x) {
+		let out = 1;
+		for (i in x) { out *= x[i].length };
+		return out;
+	}
+
+	return module;
+
+})({});
 
 
 class Keyboard {
@@ -2778,6 +2785,35 @@ class Keyboard {
 
 
 }
+
+
+const TextTools = ((module) => {	
+	
+	/** Evaluate the relationship between l and r based on o. */
+	module.evaluate = function evaluate(l, o, r) {
+		switch(o) {
+			case '==' : return l == r;
+			case '!=' : return l != r;
+			case '<'  : return l <  r;
+			case '>'  : return l >  r;
+			case '<=' : return l <= r;
+			case '>=' : return l >= r;
+		};
+	}
+
+	/** Parse a string for ~s and replace the contained text with the evaluation of said text. */
+	module.parse = function parse(text) {
+		let _t = "" + text;
+		if (_t.includes('~')) {
+			let _split = _t.split('~');
+			_t = _split[0] + eval(_split[1]) + _split[2];
+		};
+		return _t;
+	}
+
+	return module;
+
+})({});
 
 
 // data =======================================================================
