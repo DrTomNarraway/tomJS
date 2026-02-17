@@ -16,9 +16,6 @@
 
         if (jatos.constructor != HTMLScriptElement) jatos.onConnected(() => { tomJS.connectToJatos(false) });
 
-        const A = tomJS.controls.key_a_upper;
-        const B = tomJS.controls.key_b_upper;
-
         const _blockwise = {
             'fixation_colour': ['blue', 'orange']
         };
@@ -30,15 +27,15 @@
         const _additional = {
             'difficulty': 0.03,
             'stimulus': Stimuli.Gabor,
-            'gp_ori': 2,
+            'ori': 2,
             'iti_duration': [800, 1000, 1200]
         };
 
         const _keyboard = new Slides.Slide([
-            { 'class': 'text', 'text': 'Please press ' + A + ' and then ' + B + ' a few times to make sure your', 'y': 0.25 },
+            { 'class': 'text', 'text': 'Please press F and then J a few times to make sure your', 'y': 0.25 },
             { 'class': 'text', 'text': 'keyboard is being read by the experiment correctly.', 'y': 0.30 },
-            { 'class': 'text', 'text': '~tomJS.key~', 'upper': true },
-            { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
+            { 'class': 'text', 'text': '~tomJS.keyboard.key~', 'upper': true },
+            { 'class': 'text', 'text': 'Press F and J to continue.', 'y': 0.75 },
         ]);
 
         const _end_block = new Slides.EndBlock([
@@ -49,14 +46,14 @@
             { 'class': 'text', 'text': 'Your timing was great!', 'y': 0.52, 'conditions': ['~this.data.hits~ >= 80'] },
             { 'class': 'text', 'text': 'Your timing was good.', 'y': 0.52, 'conditions': ['~this.data.hits~ < 80', '~this.data.hits~ >= 60'] },
             { 'class': 'text', 'text': 'Your timing needs improvement.', 'y': 0.52, 'conditions': ['~this.data.hits~ < 60'] },
-            { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
+            { 'class': 'text', 'text': 'Press F and J to continue.', 'y': 0.75 },
         ]);
 
         const _end_exp = new Slides.EndExperiment([
             { 'class': 'text', 'text': 'End of Experiment. Thank you for your help.', 'y': 0.25 },
             { 'class': 'text', 'text': 'You were correct on ~this.data.accuracy~% of all test trials.', 'y': 0.48 },
             { 'class': 'text', 'text': 'You responded on time on ~this.data.hits~% of all test trials.', 'y': 0.52 },
-            { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to end the experiment.', 'y': 0.75 },
+            { 'class': 'text', 'text': 'Press F and J to end the experiment.', 'y': 0.75 },
         ]);
 
         tomJS.appendToTimeline(_keyboard);

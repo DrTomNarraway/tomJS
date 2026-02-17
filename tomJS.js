@@ -1,7 +1,7 @@
 
 class Experiment {	
 
-	version = '17.02.26 14:06';
+	version = '17.02.26 14:26';
 
 	constructor(args={}) {
 		
@@ -35,17 +35,13 @@ class Experiment {
 		
 		// controls
 		this.controls = {};
-		this.controls.keyboard    = new Keyboard();
-		this.controls.key_a       = args.key_a     ?? 'f';
-        this.controls.key_b       = args.key_b     ?? 'j';
-        this.controls.key_quit    = args.key_quit  ?? 'Escape';
-        this.controls.key_back    = args.key_back  ?? 'Backspace';
-		this.controls.key_a_upper = this.controls.key_a.toUpperCase();
-		this.controls.key_b_upper = this.controls.key_b.toUpperCase();
-		this.controls.resp_a      = args.resp_a    ?? 'A';
-		this.controls.resp_b      = args.resp_b    ?? 'B';
+		this.controls.inputs = args.inputs ?? ['f', 'j'];
+		this.controls.responses = args.responses ?? { 'f': 'A', 'j': 'B' };
+		this.controls.inputs = Object.keys(this.controls.responses);
+		this.controls.options = Object.values(this.controls.responses);
 
 		// current input data
+		this.keyboard = new Keyboard();
 		this.key = '';
 		this.dir = '';
 		
@@ -553,139 +549,6 @@ class Block extends State {
 }
 
 
-// trial bits =================================================================
-
-
-class TrialBit extends State {
-
-	constructor(trial, args={}) {
-		super();
-		this.trial    = trial;
-		this.data     = trial.data;
-		this.timeline = null;
-	}
-
-}
-
-
-class FeedbackBit extends TrialBit {
-
-	constructor(trial, args={}) {super(trial, args)}
-
-	enter() {
-		super.enter();
-		this.trial.updateFeedbackText()
-		this.data.feedback_on  = tomJS.now;
-		this.data.feedback_off = tomJS.now + this.data.feedback_duration;
-	}
-
-	exit() {
-		super.exit();
-		this.data.feedback_off = tomJS.now;		
-	}
-
-	update() {
-		super.update();
-		const text = this.data.feedback_text;
-		const colour = this.data.feedback_colour;
-		tomJS.writeToCanvas(text,{'colour':colour, 'fontSize':this.data.feedback_size});
-		if (tomJS.now >= this.data.feedback_off) this.exit();
-	}
-
-}
-
-
-class FixationBit extends TrialBit {
-
-	constructor(trial, args={}) {super(trial, args)}
-
-	enter() {
-		super.enter();
-		this.data.fixation_on  = tomJS.now;
-		this.data.fixation_off = tomJS.now + this.data.fixation_duration;
-	}
-
-	exit() {
-		super.exit();
-		this.data.fixation_off = tomJS.now;		
-	}
-
-	update() {
-		super.update();
-		if (tomJS.now >= this.data.fixation_off) this.exit();
-		const args = {'colour':this.data.fixation_colour, 'fontSize':this.data.fixation_size};
-		tomJS.writeToCanvas('+', args);
-	}
-
-}
-
-
-class ITIBit extends TrialBit {
-
-	constructor(trial, args={}) {super(trial, args)}
-
-	enter() {
-		super.enter();
-		this.data.iti_on  = tomJS.now;
-		this.data.iti_off = tomJS.now + this.data.iti_duration;
-	}
-
-	exit() {
-		super.exit();
-		this.data.iti_off = tomJS.now;		
-	}
-
-	update() {
-		super.update();
-		if (tomJS.now >= this.data.iti_off) this.exit();
-	}
-
-}
-
-
-class StimulusBit extends TrialBit {
-
-	constructor(trial, args={}) {super(trial, args)}
-
-	enter() {	
-		super.enter();
-		this.data.stimulus_on  = tomJS.now;
-		this.data.stimulus_off = tomJS.now + this.data.stimulus_duration;
-	}
-
-	exit() {
-		super.exit();
-		this.data.stimulus_off = tomJS.now;
-	}
-
-	exitResponse() {
-		this.trial.recordResponse();
-		this.trial.calculateRT();
-		this.trial.determineAccuracy();
-		this.trial.determineOutcome();
-		this.trial.calculateScore();
-		this.exit();
-	}
-
-	exitTime() {
-		this.trial.determineOutcome();
-		this.exit();
-	}
-
-	update() {
-		super.update();
-		if (tomJS.controls.keyboard.anyKeysPressed([tomJS.controls.key_a, tomJS.controls.key_b])) {
-			this.exitResponse();
-		};
-		if (tomJS.now >= this.data.stimulus_off) {
-			this.exitTime();
-		};
-		this.trial.stimulus.draw();
-	}
-
-}
-
-
 // modules ====================================================================
 
 
@@ -843,9 +706,7 @@ const Slides = ((module) => {
 		}
 
 		checkUserInput() {
-			const _a = tomJS.controls.key_a;
-			const _b = tomJS.controls.key_b;
-			if (tomJS.controls.keyboard.allKeysPressed([_a, _b])) this.complete = true;
+			if (tomJS.keyboard.allKeysPressed(tomJS.controls.inputs)) this.complete = true;
 		}
 
 		drawContent() {
@@ -1450,46 +1311,73 @@ const Slides = ((module) => {
 
 const Stimuli = ((module) => {
 
-	module.Stimulus = class Stimulus {
+	module.Stimulus = class Stimulus extends State {
 
-		constructor() {
+		constructor(trial, args = {}) {
+			super();
+			this.trial = trial;
 			this.data = {};
+			this.data.duration = args.duration ?? null;
+			this.data.responses = args.responses ?? null;
+			this.timeline = null;
 		}
+
+		// override
+
+		enter() {
+			this.initialize();
+			this.data.start = tomJS.now;
+		}
+
+		update() {
+			if (this.data.duration != null & tomJS.now > this.data.start + this.data.duration) this.timedOut();
+			if (tomJS.keyboard.anyKeysPressed(this.data.responses)) this.responseGiven();
+			if (this.complete) return;
+			this.draw();
+		}
+
+		// functions
 
 		draw() {
 			// does nothing
 		}
 
-		initialize(data) {
+		responseGiven() {
+			this.trial.recordResponse();
+			this.trial.calculateRT();
+			this.trial.determineAccuracy();
+			this.trial.determineOutcome();
+			this.trial.calculateScore();
+			this.complete = true;
+		}
+
+
+		initialize() {
 			// does nothing
 		}
 
-		reset() {
-			// does nothing
-		}
-
-		set(key, value, reset = true) {
-			this.data[key] = value;
-			if (reset) this.reset();
+		timedOut() {
+			this.trial.determineOutcome();
+			this.complete = true;
 		}
 
 	}
 
 	module.Gabor = class Gabor extends module.Stimulus {
 
-		constructor(args = {}) {
-			super(args);
+		constructor(trial, args = {}) {
+			super(trial, args);
 			if (!('target' in args)) tomJS.error('no target passed to gabor');
 			if (!('difficulty' in args)) tomJS.error('no difficulty passed to gabor');
 			this.data.target = args.target;
 			this.data.difficulty = args.difficulty;
-			this.data.gp_opacity = args.gp_opacity ?? 1.0;  // as percentage
-			this.data.gp_ori = args.gp_ori ?? 25;	// in degrees
-			this.data.gp_x = args.gp_x ?? 0.5;	// in screen units
-			this.data.gp_y = args.gp_y ?? 0.5;	// in screen units
-			this.data.gp_sf = args.gp_sf ?? 15;
-			this.data.gp_size = args.gp_size ?? 1.0;	// in stimulus units
-			this.data.gp_px = Math.round(tomJS.visual.stimulus_size * this.data.gp_size);
+			this.data.opacity = args.opacity ?? 1.0;  // as percentage
+			this.data.ori = args.ori ?? 25;	// in degrees
+			this.data.x = args.x ?? 0.5;	// in screen units
+			this.data.y = args.y ?? 0.5;	// in screen units
+			this.data.sf = args.sf ?? 15;
+			this.data.size = args.size ?? 1.0;	// in stimulus units
+			this.data.px = Math.round(tomJS.visual.stimulus_size * this.data.size);
 			this.prepareImageData();
 		}
 
@@ -1497,21 +1385,21 @@ const Stimuli = ((module) => {
 
 		draw() {
 			super.draw();
-			const _s = this.data.gp_px;
+			const _s = this.data.px;
 			const img = tomJS.visual.context.createImageData(_s, _s);
 			assignImageData(this.image_data, img.data);
-			let pos_x = tomJS.visual.screen_size * this.data.gp_x - (_s * 0.5);
-			let pos_y = tomJS.visual.screen_size * this.data.gp_y - (_s * 0.5);
+			let pos_x = tomJS.visual.screen_size * this.data.x - (_s * 0.5);
+			let pos_y = tomJS.visual.screen_size * this.data.y - (_s * 0.5);
 			tomJS.visual.context.putImageData(img, pos_x, pos_y);
 		}
 
 		// functions
 
 		prepareImageData() {
-			const s = this.data.gp_px;
+			const s = this.data.px;
 			const con = this.data.difficulty;
-			const ori = this.data.gp_ori;
-			const sf = this.data.gp_sf;
+			const ori = this.data.ori;
+			const sf = this.data.sf;
 			const lum = 127.5;
 			const phs = 0;
 			const sigma = 0.2 * s;
@@ -1978,7 +1866,7 @@ const Stimuli = ((module) => {
 			this.data.y = args.text_y ?? 0.5;
 			this.data.colour = args.text_colour ?? "white";
 			this.data.upper = args.text_upper ?? false;
-			this.data.size = args.size ?? 0.25;
+			this.data.size = args.size ?? 0.15;
 			this.data.fontSize = this.calculateFontSize(this.data.size);
 		}
 
@@ -1993,6 +1881,37 @@ const Stimuli = ((module) => {
 
 		calculateFontSize(size) {
 			return Math.round(size * tomJS.visual.stimulus_size) + "px";
+		}
+
+	}
+
+	module.Feedback = class Feedback extends module.Text {
+
+		constructor(trial, args = {}) {
+			super(trial, args);
+			this.data.text = args.text ?? "";
+			this.data.size = args.size ?? 0.10;
+			this.calculateFontSize();
+		}
+
+		// super
+
+		enter() {
+			super.enter();
+			const outcome = this.trial.data.outcome;
+			this.data.text = this.trial.feedback_texts[outcome];
+			this.data.colour = this.trial.feedback_colors[outcome];
+		}
+
+	}
+
+	module.Fixation = class Fixation extends module.Text {
+
+		constructor(trial, args = {}) {
+			super(trial, args);
+			this.data.text = args.text ?? "+";
+			this.data.size = args.size ?? 0.10;
+			this.calculateFontSize();
 		}
 
 	}
@@ -2024,26 +1943,41 @@ const Trials = ((module) => {
 			this.data.trial = Number(args.trial ?? tomJS.trial);
 			this.data.index = Number(this.index);
 			this.data.condition = args.condition ?? null;
-			this.data.difficulty = this.stimulus.data.difficulty;
+			this.data.difficulty = args.difficulty ?? null;
 			this.data.fixation_duration = Number(choose(args.fixation_duration, 1000));
-			this.data.fixation_size = Number(choose(args.fixation_size, 0.10));
+			this.data.fixation_size = Number(choose(args.fixation_size, 0.15));
 			this.data.fixation_colour = args.fixation_colour ?? "white";
 			this.data.stimulus_duration = Number(choose(args.stimulus_duration, 3000));
 			this.data.stimulus_fast = Number(choose(args.stimulus_fast, 200));
 			this.data.stimulus_slow = Number(choose(args.stimulus_slow, 3000));
-			this.data.target = this.stimulus.data.target;
+			this.data.target = args.target ?? null;
 			this.data.feedback_duration = Number(choose(args.feedback_duration, 1000));
-			this.data.feedback_size = Number(choose(args.feedback_size, 0.05));
-			this.data.iti_duration = Number(choose(args.iti_duration, 200));
+			this.data.feedback_size = Number(choose(args.feedback_size, 0.10));
+			this.data.iti_duration = Number(choose(args.iti_duration, 1000));
 
 			// timeline
 			if ('timeline' in args) this.timeline = args.timeline
 			else {
 				this.timeline = new Timeline();
-				this.timeline.push(new FixationBit(this, args));
-				this.timeline.push(new StimulusBit(this, args));
-				this.timeline.push(new FeedbackBit(this, args));
-				this.timeline.push(new ITIBit(this, args));
+
+				const _fixation = new Stimuli.Fixation(this, args);
+				_fixation.data.duration = this.data.fixation_duration;
+				_fixation.data.size = this.data.fixation_size;
+				this.timeline.push(_fixation);
+
+				const _gabor = new Stimuli.Gabor(this, args);
+				_gabor.data.duration = this.data.stimulus_duration;
+				_gabor.data.responses = tomJS.controls.inputs;
+				this.timeline.push(_gabor);
+
+				const _feedback = new Stimuli.Feedback(this, args);
+				_feedback.data.duration = this.data.feedback_duration;
+				_feedback.data.size = this.data.feedback_size;
+				this.timeline.push(_feedback);
+
+				const _blank = new Stimuli.Stimulus(this, args);
+				_blank.data.duration = this.data.iti_duration;
+				this.timeline.push(_blank);
 			};
 
 			// append data headings to global data heading storage
@@ -2138,15 +2072,9 @@ const Trials = ((module) => {
 		}
 
 		recordResponse() {
-			this.data.response = tomJS.dir;
-			this.data.response_key = tomJS.key;
+			this.data.response = tomJS.controls.responses[tomJS.keyboard.key];
+			this.data.response_key = tomJS.keyboard.key;
 			this.data.response_given = tomJS.now;
-		}
-
-		updateFeedbackText() {
-			const outcome = this.data.outcome;
-			this.data.feedback_text = this.feedback_texts[outcome];
-			this.data.feedback_colour = this.feedback_colors[outcome];
 		}
 
 	}
@@ -2720,17 +2648,16 @@ const ObjectTools = ((module) => {
 
 
 class Keyboard {
-
-
-	constructor(args={}) {
+	constructor(args = {}) {
 		this.args = args;
+		this.key = '';
+		this.timestamp = 0;
 		this.keys = {};
-		this.keyPress   = this.keyPress.bind(this);
+		this.keyPress = this.keyPress.bind(this);
 		this.keyRelease = this.keyRelease.bind(this);
 		document.addEventListener('keydown', this.keyPress, true);
 		document.addEventListener('keyup', this.keyRelease, true);
 	}
-
 
 	allKeysPressed(targets) {
 		// loop over all keys and check if all targets are pressed
@@ -2742,8 +2669,8 @@ class Keyboard {
 		return true;
 	}
 
-
 	anyKeysPressed(targets) {
+		if (targets == null) return null;
 		// loop over all keys and check if any targets are pressed
 		for (let i = 0; i < targets.length; i++) {
 			let target = targets[i];
@@ -2753,28 +2680,18 @@ class Keyboard {
 		return false;
 	}
 
-
 	keyPress(event) {
 		let key = event.key;
 		if (!key in this.keys) this.keys[key] = null;
+		this.key = key;
+		this.timestamp = event.timeStamp;
 		this.keys[key] = true;
-		tomJS.key = key;
-		switch (key) {
-			case tomJS.controls.key_a: 
-				tomJS.dir = tomJS.controls.resp_a;
-				break;
-			case tomJS.controls.key_b: 
-				tomJS.dir = tomJS.controls.resp_b;
-				break;
-		};
 	}
-
 
 	keyRelease(event) {
 		let key = event.key;
 		this.keys[key] = false;
 	}
-
 
 }
 
