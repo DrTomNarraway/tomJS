@@ -29,19 +29,19 @@
 
         const _additional = {
             'difficulty': 0.03,
-            'stimulus': Gabor,
+            'stimulus': Stimuli.Gabor,
             'gp_ori': 2,
             'iti_duration': [800, 1000, 1200]
         };
 
-        const _keyboard = new Slide([
+        const _keyboard = new Slides.Slide([
             { 'class': 'text', 'text': 'Please press ' + A + ' and then ' + B + ' a few times to make sure your', 'y': 0.25 },
             { 'class': 'text', 'text': 'keyboard is being read by the experiment correctly.', 'y': 0.30 },
             { 'class': 'text', 'text': '~tomJS.key~', 'upper': true },
             { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
         ]);
 
-        const _end_block = new EndBlock([
+        const _end_block = new Slides.EndBlock([
             { 'class': 'text', 'text': 'End of block. Please take a short break.', 'y': 0.25 },
             { 'class': 'text', 'text': 'Your accuracy was great!', 'y': 0.48, 'conditions': ['~this.data.accuracy~ >= 80'] },
             { 'class': 'text', 'text': 'Your accuracy was good.', 'y': 0.48, 'conditions': ['~this.data.accuracy~ < 80', '~this.data.accuracy~ >= 60'] },
@@ -52,7 +52,7 @@
             { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
         ]);
 
-        const _end_exp = new EndExperiment([
+        const _end_exp = new Slides.EndExperiment([
             { 'class': 'text', 'text': 'End of Experiment. Thank you for your help.', 'y': 0.25 },
             { 'class': 'text', 'text': 'You were correct on ~this.data.accuracy~% of all test trials.', 'y': 0.48 },
             { 'class': 'text', 'text': 'You responded on time on ~this.data.hits~% of all test trials.', 'y': 0.52 },
@@ -62,7 +62,7 @@
         tomJS.appendToTimeline(_keyboard);
 
         tomJS.appendBlocks(
-            trial_type = Trial,
+            trial_type = Trials.Trial,
             blockwise = _blockwise,
             trialwise = _trialwise,
             additional = _additional,
