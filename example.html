@@ -6,20 +6,6 @@
     <script src="tomJS.js" id="tomJS"></script>
     <script>
 
-        // define constants ====================================================================================================
-
-        const BLOCK_REPS = 2;
-        const CONDITION  = [200, 400, 600]; // target-signal SOA, milliseconds.
-        const DIFFICULTY = [0.01, 0.03, 0.50]; // gabor contrast, percentage.
-        const FORCE_WAIT = 2500; //5000;
-        const GABOR_REPS = 1; // number of trial reps in gabor training block.
-        const ITI_DUR    = [800, 1000, 1200]; // duration of blank screen shown after each trial, milliseconds.
-        const SIGNAL     = NecroDancerBar; // type of progress bar to use
-        const TEST_REPS  = 1; // number of trial reps in test blocks.
-        const TIME_REPS  = 1; // number of trial reps in timing training block.
-
-        // set up experiment ===================================================================================================
-
         const args = {
             'fullscreen': false,
             'gridlines': false,
@@ -33,80 +19,20 @@
         const A = tomJS.controls.key_a_upper;
         const B = tomJS.controls.key_b_upper;
 
-        const max_cond = ArrayTools.max(CONDITION);
-        const min_cond = ArrayTools.min(CONDITION);
-        const max_diff = ArrayTools.max(DIFFICULTY);
-        const min_diff = ArrayTools.min(DIFFICULTY);
-
-        // trial arguments =====================================================================================================
-
-        const _blockwise = {};
+        const _blockwise = {
+            'fixation_colour': ['blue', 'orange']
+        };
 
         const _trialwise = {
-            'condition': CONDITION,
-            'difficulty': DIFFICULTY,
             'target': ['A', 'B']
         };
 
         const _additional = {
+            'difficulty': 0.03,
             'stimulus': Gabor,
             'gp_ori': 2,
-            'iti_duration': ITI_DUR,
-            'signal': SIGNAL
+            'iti_duration': [800, 1000, 1200]
         };
-
-        const _conditional = {
-            'fixation_duration': {
-                'condition == 200': 1400,
-                'condition == 400': 1200
-            }
-        };
-
-        const _attention = {
-            'condition': 1000,
-            'difficulty': 1.00,
-            'gp_ori': 30,
-            'signal': SIGNAL,
-            'signal_for': 1000,
-            'stimulus': Gabor,
-            'targets': ['A', 'B']
-        };
-
-        const _gabor_training_trialwise = {
-            'difficulty': DIFFICULTY,
-            'target': ['A', 'B']
-        };
-
-        const _gabor_training_additional = {
-            'stimulus': Gabor,
-            'gp_ori': 2,
-            'iti_duration': ITI_DUR
-        };
-
-        const _gabor_training_conditional = {};
-
-        const _timing_training_trialwise = {
-            'condition': CONDITION,
-            'target': ['A', 'B']
-        };
-
-        const _timing_training_additional = {
-            'stimulus': Text,
-            'iti_duration': ITI_DUR,
-            'signal': SIGNAL
-        };
-
-        const _timing_training_conditional = {
-            'text': { 'target == A': '~A~', 'target == B': '~B~' }
-        };
-
-        // slides ==============================================================================================================
-
-        const _consent = new Consent();
-
-        const _credit_card = new CreditCard();
-
-        const _demographics = new Demographics();
 
         const _keyboard = new Slide([
             { 'class': 'text', 'text': 'Please press ' + A + ' and then ' + B + ' a few times to make sure your', 'y': 0.25 },
@@ -114,88 +40,6 @@
             { 'class': 'text', 'text': '~tomJS.key~', 'upper': true },
             { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 },
         ]);
-
-        const _procedure = new Slide([
-            { 'class': 'text', 'text': 'During the experiment you will perform several blocks of trials.', 'y': 0.20 },
-            { 'class': 'text', 'text': 'After each block you will be given feedback on your performance for that block.', 'y': 0.25 },
-            { 'class': 'text', 'text': 'Your performance will be marked as "needing improvement", "good" or "great".', 'y': 0.30 },
-            { 'class': 'text', 'text': 'First, you will be trained in how to respond to the stimulus, and then how to time your responses.', 'y': 0.45 },
-            { 'class': 'text', 'text': 'After both training blocks, you will start the real experiment, combining what you have learnt.', 'y': 0.50 },
-            { 'class': 'text', 'text': 'Most participants take 50 to 60 minutes to complete the entire experiment.', 'y': 0.55 },
-            { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75, 'conditions': ['~this.can_proceed~ == true'] },
-        ], { 'force_wait': FORCE_WAIT });
-
-        // gabor training ------------------------------------------------------------------------------------------------------
-
-        const _gabor = new Slide([
-            { 'class': 'text', 'text': 'On each trial you will see a stimulus like the one below, leaning to the left or right.', 'y': 0.25 },
-            { 'class': 'text', 'text': 'For the first block your task is to press ' + A + ' if you think the answer is left or ' + B + ' if you think it is right.', 'y': 0.30 },
-            { 'class': 'text', 'text': 'You can press ' + A + ' or ' + B + ' now to see examples of each.', 'y': 0.35 },
-            { 'class': 'gabor', 'gp_size': 0.5, 'difficulty': max_diff, 'gp_ori': 2, 'gp_y': 0.55 },
-            { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to start the first training block.', 'y': 0.75 },
-        ]);
-
-        const _gabor_end_block = new EndBlock([
-            { 'class': 'text', 'text': 'End of stimulus practice. Please take a short break.', 'y': 0.25 },
-            { 'class': 'text', 'text': 'Your accuracy was great!', 'conditions': ['~this.data.accuracy~ >= 80'] },
-            { 'class': 'text', 'text': 'Your accuracy was good.', 'conditions': ['~this.data.accuracy~ < 80', '~this.data.accuracy~ >= 60'] },
-            { 'class': 'text', 'text': 'Your accuracy needs improvement.', 'conditions': ['~this.data.accuracy~ < 60'] },
-            { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue to the timing training.', 'y': 0.75 }
-        ]);
-
-        // response signal training --------------------------------------------------------------------------------------------
-
-        const _timing = new Slide([
-            { 'class': 'text', 'text': 'From now on you will see a timer at the top of the screen with two moving bars.', 'y': 0.10 },
-            { 'class': 'text', 'text': 'The middle of the timer has a box called the response window.', 'y': 0.15 },
-            { 'class': 'text', 'text': 'You are trying to respond when the bars are inside the response window.', 'y': 0.20 },
-            { 'class': 'text', 'text': 'While the bars are in the response window, they will all turn blue to make it easier to notice.', 'y': 0.25 },
-            { 'class': 'text', 'text': 'If you miss the response window, simply respond as soon as possible.', 'y': 0.30 },
-            { 'class': 'text', 'text': 'For this training block press the indicated letter while the bar is inside the response window.', 'y': 0.35 },
-            { 'class': 'progressbar', 'signal': SIGNAL, 'progressbar_y': 0.45, 'signal_on': 0.8, 'signal_off': 1, 'progressbar_scale': 0.50 },
-            { 'class': 'text', 'text':'F', 'y':0.55 },
-            { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to start the second training block.', 'y': 0.75, 'conditions': ['~this.can_proceed~ == true'] },
-        ], { 'force_wait': FORCE_WAIT });
-
-        const _timing_end_block = new EndBlock([
-            { 'class': 'text', 'text': 'End of timing practice. Please take a short break.', 'y': 0.25 },
-            { 'class': 'text', 'text': 'Your timing was great!', 'y': 0.48, 'conditions': ['~this.data.hits~ >= 80'] },
-            { 'class': 'text', 'text': 'Your timing was good.', 'y': 0.48, 'conditions': ['~this.data.hits~ < 80', '~this.data.hits~ >= 60'] },
-            { 'class': 'text', 'text': 'Your timing needs improvement.', 'y': 0.48, 'conditions': ['~this.data.hits~ < 60'] },
-            { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to start the experiment proper.', 'y': 0.75 }
-        ]);
-
-        // main experiment -----------------------------------------------------------------------------------------------------
-
-        const _main = new Slide([
-            { 'class': 'text', 'text': 'From now on you must indicate the tilt of the stimulus during the response window.', 'y': 0.15 },
-            { 'class': 'text', 'text': 'If you miss the response window, please respond as soon as possible.', 'y': 0.20 },
-            { 'class': 'text', 'text': 'Each trial will look something like the example below.', 'y': 0.25 },
-            { 'class': 'progressbar', 'signal': SIGNAL, 'progressbar_y': 0.35, 'signal_on': 0.8, 'signal_off': 1, 'progressbar_scale': 0.50 },
-            { 'class': 'gabor', 'difficulty': 0.50, 'gp_size': 0.40, 'gp_ori': 2 },
-            { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 }
-        ]);
-
-        const _checks = new Slide([
-            { 'class': 'text', 'text': 'Some trials are attention checks meant to prevent low-effort submissions.', 'y': 0.15 },
-            { 'class': 'text', 'text': 'Attention checks look like the example below: easy versions of the main task.', 'y': 0.20 },
-            { 'class': 'text', 'text': 'As per Prolific policy, if you fail too many of these checks the experiment will end', 'y': 0.25 },
-            { 'class': 'text', 'text': 'and you will be asked to return your submission.', 'y': 0.30 },
-            { 'class': 'progressbar', 'signal': SIGNAL, 'progressbar_y': 0.40, 'signal_on': 0.5, 'signal_off': 1, 'progressbar_scale': 0.50, 'window_width':0.50 },
-            { 'class': 'gabor', 'difficulty': 1.00, 'gp_size': 0.40, 'gp_ori': 30, 'gp_y':0.55 },
-            { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to start the first test block.', 'y': 0.75, 'conditions': ['~this.can_proceed~ == true'] }
-        ], { 'force_wait': FORCE_WAIT });
-
-        const _half = new EndBlock([
-            { 'class': 'text', 'text': 'You are now half-way through the experiment.', 'y': 0.15 },
-            { 'class': 'text', 'text': 'So far your accuracy has been great!', 'y': 0.48, 'conditions': ['~this.data.accuracy~ >= 80'] },
-            { 'class': 'text', 'text': 'So far your accuracy has been good.', 'y': 0.48, 'conditions': ['~this.data.accuracy~ < 80', '~this.data.accuracy~ >= 60'] },
-            { 'class': 'text', 'text': 'Your accuracy needs improvement.', 'y': 0.48, 'conditions': ['~this.data.accuracy~ < 60'] },
-            { 'class': 'text', 'text': 'So far your timing has been great!', 'y': 0.52, 'conditions': ['~this.data.hits~ >= 80'] },
-            { 'class': 'text', 'text': 'So far your timing has been good.', 'y': 0.52, 'conditions': ['~this.data.hits~ < 80', '~this.data.hits~ >= 60'] },
-            { 'class': 'text', 'text': 'Your timing needs improvement.', 'y': 0.52, 'conditions': ['~this.data.hits~ < 60'] },
-            { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to continue.', 'y': 0.75 }
-        ], { 'filter': 'block <= 0' });
 
         const _end_block = new EndBlock([
             { 'class': 'text', 'text': 'End of block. Please take a short break.', 'y': 0.25 },
@@ -215,72 +59,23 @@
             { 'class': 'text', 'text': 'Press ' + A + ' and ' + B + ' to end the experiment.', 'y': 0.75 },
         ]);
 
-        // timeline ============================================================================================================
-
-        tomJS.appendToTimeline(_consent);
-        tomJS.appendToTimeline(_credit_card);
-        tomJS.appendToTimeline(_demographics);
         tomJS.appendToTimeline(_keyboard);
-        tomJS.appendToTimeline(_procedure);      
-        
-        tomJS.appendToTimeline(_gabor);
-        //tomJS.appendBlock(
-        //    trial_type = Trial,
-        //    trialwise = _gabor_training_trialwise,
-        //    additional = _gabor_training_additional,
-        //    conditional = _gabor_training_conditional,
-        //    attention = null,
-        //    trial_reps = GABOR_REPS,
-        //    start_slide = null,
-        //    end_slide = _gabor_end_block,
-        //    add_countdown = true
-        //);
-        
-        tomJS.appendToTimeline(_timing);
-        //tomJS.appendBlock(
-        //    trial_type = ProgressBarResponseSignal,
-        //    trialwise = _timing_training_trialwise,
-        //    additional = _timing_training_additional,
-        //    conditional = _timing_training_conditional,
-        //    attention = null,
-        //    trial_reps = TIME_REPS,
-        //    start_slide = null,
-        //    end_slide = _timing_end_block,
-        //    add_countdown = true
-        //);
 
-        tomJS.appendToTimeline(_main);
-        tomJS.appendToTimeline(_checks);
         tomJS.appendBlocks(
-            trial_type = ProgressBarResponseSignal,
+            trial_type = Trial,
             blockwise = _blockwise,
             trialwise = _trialwise,
             additional = _additional,
-            conditional = _conditional,
-            attention = _attention,
-            block_reps = BLOCK_REPS / 2,
-            trial_reps = TEST_REPS,
+            conditional = {},
+            attention = {},
+            block_reps = 2,
+            trial_reps = 2,
             start_slide = null,
             end_slide = _end_block,
-            add_countdown = true,
-        )
+            add_countdown = true
+        );
 
-        tomJS.appendToTimeline(_half);
-        tomJS.appendBlocks(
-            trial_type = ProgressBarResponseSignal,
-            blockwise = _blockwise,
-            trialwise = _trialwise,
-            additional = _additional,
-            conditional = _conditional,
-            attention = _attention,
-            block_reps = BLOCK_REPS / 2,
-            trial_reps = TEST_REPS,
-            start_slide = null,
-            end_slide = _end_block,
-            add_countdown = true,
-        )
-
-        // run =================================================================================================================
+        tomJS.appendToTimeline(_end_exp);
 
         tomJS.start();
 
