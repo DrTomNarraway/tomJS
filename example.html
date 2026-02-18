@@ -21,14 +21,23 @@
         };
 
         const _trialwise = {
-            'target': ['A', 'B']
+            'target': ['A', 'B'],
+            'condition': [200, 400, 600]
+        };
+
+        const _conditional = {
+            'fixation_duration': {
+                'condition == 200': 1400,
+                'condition == 400': 1200
+            }
         };
 
         const _additional = {
             'difficulty': 0.03,
             'stimulus': Stimuli.Gabor,
             'ori': 2,
-            'iti_duration': [800, 1000, 1200]
+            'iti_duration': 1000,
+            'signal': Stimuli.NecroDancerBar
         };
 
         const _keyboard = new Slides.Slide([
@@ -59,7 +68,7 @@
         tomJS.appendToTimeline(_keyboard);
 
         tomJS.appendBlocks(
-            trial_type = Trials.Trial,
+            trial_type = Trials.ProgressBarResponseSignal,
             blockwise = _blockwise,
             trialwise = _trialwise,
             additional = _additional,

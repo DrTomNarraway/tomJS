@@ -2,7 +2,7 @@
 
 class Experiment {	
 
-	version = '18.02.26 16:37';
+	version = '18.02.26 17:19';
 	
 	constructor(args={}) {
 		
@@ -206,8 +206,8 @@ class Experiment {
 	}
 
 	flushKeys() {
-		this.key = '';
-		this.dir = '';
+		this.keyboard.key = '';
+		this.keyboard.dir = '';
 	}
 
 	replaceEndBlockWithEndExperiment(end_slide) {		
@@ -733,7 +733,7 @@ const Slides = ((module) => {
 			for (const _c of this.content) {
 				switch (_c.class) {
 					case 'gabor':
-						if (tomJS.dir == 'A') this.gp_L.draw()
+						if (tomJS.keyboard.dir == 'A') this.gp_L.draw()
 						else this.gp_R.draw();
 						break;
 					case 'image':
@@ -766,11 +766,11 @@ const Slides = ((module) => {
 							bar.set('bar_colour', "#00000000");
 							bar.set('window_colour', this.window_colour);
 						}
-						else if (percent < _c.signal_on ?? 0.50) {
+						else if (percent < this.signal_on) {
 							bar.set('bar_colour', this.bar_colour);
 							bar.set('window_colour', this.window_colour);
 						}
-						else if (percent < _c.signal_off ?? 0.75) {
+						else if (percent < this.signal_off) {
 							bar.set('bar_colour', this.signal_colour);
 							bar.set('window_colour', this.signal_colour);
 						}
@@ -796,25 +796,26 @@ const Slides = ((module) => {
 			for (let c of this.content) {
 				switch (c.class) {
 					case 'gabor':
-						this.gp_L = new Stimuli.Gabor({ ...c, ...{ 'target': "A" } });
-						this.gp_R = new Stimuli.Gabor({ ...c, ...{ 'target': "B" } });
+						this.gp_L = new Stimuli.Gabor(null, { ...c, ...{ 'target': "A" } });
+						this.gp_R = new Stimuli.Gabor(null, { ...c, ...{ 'target': "B" } });
 						break;
 					case 'pixelpatch':
-						this.pp_A = new Stimuli.PixelPatch({ ...c, ...{ 'difficulty': c.A } });
-						this.pp_B = new Stimuli.PixelPatch({ ...c, ...{ 'difficulty': c.B } });
+						this.pp_A = new Stimuli.PixelPatch(null, { ...c, ...{ 'difficulty': c.A } });
+						this.pp_B = new Stimuli.PixelPatch(null, { ...c, ...{ 'difficulty': c.B } });
 						break;
 					case 'table':
-						this.table = new Stimuli.Table(c);
+						this.table = new Stimuli.Table(null, c);
 						break;
 					case 'progressbar':
-						this.bar_start = this.start;
-						this.bar_max = c.bar_max ?? 2000;
-						this.bar_colour = c.bar_colour ?? "White";
+						this.bar_start     = this.start;
+						this.bar_max       = c.bar_max ?? 2000;
+						this.bar_colour    = c.bar_colour ?? "White";
 						this.signal_colour = c.signal_colour ?? "DeepSkyBlue";
 						this.window_colour = c.window_colour ?? "Silver";
-						this.signal_on = c.signal_on ?? 0.50;
+						this.signal_on	   = c.signal_on ?? 0.50;
 						this.signal_off = c.signal_off ?? 0.75;
-						this['progressbar' + c.tag ?? ''] = new (c.signal ?? Stimuli.ProgressBar)(c);
+						const _bar = new (c.signal ?? Stimuli.ProgressBar)(c);
+						this['progressbar' + c.tag ?? ''] = _bar;
 						break;
 				};
 			};
@@ -1571,19 +1572,20 @@ const Stimuli = ((module) => {
 
 	module.ProgressBar = class ProgressBar extends module.Stimulus {
 
-		constructor(args = {}) {
-			super(args);
-			this.data.bar_colour = args.progressbar_bar_colour ?? "White";
-			this.data.border_colour = args.progressbar_border_colour ?? "Grey";
-			this.data.height = args.progressbar_height ?? 0.13;
-			this.data.width = args.progressbar_width ?? 0.75;
-			this.data.x = args.progressbar_x ?? 0.50;
-			this.data.y = args.progressbar_y ?? 0.20;
-			this.data.percent = args.progressbar_percent ?? 0;
-			this.data.scale = args.progressbar_scale ?? 1;
-			if (this.data.scale != 1)
-				this.data.height *= this.data.scale
-			this.data.width *= this.data.scale;
+		constructor(args={}) {
+			super(null, args);
+			this.data.bar_colour = args.bar_colour ?? "White";
+			this.data.border_colour = args.border_colour ?? "Grey";
+			this.data.height = args.height ?? 0.13;
+			this.data.width = args.width ?? 0.75;
+			this.data.x = args.x ?? 0.50;
+			this.data.y = args.y ?? 0.20;
+			this.data.percent = args.percent ?? 0;
+			this.data.scale = args.scale ?? 1;
+			if (this.data.scale != 1) {
+				this.data.height *= this.data.scale;
+				this.data.width *= this.data.scale;
+			};
 		}
 
 		// super
@@ -2093,9 +2095,9 @@ const Trials = ((module) => {
 		}
 
 		recordResponse() {
-			this.data.response = tomJS.controls.responses[tomJS.keyboard.key];
-			this.data.response_key = tomJS.keyboard.key;
-			this.data.response_given = tomJS.now;
+			this.data.response       = tomJS.keyboard.dir;
+			this.data.response_key   = tomJS.keyboard.key;
+			this.data.response_given = tomJS.keyboard.timestamp;
 		}
 
 	}
@@ -2316,7 +2318,7 @@ const Trials = ((module) => {
 		// functions
 
 		drawProgressBar() {
-			if (this.timeline.currentState() == "ITIBit") { tomJS.resetCanvas(); return; }
+			if (this.timeline.currentState() == "ITI") { tomJS.resetCanvas(); return; }
 			this.signal.draw();
 			if (this.data.above_and_below) this.signal_lower.draw();
 		}
@@ -2333,8 +2335,8 @@ const Trials = ((module) => {
 		}
 
 		updateProgressBar() {
-			if (this.timeline.currentState() == "FeedbackBit" |
-				this.timeline.currentState() == "ITIBit") return;
+			if (this.timeline.currentState() == "Feedback" |
+				this.timeline.currentState() == "ITI") return;
 			const percent = this.getBarPercent();
 			this.setBarColour();
 			this.setBarPercent(percent);
@@ -2672,6 +2674,7 @@ class Keyboard {
 	constructor(args = {}) {
 		this.args = args;
 		this.key = '';
+		this.dir = '';
 		this.timestamp = 0;
 		this.keys = {};
 		this.keyPress = this.keyPress.bind(this);
@@ -2707,6 +2710,7 @@ class Keyboard {
 		this.key = key;
 		this.timestamp = event.timeStamp;
 		this.keys[key] = true;
+		if (tomJS.controls.inputs.includes(key)) this.dir = tomJS.controls.responses[key];
 	}
 
 	keyRelease(event) {

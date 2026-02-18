@@ -22,9 +22,9 @@
         // set up experiment ==================================================
 
         const args = {
-            'fullscreen': false,
+            'fullscreen': true,
             'gridlines': false,
-            'verbose': true
+            'verbose': false
         };
 
         const tomJS = new Experiment(args);
@@ -151,7 +151,7 @@
             { 'class': 'text', 'text': 'While the bars are in the response window, they will all turn blue to make it easier to notice.', 'y': 0.25 },
             { 'class': 'text', 'text': 'If you miss the response window, simply respond as soon as possible.', 'y': 0.30 },
             { 'class': 'text', 'text': 'For this training block press the indicated letter while the bar is inside the response window.', 'y': 0.35 },
-            { 'class': 'progressbar', 'signal': SIGNAL, 'progressbar_y': 0.45, 'signal_on': 0.8, 'signal_off': 1, 'progressbar_scale': 0.50 },
+            { 'class': 'progressbar', 'signal': SIGNAL, 'y': 0.45, 'signal_on': 0.8, 'signal_off': 1, 'scale': 0.50 },
             { 'class': 'text', 'text': 'F', 'y': 0.55 },
             { 'class': 'text', 'text': 'Press F and J to start the second training block.', 'y': 0.75, 'conditions': ['~this.can_proceed~ == true'] },
         ], { 'force_wait': FORCE_WAIT });
@@ -170,8 +170,8 @@
             { 'class': 'text', 'text': 'From now on you must indicate the tilt of the stimulus during the response window.', 'y': 0.15 },
             { 'class': 'text', 'text': 'If you miss the response window, please respond as soon as possible.', 'y': 0.20 },
             { 'class': 'text', 'text': 'Each trial will look something like the example below.', 'y': 0.25 },
-            { 'class': 'progressbar', 'signal': SIGNAL, 'progressbar_y': 0.35, 'signal_on': 0.8, 'signal_off': 1, 'progressbar_scale': 0.50 },
-            { 'class': 'gabor', 'difficulty': 0.50, 'gp_size': 0.40, 'gp_ori': 2 },
+            { 'class': 'progressbar', 'signal': SIGNAL, 'y': 0.35, 'signal_on': 0.8, 'signal_off': 1, 'scale': 0.50 },
+            { 'class': 'gabor', 'difficulty': 0.50, 'size': 0.40, 'ori': 2 },
             { 'class': 'text', 'text': 'Press F and J to continue.', 'y': 0.75 }
         ]);
 
@@ -180,8 +180,8 @@
             { 'class': 'text', 'text': 'Attention checks look like the example below: easy versions of the main task.', 'y': 0.20 },
             { 'class': 'text', 'text': 'As per Prolific policy, if you fail too many of these checks the experiment will end', 'y': 0.25 },
             { 'class': 'text', 'text': 'and you will be asked to return your submission.', 'y': 0.30 },
-            { 'class': 'progressbar', 'signal': SIGNAL, 'progressbar_y': 0.40, 'signal_on': 0.5, 'signal_off': 1, 'progressbar_scale': 0.50, 'window_width': 0.50 },
-            { 'class': 'gabor', 'difficulty': 1.00, 'gp_size': 0.40, 'gp_ori': 30, 'gp_y': 0.55 },
+            { 'class': 'progressbar', 'signal': SIGNAL, 'y': 0.40, 'signal_on': 0.5, 'signal_off': 1, 'scale': 0.50, 'window_width': 0.50 },
+            { 'class': 'gabor', 'difficulty': 1.00, 'size': 0.40, 'ori': 30, 'y': 0.55 },
             { 'class': 'text', 'text': 'Press F and J to start the first test block.', 'y': 0.75, 'conditions': ['~this.can_proceed~ == true'] }
         ], { 'force_wait': FORCE_WAIT });
 
