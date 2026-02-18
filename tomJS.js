@@ -1,8 +1,9 @@
 
+
 class Experiment {	
 
-	version = '17.02.26 14:26';
-
+	version = '18.02.26 16:37';
+	
 	constructor(args={}) {
 		
 		console.log('booting tomJS version ' + this.version);
@@ -39,11 +40,7 @@ class Experiment {
 		this.controls.responses = args.responses ?? { 'f': 'A', 'j': 'B' };
 		this.controls.inputs = Object.keys(this.controls.responses);
 		this.controls.options = Object.values(this.controls.responses);
-
-		// current input data
 		this.keyboard = new Keyboard();
-		this.key = '';
-		this.dir = '';
 		
 		// jatos
 		this.jatos = false;
@@ -272,6 +269,10 @@ class Experiment {
 		this.visual.context.lineWidth = lineWidth;
 		this.visual.context.strokeRect(x, y, width, height);
 	}
+
+	getTimeline() {
+		return this.timeline.timeline;
+	}
 	
 	update () {				
 		this.complete = this.timeline.complete;
@@ -323,6 +324,36 @@ class Experiment {
 
 
 // root classes ===============================================================
+
+
+class State {
+
+	constructor() {
+		this.complete = false;
+		this.timeline = new Timeline();
+		this.name = this.constructor.name;
+		this.start = null;
+		this.end = null;
+	}
+
+	enter() {
+		this.complete = false;
+		this.start = tomJS.now;
+		tomJS.flushKeys();
+	}
+
+	exit() {
+		if (this.complete) return;
+		this.complete = true;
+		this.end = tomJS.now;
+	}
+
+	update() {
+		if (this.complete) return;
+		if (this.timeline) this.complete = this.timeline.complete;
+	}
+
+}
 
 
 /** tomJS timeline of tomJS states. */
@@ -381,36 +412,6 @@ class Timeline {
             this.position += 1;
             this.timeline[this.position].enter();
 		};
-	}
-
-}
-
-
-class State {
-
-	constructor() {
-		this.complete = false;
-		this.timeline = new Timeline();
-		this.name = this.constructor.name;
-		this.start = null;
-		this.end = null;
-	}
-
-	enter() {
-		this.complete = false;
-		this.start = tomJS.now;
-		tomJS.flushKeys();
-	}
-
-	exit() {
-		if (this.complete) return;
-		this.complete = true;
-		this.end = tomJS.now;
-	}
-
-	update() {
-		if (this.complete) return;
-		if (this.timeline) this.complete = this.timeline.complete;
 	}
 
 }
@@ -508,9 +509,15 @@ class Block extends State {
 
 	generateTimeline(trial_type, trialwise, additional, conditional, attention, trial_reps, start_slide, end_slide, add_countdown) {
 		let _timeline = new Timeline();
+
+		// create the matrix and then array-ify it
 		let _trialwise = ObjectTools.allCombinations(trialwise);
 		_trialwise = ArrayTools.tape(_trialwise, additional);
+
+		// extend the array to the desired length
 		_trialwise = ArrayTools.extend(_trialwise, trial_reps);
+
+		// add attention checks if supplied
 		if (Object.keys(attention).length > 0) {
 			for (let i = 0; i < attention.targets.length; i++) {
 				let _new = attention;
@@ -519,10 +526,19 @@ class Block extends State {
 				_trialwise.push(_new);
 			};
 		};
-		if (Object.keys(conditional).length == 0) _trialwise = this.checkConditions(conditional, _trialwise);
+
+		// check conditions
+		if (Object.keys(conditional).length == 0)
+			_trialwise = this.checkConditions(conditional, _trialwise);
+
+		// shuffle
 		_trialwise = ArrayTools.shuffle(_trialwise);
+
+		// add opening slides
 		if (start_slide != null) _timeline.push(start_slide);
-		if (add_countdown) {_timeline.push(new Slides.Countdown(3000))};
+		if (add_countdown) { _timeline.push(new Slides.Countdown(3000)) };
+
+		// add trials
 		for (let t = 0; t < _trialwise.length; t++) {
 			const _args = _trialwise[t];
 			_args.block = this.block;
@@ -533,7 +549,11 @@ class Block extends State {
 			this.n++;
 			tomJS.trials++;
 		};
+
+		// add closing slide
 		if (end_slide != null) _timeline.push(end_slide);
+
+		// assign data
 		this.timeline = _timeline;
 	}
 
@@ -776,15 +796,15 @@ const Slides = ((module) => {
 			for (let c of this.content) {
 				switch (c.class) {
 					case 'gabor':
-						this.gp_L = new Gabor({ ...c, ...{ 'target': "A" } });
-						this.gp_R = new Gabor({ ...c, ...{ 'target': "B" } });
+						this.gp_L = new Stimuli.Gabor({ ...c, ...{ 'target': "A" } });
+						this.gp_R = new Stimuli.Gabor({ ...c, ...{ 'target': "B" } });
 						break;
 					case 'pixelpatch':
-						this.pp_A = new PixelPatch({ ...c, ...{ 'difficulty': c.A } });
-						this.pp_B = new PixelPatch({ ...c, ...{ 'difficulty': c.B } });
+						this.pp_A = new Stimuli.PixelPatch({ ...c, ...{ 'difficulty': c.A } });
+						this.pp_B = new Stimuli.PixelPatch({ ...c, ...{ 'difficulty': c.B } });
 						break;
 					case 'table':
-						this.table = new Table(c);
+						this.table = new Stimuli.Table(c);
 						break;
 					case 'progressbar':
 						this.bar_start = this.start;
@@ -794,7 +814,7 @@ const Slides = ((module) => {
 						this.window_colour = c.window_colour ?? "Silver";
 						this.signal_on = c.signal_on ?? 0.50;
 						this.signal_off = c.signal_off ?? 0.75;
-						this['progressbar' + c.tag ?? ''] = new (c.signal ?? ProgressBar)(c);
+						this['progressbar' + c.tag ?? ''] = new (c.signal ?? Stimuli.ProgressBar)(c);
 						break;
 				};
 			};
@@ -853,7 +873,7 @@ const Slides = ((module) => {
 			document.body.style.color = "black";
 			this.createTopPanel();
 			this.createMain();
-			createButton("exitButton", "Consent", this.exitButtonClicked, this, this.container);
+			HTMLTools.button("exitButton", "Consent", this.exitButtonClicked, this, this.container);
 		}
 
 		exit() {
@@ -923,7 +943,7 @@ const Slides = ((module) => {
 		createContainer() {
 			const ctr = document.createElement('div');
 			ctr.id = "container";
-			ctr.style.width = "65%";
+			ctr.style.width = "85%";
 			ctr.style.justifyContent = "center";
 			ctr.style.alignItems = "center";
 			ctr.style.display = "flex";
@@ -954,8 +974,8 @@ const Slides = ((module) => {
 				const key = Object.keys(consent_form)[i];
 				const kargs = { 'fontSize': tomJS.visual.h1 }
 				const value = Object.values(consent_form)[i];
-				createLabel(key + "Key", key, this, div, kargs);
-				createLabel(key + "Value", value, this, div);
+				HTMLTools.label(key + "Key", key, this, div, kargs);
+				HTMLTools.label(key + "Value", value, this, div);
 			}
 			// join
 			this.container.append(div);
@@ -999,15 +1019,15 @@ const Slides = ((module) => {
 			super.enter();
 			this.adjustWindowSize();
 			this.createContainer();
-			createLabel("instructions", this.instructions, this, this.container, { 'width': '50%' });
+			HTMLTools.label("instructions", this.instructions, this, this.container, { 'width': '50%' });
 			this.createWallet();
 			this.createCreditCard();
 			this.createControls();
 			const _up_down_args = { 'width': '5vmin', 'height': '5vmin' };
-			createButton("Down", "-", () => { this.onUpDownClick(this, -1) }, this, this.controls, _up_down_args);
+			HTMLTools.button("Down", "-", () => { this.onUpDownClick(this, -1) }, this, this.controls, _up_down_args);
 			this.createSlider();
-			createButton("Up", "+", () => { this.onUpDownClick(this, 1) }, this, this.controls, _up_down_args);
-			createButton("Exit", "Confirm", this.exitClick, this, this.container);
+			HTMLTools.button("Up", "+", () => { this.onUpDownClick(this, 1) }, this, this.controls, _up_down_args);
+			HTMLTools.button("Exit", "Confirm", this.exitClick, this, this.container);
 		}
 
 		exit() {
@@ -1167,10 +1187,10 @@ const Slides = ((module) => {
 		enter() {
 			super.enter();
 			this.createContainer();
-			createLabel("Heading", this.heading, this, this.container, { 'fontSize': tomJS.visual.h0 });
-			createLabel("Instructions", this.instructions, this, this.container);
+			HTMLTools.label("Heading", this.heading, this, this.container, { 'fontSize': tomJS.visual.h0 });
+			HTMLTools.label("Instructions", this.instructions, this, this.container);
 			this.createFields();
-			createButton("exitButton", "Submit", this.exitClicked, this, this.container);
+			HTMLTools.button("exitButton", "Submit", this.exitClicked, this, this.container);
 		}
 
 		exit() {
@@ -1217,7 +1237,7 @@ const Slides = ((module) => {
 			div.style.alignItems = "center";
 			div.style.display = "flex";
 			// create label
-			createLabel(id + "Label", textContent, this, div, { 'width': '50vmin', 'marginRight': '3vh', 'textAlign': 'right' });
+			HTMLTools.label(id + "Label", textContent, this, div, { 'width': '50vmin', 'marginRight': '3vh', 'textAlign': 'right' });
 			// create input options
 			let input;
 			switch (type) {
@@ -1354,6 +1374,11 @@ const Stimuli = ((module) => {
 
 		initialize() {
 			// does nothing
+		}
+
+		set(key, value) {
+			if (!(Object.keys(this.data).includes(key))) return null;
+			this.data[key] = value;
 		}
 
 		timedOut() {
@@ -1931,10 +1956,6 @@ const Trials = ((module) => {
 
 			this.index = args.index ?? 0;
 
-			// create new stimulus object
-			if (!('stimulus' in args)) tomJS.error('no target stimulus passed to trial');
-			this.stimulus = new args.stimulus(args);
-
 			// data
 			tomJS.data.push(new Data.TrialData());
 			this.data = tomJS.data[this.index];
@@ -2169,12 +2190,12 @@ const Trials = ((module) => {
 			this.data.late = null;
 
 			// response signal
-			this.signal = new (args.signal ?? Text)(args);
+			this.signal = new (args.signal ?? Stimuli.Text)(args);
 			this.signal.set('x', this.data.signal_x);
 			this.signal.set('y', this.data.signal_y);
 
 			if (this.data.above_and_below) {
-				this.signal_lower = new (args.signal ?? Text)(args);
+				this.signal_lower = new (args.signal ?? Stimuli.Text)(args);
 				this.signal_lower.set('x', this.data.signal_x);
 				this.signal_lower.set('y', (1 - this.data.signal_y));
 			};
@@ -2263,14 +2284,14 @@ const Trials = ((module) => {
 			this.data.empty_colour = args.empty_colour ?? "#00000000";
 
 			// signal
-			this.signal = new (args.signal ?? ProgressBar)(args);
+			this.signal = new (args.signal ?? Stimuli.ProgressBar)(args);
 			this.signal.set('x', this.data.signal_x);
 			this.signal.set('y', this.data.signal_y);
 			this.signal.set('bar_colour', this.data.bar_colour);
 			this.signal.set('border_colour', this.data.border_colour);
 
 			if (this.data.above_and_below) {
-				this.signal_lower = new (args.signal ?? ProgressBar)(args);
+				this.signal_lower = new (args.signal ?? Stimuli.ProgressBar)(args);
 				this.signal_lower.set('x', this.data.signal_x);
 				this.signal_lower.set('y', (1 - this.data.signal_y));
 				this.signal_lower.set('bar_colour', this.data.bar_colour);
@@ -2464,7 +2485,7 @@ const ArrayTools = ((module) => {
 	/** Append an array to itself N times and return a copy. */
 	module.extend = function extend(source, N) {
 		let _array = source;
-		for (let i = 0; i < (N-1); i++) {source.forEach((x)=>_array.push(x))};
+		for (let i = 0; i < (N-1); i++) _array = _array.concat(source);
 		return _array;
 	}
 
@@ -2769,10 +2790,10 @@ consent_form = {
 		" The experiment takes approximately 60 minutes and will force your browser into fullscreen mode.",
 	"Reimbursement":
 		"You will be reimbursed at the rate of 9.5 GBP per hour on the condition that you meet your obligations.",
-	"Obligations":
-		"The success of scientific studies depends significantly on your cooperation." +
-		" We therefore ask you to remain focused and to work according to the instructions throughout the entire study." +
-		" In order to demonstrate your focus you must respond correctly on all but one attention checks, as per Prolific policy." +
+	"Obligations":				
+		" You are obliged to pay a fair amount of attention throughout this study." + 
+		" In order to check this obligation, thus study contains attention checks." +
+		" As per Prolific policy, if you fail too many of these checks the experiment will end and you will be asked to return your submission."+
 		" If you wish to withdraw consent to the use of your data you are obligated to contact Tom Narraway before your submisison is approved or rejected.",
 	"Voluntary Participation and Possibility of Dropping Out":
 		"Your participation in the study is voluntary. "+
