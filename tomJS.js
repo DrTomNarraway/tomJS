@@ -1,12 +1,13 @@
 
 
-class Experiment {	
+__version__ = '19.02.26 12:46';
 
-	version = '18.02.26 17:19';
+
+class Experiment {		
 	
 	constructor(args={}) {
 		
-		console.log('booting tomJS version ' + this.version);
+		console.log('booting tomJS version ' + __version__);
 
 		// debug
 		this.debug = {};
@@ -79,7 +80,7 @@ class Experiment {
 		this.rounding = args.rounding ?? 5;
 
 		// research institute
-		this.institute = args.institute ?? institute.bremen;
+		this.institute = institute[args.institute ?? 'bremen'];
 		
 	}
 
@@ -854,7 +855,6 @@ const Slides = ((module) => {
 			this.exit_pressed = false;
 			this.exit_button = null;
 			this.container = null;
-			this.institute = tomJS.institute;
 		}
 
 		// override
@@ -868,13 +868,15 @@ const Slides = ((module) => {
 		// super
 
 		enter() {
-			this.createContainer();
 			super.enter();
+			this.container = HTMLTools.Container("container", document.body, {'width':'85%'});
 			document.body.style.backgroundColor = "white";
 			document.body.style.color = "black";
 			this.createTopPanel();
-			this.createMain();
-			HTMLTools.button("exitButton", "Consent", this.exitButtonClicked, this, this.container);
+			this.createInformationPage();
+			this.createConsentForm();
+			this.exitButton = HTMLTools.Button("exitButton", "Consent", this.exitButtonClicked, this.container);
+			this.exitButton.state = this;
 		}
 
 		exit() {
@@ -892,7 +894,7 @@ const Slides = ((module) => {
 		}
 
 		createLogo() {
-			const url = this.institute.logo;
+			const url = tomJS.institute.logo;
 			const img = document.createElement('IMG');
 			img.id = "Logo";
 			img.src = url;
@@ -911,18 +913,18 @@ const Slides = ((module) => {
 			div.style.marginLeft = "10%";
 			// institute
 			let ins = document.createElement('label');
-			ins.textContent = this.institute.institute;
+			ins.textContent = tomJS.institute.institute;
 			ins.style.fontSize = tomJS.visual.h0;
 			div.append(ins);
 			// department
 			let dep = document.createElement('label');
-			dep.textContent = this.institute.department;
+			dep.textContent = tomJS.institute.department;
 			dep.style.marginTop = "1em";
 			dep.style.fontSize = tomJS.visual.h1,
 				div.append(dep);
 			// group
 			let grp = document.createElement('label');
-			grp.textContent = this.institute.group;
+			grp.textContent = tomJS.institute.group;
 			grp.style.marginTop = "1em";
 			div.append(grp);
 			// contact
@@ -932,54 +934,50 @@ const Slides = ((module) => {
 			ctc.style.fontSize = tomJS.visual.h1;
 			div.append(ctc);
 			// contacts
-			for (let i = 0; i < this.institute.contacts.length; i++) {
+			for (let i = 0; i < tomJS.institute.contacts.length; i++) {
 				let tmp = document.createElement('label');
-				tmp.textContent = this.institute.contacts[i];
+				tmp.textContent = tomJS.institute.contacts[i];
 				tmp.style.marginTop = "1em";
 				div.append(tmp);
 			};
 			return div;
 		}
 
-		createContainer() {
-			const ctr = document.createElement('div');
-			ctr.id = "container";
-			ctr.style.width = "85%";
-			ctr.style.justifyContent = "center";
-			ctr.style.alignItems = "center";
-			ctr.style.display = "flex";
-			ctr.style.flexDirection = "column";
-			ctr.style.flexWrap = "wrap";
-			ctr.style.textAlign = "right";
-			ctr.style.fontFamily = tomJS.visual.fontFamily;
-			ctr.style.position = "absolute";
-			ctr.style.top = "0%";
-			ctr.style.left = "50%";
-			ctr.style.transform = "translate(-50%, -0%)";
-			ctr.style.color = "black";
-			ctr.style.backgroundColor = "white";
-			ctr.style.padding = "24px";
-			this.container = ctr;
-			document.body.appendChild(ctr);
+		createConsentForm() {
+			const div = document.createElement('div');
+			div.id = "Consent Form";
+			div.style.display = "flex";
+			div.style.flexDirection = "column";
+			div.style.width = "100%";
+			div.style.textAlign = "left";
+			this.container.appendChild(div);
+			HTMLTools.Label("Terms", "Terms", div, {'fontSize':tomJS.visual.h1});
+			const _cf = tomJS.institute.consent_form;
+			for (let i = 0; i < _cf.length; i++) HTMLTools.Label("cf" + i, _cf[i], div);
+			const _args = { 'marginTop': "3%" }
+			const _statement = "I have read the foregoing information, or it has been read to me."
+				+ " I have had the opportunity to ask questions about it and any"
+				+ " questions I have asked have been answered to my satisfaction."
+				+ " I consent voluntarily to be a participant in this study."
+			HTMLTools.Label("cf_statement", _statement, div, _args);
 		}
 
-		createMain() {
+		createInformationPage() {
 			const div = document.createElement('div');
 			div.id = "Main Panel";
 			div.style.display = "flex";
 			div.style.flexDirection = "column";
 			div.style.width = "100%";
 			div.style.textAlign = "left";
-			// main content
-			for (let i = 0; i < Object.keys(consent_form).length; i++) {
-				const key = Object.keys(consent_form)[i];
-				const kargs = { 'fontSize': tomJS.visual.h1 }
-				const value = Object.values(consent_form)[i];
-				HTMLTools.label(key + "Key", key, this, div, kargs);
-				HTMLTools.label(key + "Value", value, this, div);
-			}
-			// join
 			this.container.append(div);
+			const _is = tomJS.institute.information_statement;
+			for (let i = 0; i < Object.keys(_is).length; i++) {
+				const key = Object.keys(_is)[i];
+				const value = Object.values(_is)[i];
+				const kargs = { 'fontSize': tomJS.visual.h1 }
+				HTMLTools.Label(key + "Key", key, div, kargs);
+				HTMLTools.Label(key + "Value", value, div);
+			};
 		}
 
 		createTopPanel() {
@@ -1010,8 +1008,10 @@ const Slides = ((module) => {
 			this.min = 50;
 			this.max = 200;
 			this.value = 100;
-			this.instructions = args.instructions ?? "Please hold an ID-1 card (e.g. credit card or driving license) to" +
-				" the screen and surround your card with the white border such that no grey is visible.";
+			this.instructions = args.instructions ?? "Please hold an ID-1 card"
+				+ " (e.g.credit card or driving license) to"
+				+ " the screen and surround your card with the white border" 
+				+ " such that no grey is visible.";
 		}
 
 		// super
@@ -1020,15 +1020,18 @@ const Slides = ((module) => {
 			super.enter();
 			this.adjustWindowSize();
 			this.createContainer();
-			HTMLTools.label("instructions", this.instructions, this, this.container, { 'width': '50%' });
+			HTMLTools.Label("Instructions", this.instructions, this.container, { 'width': '50%' });
 			this.createWallet();
 			this.createCreditCard();
 			this.createControls();
-			const _up_down_args = { 'width': '5vmin', 'height': '5vmin' };
-			HTMLTools.button("Down", "-", () => { this.onUpDownClick(this, -1) }, this, this.controls, _up_down_args);
+			const _up_down_args = {'width': '5vmin', 'height': '5vmin'};
+			this.down_button = HTMLTools.Button("Down", "-", ()=>{this.onUpDownClick(this, -1)}, this.controls, _up_down_args);
+			this.down_button.state = this;
 			this.createSlider();
-			HTMLTools.button("Up", "+", () => { this.onUpDownClick(this, 1) }, this, this.controls, _up_down_args);
-			HTMLTools.button("Exit", "Confirm", this.exitClick, this, this.container);
+			this.up_button = HTMLTools.Button("Up", "+", ()=>{this.onUpDownClick(this, 1)}, this.controls, _up_down_args);
+			this.up_button.state = this;
+			this.exit_button = HTMLTools.Button("Exit", "Confirm", this.exitClick, this.container);
+			this.exit_button.state = this;
 		}
 
 		exit() {
@@ -1169,18 +1172,9 @@ const Slides = ((module) => {
 			this.age = null;
 			this.gender = null;
 			this.hand = null;
-			this.exit_pressed = false;
-			this.exit_button = null;
 			this.heading = args.heading ?? "Demographics Information";
-			this.instructions = args.instructions ?? "The following information is optional." +
-				" Pless press \"Submit\" when you are ready to continue. ";
-		}
-
-		// override
-
-		update() {
-			this.drawContent();
-			if (tomJS.now < this.start + this.force_wait) return;
+			this.instructions = args.instructions ?? "The following information is optional."
+				+ " Pless press \"Submit\" when you are ready to continue. ";
 		}
 
 		// super
@@ -1188,10 +1182,11 @@ const Slides = ((module) => {
 		enter() {
 			super.enter();
 			this.createContainer();
-			HTMLTools.label("Heading", this.heading, this, this.container, { 'fontSize': tomJS.visual.h0 });
-			HTMLTools.label("Instructions", this.instructions, this, this.container);
+			HTMLTools.Label("Heading", this.heading, this.container, { 'fontSize': tomJS.visual.h0 });
+			HTMLTools.Label("Instructions", this.instructions, this.container);
 			this.createFields();
-			HTMLTools.button("exitButton", "Submit", this.exitClicked, this, this.container);
+			this.exit_button = HTMLTools.Button("exitButton", "Submit", this.exitClicked, this.container);
+			this.exit_button.state = this;
 		}
 
 		exit() {
@@ -1238,7 +1233,7 @@ const Slides = ((module) => {
 			div.style.alignItems = "center";
 			div.style.display = "flex";
 			// create label
-			HTMLTools.label(id + "Label", textContent, this, div, { 'width': '50vmin', 'marginRight': '3vh', 'textAlign': 'right' });
+			HTMLTools.Label(id + "Label", textContent, div, { 'width': '50vmin', 'marginRight': '3vh', 'textAlign': 'right' });
 			// create input options
 			let input;
 			switch (type) {
@@ -2439,19 +2434,6 @@ function sampleFromTruncatedExponential(mean, truncation, max) {
 }
 
 
-function updateConsentForm(type, key, value) {
-	switch(type) {
-		case 'key':
-			break;
-		case 'value':
-			consent_form[key] = value;
-			break;
-		case 'both':
-			break;
-	}
-}
-
-
 // tools ======================================================================
 
 
@@ -2562,69 +2544,65 @@ const ArrayTools = ((module) => {
 
 const HTMLTools = ((module) => {
 
-	module.button = function button(id, textContent, onClick, state, parent, args = {}) {
-		const button = document.createElement('button');
-		button.id = id;
-		button.textContent = textContent;
-		button.onclick = onClick;
-		button.style.cursor = args.cursor ?? 'pointer';
-		button.style.padding = args.padding ?? '1%';
-		button.style.fontFamily = args.fontFamily ?? tomJS.visual.fontFamily;
-		button.style.fontSize = args.fontSize ?? tomJS.visual.fontSize;
-		button.style.marginBottom = args.marginBottom ?? "1%";
-		button.style.marginLeft = args.marginLeft ?? "0";
-		button.style.marginRight = args.marginRight ?? "0";
-		button.style.marginTop = args.marginTop ?? '1%';
-		button.style.width = args.width ?? null;
-		button.style.height = args.height ?? null;
-		button.state = state;
-		state[id] = button;
-		parent.append(button);
+	module.Button = function Button(id, textContent, onClick, parent, args={}) {
+		const _btn = document.createElement('button');
+		_btn.id = id;
+		_btn.textContent = textContent;
+		_btn.onclick = onClick;
+		_btn.style.cursor = args.cursor ?? 'pointer';
+		_btn.style.padding = args.padding ?? '1%';
+		_btn.style.fontFamily = args.fontFamily ?? tomJS.visual.fontFamily;
+		_btn.style.fontSize = args.fontSize ?? tomJS.visual.fontSize;
+		_btn.style.marginBottom = args.marginBottom ?? "1%";
+		_btn.style.marginLeft = args.marginLeft ?? "0";
+		_btn.style.marginRight = args.marginRight ?? "0";
+		_btn.style.marginTop = args.marginTop ?? '1%';
+		_btn.style.width = args.width ?? null;
+		_btn.style.height = args.height ?? null;
+		parent.append(_btn);
+		return _btn;
 	}
 
-	module.container = function container(id, state, parent, args = {}) {
-		const ctr = document.createElement('div');
-		ctr.id = id;
-		ctr.style.width = args.width ?? "100%";
-		ctr.style.height = args.height ?? "100%";
-		ctr.style.justifyContent = args.justifyContent ?? "center";
-		ctr.style.alignItems = args.alignItems ?? "center";
-		ctr.style.display = args.display ?? "flex";
-		ctr.style.flexDirection = args.flexDirection ?? "column";
-		ctr.style.flexWrap = args.flexWrap ?? "wrap";
-		ctr.style.textAlign = args.textAlign ?? "right";
-		ctr.style.fontFamily = args.fontFamil ?? tomJS.visual.fontFamily;
-		ctr.style.position = args.position ?? "absolute";
-		ctr.style.top = args.top ?? "50%";
-		ctr.style.left = args.left ?? "50%";
-		ctr.style.transform = args.transform ?? "translate(-50%, -50%)";
-		ctr.style.marginBottom = args.marginBottom ?? "1%";
-		ctr.style.marginLeft = args.marginLeft ?? "0";
-		ctr.style.marginRight = args.marginRight ?? "0";
-		ctr.style.marginTop = args.marginTop ?? '1%';
-		ctr.state = state;
-		state[id] = ctr;
-		parent.append(ctr)
+	module.Container = function Container(id, parent) {
+		const _ctr = document.createElement('div');
+		_ctr.id = id;
+		_ctr.style.width = "85%";
+		_ctr.style.justifyContent = "center";
+		_ctr.style.alignItems = "center";
+		_ctr.style.display = "flex";
+		_ctr.style.flexDirection = "column";
+		_ctr.style.flexWrap = "wrap";
+		_ctr.style.textAlign = "right";
+		_ctr.style.fontFamily = tomJS.visual.fontFamily;
+		_ctr.style.position = "absolute";
+		_ctr.style.top = "0%";
+		_ctr.style.left = "50%";
+		_ctr.style.transform = "translate(-50%, -0%)";
+		_ctr.style.color = "black";
+		_ctr.style.backgroundColor = "white";
+		_ctr.style.padding = "24px";
+		parent.appendChild(_ctr);
+		return _ctr;
 	}
 
-	module.label = function label(id, content, state, parent, args = {}) {
-		const label = document.createElement('label');
-		label.textContent = content;
-		label.style.fontFamily = args.fontFamily ?? tomJS.visual.fontFamily;
-		label.style.fontSize = args.fontSize ?? tomJS.visual.fontSize;
-		label.style.width = args.width ?? null;
-		label.style.marginBottom = args.marginBottom ?? "1%";
-		label.style.marginLeft = args.marginLeft ?? "0";
-		label.style.marginRight = args.marginRight ?? "0";
-		label.style.marginTop = args.marginTop ?? '1%';
-		label.style.textAlign = args.textAlign ?? "left";
-		label.state = state;
-		state[id] = label;
-		parent.append(label);
+	module.Label = function Label(id, content, parent, args={}) {
+		const _lbl = document.createElement('label');
+		_lbl.id = id;
+		_lbl.textContent = content;
+		_lbl.style.fontFamily = args.fontFamily ?? tomJS.visual.fontFamily;
+		_lbl.style.fontSize = args.fontSize ?? tomJS.visual.fontSize;
+		_lbl.style.width = args.width ?? null;
+		_lbl.style.marginBottom = args.marginBottom ?? "1%";
+		_lbl.style.marginLeft = args.marginLeft ?? "0";
+		_lbl.style.marginRight = args.marginRight ?? "0";
+		_lbl.style.marginTop = args.marginTop ?? '1%';
+		_lbl.style.textAlign = args.textAlign ?? "left";
+		parent.appendChild(_lbl);
+		return _lbl;
 	}
 
 	/** Write text to the body of the html page. */
-	module.write = function write(text) {
+	module.Write = function Write(text) {
 		let p = document.createElement("p");
 		p.appendChild(document.createTextNode(text));
 		document.body.appendChild(p);
@@ -2754,12 +2732,88 @@ const TextTools = ((module) => {
 
 
 institute = {
-	'bremen' : {
-		'institute'  : "Institut fuer Psychologie",
-		'department' : "Fachbereich 11",
-		'group'      : "Psychologische Forschungsmethoden und Kognitive Psychologie",
-		'contacts'   : ["Tom Narraway: narraway@uni-bremen.de", "Heinrich Liesefeld: heinrich.liesefeld@uni-bremen.de"],
-		'logo'       : "https://www.uni-bremen.de/_assets/8ec6f74154680cbbd6366024eea31e0b/Images/logo_ub_2021.png"
+	'bremen': {
+		'institute': "Department of Psychology",
+		'department': "Faculty 11",
+		'group': "Human and Health Sciences",
+		'contacts': [
+			"Psychological Research Methods and Cognitive Psychology",
+			"Tom Narraway: narraway@uni-bremen.de",
+			"Heinrich Liesefeld: heinrich.liesefeld@uni-bremen.de"],
+		'logo': "https://www.uni-bremen.de/_assets/8ec6f74154680cbbd6366024eea31e0b/Images/logo_ub_2021.png",
+		'information_statement': {
+			"General information":
+				"Thank you for your interest in our scientific study."
+				+ " Please read the following information carefully and then decide"
+				+ " whether or not to participate in this study. If you have any"
+				+ " further questions about the study beyond this information please"
+				+ "message or email Tom Narraway.",
+			"Objective of this Research Project":
+				"In this study, we want to determine how our experimental"
+				+ " manipulation affects the speed and accuracy of your responses.",
+			"Study Procedure":
+				"First you will use an ID-1 sized card to set the size of the stimuli"
+				+ " on your screen. Then we ask for your age, gender, and dominant "
+				+ " hand, but these details are optional. You will be asked to"
+				+ " perform a decision making task in response to simple visual stimuli."
+				+ " For example, you may be asked to determine if a stimulus is rotated left or right,"
+				+ " or if a stimulus is more blue or more orange."
+				+ " For each decision we record how long you take to respond and if"
+				+ " your response is correct or not. The exact procedure will be"
+				+ " explained to you during the experiment. The experiment takes"
+				+ " approximately 60 minutes and will force your browser into fullscreen mode.",
+			"Reimbursement":
+				"You will be reimbursed at the rate of 9.5 GBP per hour on the"
+				+ " condition that you meet your obligations.",
+			"Obligations":
+				" You are obliged to pay a fair amount of attention throughout this study."
+				+ " In order to determine if this obligation is met, this study"
+				+ " contains attention checks. As per Prolific policy, if you fail"
+				+ " too many of these checks the experiment will end and you will"
+				+ " be asked to return your submission. If you wish to withdraw"
+				+ " consent to the use of your data you are obligated to contact"
+				+ " Tom Narraway before your submisison is approved or rejected.",
+			"Responsible Bodies":
+				"Data generated by this study is only processed by our research"
+				+ " group and therefore the responsible body is the University of Bremen.",
+			"Categories of Data":
+				"As a part of this study, we collect only anonymous data.",
+			"Purpose of Data Collection":
+				"We collect your anonymous data for research purposes.",
+			"Legal Basis for Data Processing":
+				"The legal basis for the processing of your data is your consent"
+				+ " according to Art. 6, §1(a) GDPR.",
+			"When is your Data Deleted or Anonymized?":
+				"All of your data is immediately anonymized. If your submission is returned"
+				+ " or rejected: your data will be imediatley deleted. If your"
+				+ " submission is approved: your data will be kept indefinatley.",
+			"Who has Access to your Data?":
+				"Your data are only accessed by our research group, are not passed"
+				+ " to any other parties and are not transferred outside of the EU/ EEA."
+				+ " Your data may be made publicly available on scientific data repositories.",
+			"Protection from Unauthorized Access":
+				"Your data are initially linked to your anonymous Prolific ID."
+				+ " When your submission is approved: you are assigned a new random ID."
+				+ " This ensures that once your data is submitted: it is impossible"
+				+ " for anyone, including us, to link your data back to you.",
+			"Your Rights":
+				"Because your Prolific ID is removed from the data once it is approved:"
+				+ " you only have the right to revoke consent to the use of your data"
+				+ " up until your submission is approved. After that time we can no "
+				+ " longer identify which data is yours and therefore cannot delete it."
+				+ " You may withdraw from the study at any time, without giving reasons,"
+				+ " and if are otherwise eligible: can receive pro rata compensation for your time.",
+		},
+		'consent_form': [
+			"1. I consent to offering 1 hour of participation in this study in exchange for 9.5 GBP.",
+			"2. I am aware of the study procedure, and all of my questions regarding it have been answered.",
+			"3. I agree to the recording and analysis of my anonymous data.",
+			"4. I am satisfied with the data protection practices of this study.",
+			"5. I consent to the storage of my data as described in the preceding information statement.",
+			"6. I accept that once I leave the room in which I performed the experiment I can no longer withdraw consent to the use of my anonymous data.",
+			"7. I understand that my participation is voluntary and that I can withdraw at any time without giving reasons, and that in this case I am entitled to compensation for the time spent participating up to that point.",
+			"8. I am aware that the preceding information statement is considered to be a part of this consent form."
+		],
 	}
 }
 
@@ -2775,44 +2829,6 @@ colours = {
 	'red'    : [238, 17,  19,  255],
 	'yellow' : [232, 238, 108, 255],
 	'white'  : [250, 250, 250, 255],
-}
-
-
-consent_form = {
-	"General information":
-		"Thank you for your interest in our scientific study."+
-		" Please read the following information carefully and then decide whether or not to participate in this study." +
-		" If you have any further questions about the study beyond this information please message or email Tom Narraway.",
-	"Objective of this Research Project":
-		"In this study, we want to determine how our experimental manipulation affects the speed and accuracy of your responses.",
-	"Study Procedure":
-		"First you will use an ID-1 sized card to set the size of the stimuli on your screen." +
-		" Then we ask for your age, gender, and dominant hand, but these details are optional." +
-		" You will be asked to perform a decision making task in response to simple visual stimuli." +
-		" For each decision we record how long you take to respond and if your response is correct or not." +
-		" The exact procedure will be explained to you during the experiment." +		
-		" The experiment takes approximately 60 minutes and will force your browser into fullscreen mode.",
-	"Reimbursement":
-		"You will be reimbursed at the rate of 9.5 GBP per hour on the condition that you meet your obligations.",
-	"Obligations":				
-		" You are obliged to pay a fair amount of attention throughout this study." + 
-		" In order to check this obligation, thus study contains attention checks." +
-		" As per Prolific policy, if you fail too many of these checks the experiment will end and you will be asked to return your submission."+
-		" If you wish to withdraw consent to the use of your data you are obligated to contact Tom Narraway before your submisison is approved or rejected.",
-	"Voluntary Participation and Possibility of Dropping Out":
-		"Your participation in the study is voluntary. "+
-		" You may withdraw from the study at any time and without giving reasons, without incurring any disadvantages." +
-		" If you withdraw but are otherwise eligible for payment, you are entitled to pro rata compensation for your time.",
-	"Confidentiality and Anonymity":
-		"All data collected as part of this study are initially connected to your anonymous Prolific Participant ID number." +
-		" After checking that your obligations are met, your Prolific ID is replaced with a random ID number." +
-		" This means that after approving or rejecting your submission, your data can no longer be linked to you in any way." +
-		" Accordingly, you cannot withdraw consent to the use of your data and you cannot request that your data be deleted." +
-		" As an additional data security measure, the random ID numbers are randomly re-assigned whenever new data is collected.",
-	"Data Protection and Use":
-		"All processing and analysis is conducted on anonymised data (i.e. data linked to random ID numbers)." +		
-		" Anonymous data from this study will be used for research purposes for an indefinite period of time." +
-		" Anonymous data may be published online, including to scientific open data platforms."
 }
 
 
