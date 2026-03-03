@@ -1,6 +1,6 @@
 
 
-__version__ = '19.02.26 12:46';
+__version__ = '03.03.26 9:31';
 
 
 class Experiment {		
@@ -2809,10 +2809,10 @@ institute = {
 			"2. I am aware of the study procedure, and all of my questions regarding it have been answered.",
 			"3. I agree to the recording and analysis of my anonymous data.",
 			"4. I am satisfied with the data protection practices of this study.",
-			"5. I consent to the storage of my data as described in the preceding information statement.",
-			"6. I accept that once I leave the room in which I performed the experiment I can no longer withdraw consent to the use of my anonymous data.",
+			"5. I consent to the storage of my data as described in the preceding information.",
+			"6. I accept that once my submission is approved I can no longer withdraw consent to the use of my anonymous data.",
 			"7. I understand that my participation is voluntary and that I can withdraw at any time without giving reasons, and that in this case I am entitled to compensation for the time spent participating up to that point.",
-			"8. I am aware that the preceding information statement is considered to be a part of this consent form."
+			"8. I am aware that all of the information on this page is considered to bea part of the consent form."
 		],
 	}
 }
