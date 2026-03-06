@@ -9,36 +9,51 @@
         const args = {
             'fullscreen': false,
             'gridlines': false,
-            'verbose': true
+            'verbose': true,
+            'show_time' : true,
         };
 
         const tomJS = new Experiment(args);
 
         if (jatos.constructor != HTMLScriptElement) jatos.onConnected(() => { tomJS.connectToJatos(false) });
 
-        const _blockwise = {
+        // constants
+
+        const BLOCKWISE = {
             'fixation_colour': ['blue', 'orange']
         };
 
-        const _trialwise = {
+        const TRIALWISE = {
             'target': ['A', 'B'],
-            'condition': [200, 400, 600]
+            'condition': [0, 400, 800]
         };
 
-        const _conditional = {
-            'fixation_duration': {
-                'condition == 200': 1400,
-                'condition == 400': 1200
-            }
-        };
-
-        const _additional = {
-            'difficulty': 0.03,
-            'stimulus': Stimuli.Gabor,
-            'ori': 2,
+        const ADDITIONAL = {            
+            'stimulus': Stimuli.Text,
+            'gabor_ori': 2,
             'iti_duration': 1000,
             'signal': Stimuli.NecroDancerBar
         };
+
+        const CONDITIONAL = [
+            'if (condition == 0) fixation_duration = 1800',
+            'if (condition == 200) fixation_duration = 1600',
+            'if (condition == 400) fixation_duration = 1400',
+            'if (condition == 600) fixation_duration = 1200',
+            'if (condition == 800) fixation_duration = 1000',
+            'if (target == A) text_text = F',
+            'if (target == B) text_text = J'
+        ];
+
+        const ATTENTION = {};
+
+        const BLOCKREPS = 2;
+
+        const TRIALREPS = 1;
+
+        const ADDCOUNTDOWN = true;
+
+        // slides
 
         const _keyboard = new Slides.Slide([
             { 'class': 'text', 'text': 'Please press F and then J a few times to make sure your', 'y': 0.25 },
@@ -65,20 +80,22 @@
             { 'class': 'text', 'text': 'Press F and J to end the experiment.', 'y': 0.75 },
         ]);
 
+        // timeline
+
         tomJS.appendToTimeline(_keyboard);
 
         tomJS.appendBlocks(
             trial_type = Trials.ProgressBarResponseSignal,
-            blockwise = _blockwise,
-            trialwise = _trialwise,
-            additional = _additional,
-            conditional = {},
-            attention = {},
-            block_reps = 2,
-            trial_reps = 2,
+            blockwise = BLOCKWISE,
+            trialwise = TRIALWISE,
+            additional = ADDITIONAL,
+            conditional = CONDITIONAL,
+            attention = ATTENTION,
+            block_reps = BLOCKREPS,
+            trial_reps = TRIALREPS,
             start_slide = null,
             end_slide = _end_block,
-            add_countdown = true
+            add_countdown = ADDCOUNTDOWN
         );
 
         tomJS.appendToTimeline(_end_exp);

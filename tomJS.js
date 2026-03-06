@@ -1,6 +1,6 @@
 
 
-__version__ = '03.03.26 9:31';
+__version__ = '06.03.26 16:12';
 
 
 class Experiment {		
@@ -15,6 +15,7 @@ class Experiment {
 		this.debug.fullscreen = args.fullscreen ?? true;
 		this.debug.save       = args.save       ?? true;
 		this.debug.verbose    = args.verbose    ?? false;
+        this.debug.show_time  = args.show_time  ?? false;
 
 		// visual
 		this.visual = {};
@@ -65,6 +66,8 @@ class Experiment {
         this.trial    = 0;
         this.trials   = 0;
 		this.started  = null;
+        this.timer    = 0; // timer showing time since expeirment started
+        this.lowest   = null;
 
 		// data
 		this.headings = ['participant','age','gender','hand'];
@@ -90,18 +93,18 @@ class Experiment {
 		this.timeline.push(new_state);
 	}
 
-	appendBlock(trial_type, trialwise={}, additional={}, conditional={}, attention={}, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
+	appendBlock(trial_type, trialwise={}, additional={}, conditional=[], attention={}, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
 		const _block = new Block(trial_type, trialwise, additional, conditional, attention, trial_reps, start_slide, end_slide, add_countdown);
 		this.appendToTimeline(_block);
 	}
 
-	appendBlocks(trial_type, blockwise={}, trialwise={}, additional={}, conditional={}, attention={}, block_reps=1, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
+	appendBlocks(trial_type, blockwise={}, trialwise={}, additional={}, conditional=[], attention={}, block_reps=1, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
 		let _b_cells  = ObjectTools.length(blockwise);
         for (let b = 0; b < block_reps; b++) {
             let _blockwise = ObjectTools.allCombinations(blockwise);
             _blockwise = ArrayTools.shuffle(_blockwise);
             for (let i = 0; i < _b_cells; i++) {
-				let _additional = Object.assign({ }, _blockwise[i%_b_cells], additional);
+				let _additional = Object.assign({}, _blockwise[i % _b_cells], additional);
                 this.appendBlock(trial_type, trialwise, _additional, conditional, attention, trial_reps, start_slide, end_slide, add_countdown);
 			};
 		};
@@ -178,19 +181,24 @@ class Experiment {
 		tomJS.visual.context.drawImage(img, _x, _y, _size, _size);
 	}
 
+    drawTimer() {
+        this.writeToCanvas(this.timer, {'y':0.02, 'colour':'red'});
+    }
+
 	endExperiment() {
 		this.running  = false;
 		this.complete = true;
 		if (document.fullscreenElement != null) document.exitFullscreen();
-		if (this.jatos)	{
-			const sessionData = new Data.BlockData();
-			sessionData.calculateData(this.data);
+        const sessionData = new Data.BlockData();
+		sessionData.calculateData(this.data);
+		if (this.jatos)	{			
 			jatos.setStudySessionData(sessionData.toString());
 			jatos.startNextComponent("exit 0");
 		}
 		else {			
 			this.resetCanvas();
 			this.writeToCanvas('You can close the window when you are ready :)');
+            console.log(sessionData);
 		};
 	}
 
@@ -232,8 +240,11 @@ class Experiment {
 	run = () => {
 		if (this.complete) return;
 		this.now = Math.round(window.performance.now());
-		this.resetCanvas();		
+		this.resetCanvas();
+        this.updateTimer();
 		this.update();
+        if (this.debug.gridlines) this.drawGridLines();
+        if (this.debug.show_time) this.drawTimer();
 		requestAnimationFrame(this.run);
 	}
 
@@ -275,12 +286,18 @@ class Experiment {
 		return this.timeline.timeline;
 	}
 	
-	update () {				
+	update () {		
 		this.complete = this.timeline.complete;
 		if (this.complete) this.endExperiment();
-		else this.timeline.update();
-		if (this.debug.gridlines) this.drawGridLines();
+		else this.timeline.update();        
 	}
+
+    updateTimer() {
+        const _h = Math.floor((this.now - this.started)/1000/60/60);
+        const _m = Math.floor((this.now - this.started)/1000/60) - (60 * _h);
+        const _s = Math.floor((this.now - this.started)/1000) - (60 * _m);
+        this.timer = _h+":"+_m+":"+_s;
+    }
 
 	writeCSV() {
 		const data = this.data;
@@ -373,7 +390,8 @@ class Timeline {
 	}
 
 	enter() {
-		this.timeline[this.position].enter();
+        this.timeline[this.position].enter();
+        tomJS.lowest = this;
 	}
 
 	exit() {
@@ -446,7 +464,7 @@ class Mutator extends State {
 
 class Block extends State {
 
-	constructor(trial_type, trialwise={}, additional={}, conditional={}, attention={}, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
+	constructor(trial_type, trialwise={}, additional={}, conditional=[], attention={}, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
 		super();
 		this.block = tomJS.blocks;
 		tomJS.blocks++;
@@ -476,7 +494,7 @@ class Block extends State {
 
 	// functions
 
-	checkConditions(conds, args) {		
+	checkConditions_stable(args, conds) {
 		let _conds = conds;
 		let _args = args;
 		for (let _c = 0; _c < Object.keys(_conds).length; _c++) {
@@ -493,11 +511,31 @@ class Block extends State {
 		return _args;
 	}
 
-	evaluate(operation, dict) {
-		const t = operation.split(' ');
-		const l = "" + dict[t[0]];
-		const o = t[1];
-		const r = "" + t[2];
+	checkConditions(args, conditions) {
+		const _args = args;
+		for (let c = 0; c < conditions.length; c++) {
+			for (let a of Object.keys(args)) {
+				args[a] = this.checkIf(args[a], conditions[c]);
+			};
+		};
+		return _args;
+	}
+
+	checkIf(args, statement) {
+		const split = statement.replace("(", "").replace(")", "").split(" ");
+		const l = "" + split[1];
+		const o = "" + split[2];
+		const r = "" + split[3];
+		if (!(Object.keys(args).includes(l))) return args;
+		const a = "" + args[l];
+		if (!(this.evaluate(a, o, r))) return args;
+		const x = "" + split[4];
+		const y = "" + split[6];
+		args[x] = y
+		return args;
+	}
+
+	evaluate(l, o, r) {
 		switch(o) {
 			case '==' : return l == r;
 			case '!=' : return l != r;
@@ -512,11 +550,11 @@ class Block extends State {
 		let _timeline = new Timeline();
 
 		// create the matrix and then array-ify it
-		let _trialwise = ObjectTools.allCombinations(trialwise);
-		_trialwise = ArrayTools.tape(_trialwise, additional);
+		let _arguments = ObjectTools.allCombinations(trialwise);
+		_arguments = ArrayTools.tape(_arguments, additional);
 
 		// extend the array to the desired length
-		_trialwise = ArrayTools.extend(_trialwise, trial_reps);
+		_arguments = ArrayTools.extend(_arguments, trial_reps);
 
 		// add attention checks if supplied
 		if (Object.keys(attention).length > 0) {
@@ -524,24 +562,23 @@ class Block extends State {
 				let _new = attention;
 				_new.target = attention.targets[i];
 				_new.attention_check = true;
-				_trialwise.push(_new);
+				_arguments.push(_new);
 			};
 		};
 
 		// check conditions
-		if (Object.keys(conditional).length == 0)
-			_trialwise = this.checkConditions(conditional, _trialwise);
+		if (conditional.length > 0) _arguments = this.checkConditions(_arguments, conditional);
 
 		// shuffle
-		_trialwise = ArrayTools.shuffle(_trialwise);
+		_arguments = ArrayTools.shuffle(_arguments);
 
 		// add opening slides
 		if (start_slide != null) _timeline.push(start_slide);
 		if (add_countdown) { _timeline.push(new Slides.Countdown(3000)) };
 
 		// add trials
-		for (let t = 0; t < _trialwise.length; t++) {
-			const _args = _trialwise[t];
+		for (let t = 0; t < _arguments.length; t++) {
+			const _args = _arguments[t];
 			_args.block = this.block;
 			_args.trial = t;
 			_args.index = tomJS.trials;
@@ -614,6 +651,9 @@ const Data = ((module) => {
 			this.censored = null;
 			this.hits = null;
 			this.miss = null;
+            this.start_timer = null;
+            this.end_timer = null;
+            this.duration = null;
 		}
 
 		calculateAverages(data) {
@@ -627,6 +667,15 @@ const Data = ((module) => {
 			this.miss = clamp(100 - this.hits, 0, 100);
 		}
 
+        calculateDuration(data) {
+            const _start = ArrayTools.extract(data,'start_timer')[0];
+            const _end = ArrayTools.extract(data,'end_timer')[ArrayTools.extract(data,'end_timer').length-1];
+            const _dur = TextTools.duration(_start, _end);
+            this.start_timer = _start;
+            this.end_timer   = _end;
+            this.duration    = _dur;
+        }
+
 		calculatePercentages(data) {
 			const n = data.length;
 			let outcomes = ArrayTools.extract(data, 'outcome');
@@ -639,6 +688,7 @@ const Data = ((module) => {
 
 		calculateData(data) {
 			this.calculateAverages(data);
+            this.calculateDuration(data);
 			this.calculatePercentages(data);
 			this.calculateComplex();
 		}
@@ -681,6 +731,9 @@ const Data = ((module) => {
 			this.feedback_off = null;
 			this.iti_duration = null;
 			this.end = null;
+            this.start_timer = null;
+            this.end_timer = null;
+            this.duration = null;
 		}
 
 	}
@@ -1392,17 +1445,28 @@ const Stimuli = ((module) => {
 			if (!('difficulty' in args)) tomJS.error('no difficulty passed to gabor');
 			this.data.target = args.target;
 			this.data.difficulty = args.difficulty;
-			this.data.opacity = args.opacity ?? 1.0;  // as percentage
-			this.data.ori = args.ori ?? 25;	// in degrees
-			this.data.x = args.x ?? 0.5;	// in screen units
-			this.data.y = args.y ?? 0.5;	// in screen units
-			this.data.sf = args.sf ?? 15;
-			this.data.size = args.size ?? 1.0;	// in stimulus units
+            this.data.duration = args.gabor_duration ?? 3000; // ms
+			this.data.opacity = args.gabor_opacity ?? 1.0;  // as percentage
+			this.data.ori = args.gabor_ori ?? 25;	// in degrees
+			this.data.x = args.gabor_x ?? 0.5;	// in screen units
+			this.data.y = args.gabor_y ?? 0.5;	// in screen units
+			this.data.sf = args.gabor_sf ?? 15;
+            this.data.size = args.gabor_size ?? 1.0;	// in stimulus units
 			this.data.px = Math.round(tomJS.visual.stimulus_size * this.data.size);
 			this.prepareImageData();
 		}
 
 		// super
+
+        enter() {
+            super.enter();
+            this.trial.data.stimulus_on = tomJS.now;
+        }
+
+        exit() {
+            super.exit();
+            this.trial.data.stimulus_off = tomJS.now;
+        }
 
 		draw() {
 			super.draw();
@@ -1801,17 +1865,17 @@ const Stimuli = ((module) => {
 
 		constructor(args = {}) {
 			super(args);
-			this.data.tbl_cols = args.tbl_cols ?? 3;
-			this.data.tbl_cell_w = args.tbl_cell_w ?? 0.30;	// width of cells in stimulus units
-			this.data.tbl_cell_h = args.tbl_cell_h ?? 0.15;	// height of cells in stimulus units
-			this.data.tbl_x = args.tbl_x ?? 0.5;
-			this.data.tbl_y = args.tbl_y ?? 0.5;
-			this.data.tbl_content = args.tbl_content ?? this.example_content;
-			this.data.tbl_borders = args.tbl_borders ?? this.example_borders;
-			this.data.tbl_colour = args.tbl_colour ?? "white";
-			this.data.tbl_lineWidth = args.tbl_lineWidth ?? 1; // width of border in pixels units
-			this.data.tbl_cells = this.data.tbl_content.length;
-			this.data.tbl_rows = this.data.tbl_cells / this.data.tbl_cols;
+			this.data.cols = args.table_cols ?? 3;
+			this.data.cell_w = args.table_cell_w ?? 0.30;	// width of cells in stimulus units
+			this.data.cell_h = args.table_cell_h ?? 0.15;	// height of cells in stimulus units
+			this.data.x = args.table_x ?? 0.5;
+			this.data.y = args.table_y ?? 0.5;
+			this.data.content = args.table_content ?? this.example_content;
+			this.data.borders = args.table_borders ?? this.example_borders;
+			this.data.colour = args.table_colour ?? "white";
+			this.data.lineWidth = args.table_lineWidth ?? 1; // width of border in pixels units
+			this.data.cells = this.data.table_content.length;
+			this.data.rows = this.data.table_cells / this.data.table_cols;
 			this.matrix = this.generateMatrix();
 		}
 
@@ -1827,50 +1891,50 @@ const Stimuli = ((module) => {
 
 		drawAllCells() {
 			// iterate over provided list of cells and draw a box around it
-			for (let c of this.data.tbl_borders) this.drawOneCell(c);
+			for (let c of this.data.borders) this.drawOneCell(c);
 		}
 
 		drawOneCell(index) {
-			const col = index % this.data.tbl_cols;
-			const row = Math.floor(index / this.data.tbl_rows);
+			const col = index % this.data.cols;
+			const row = Math.floor(index / this.data.rows);
 			const scrn = tomJS.visual.screen_size;
 			const stim = tomJS.visual.stimulus_size;
-			const w = stim * this.data.tbl_cell_w;
-			const h = stim * this.data.tbl_cell_h;
-			const x = (scrn * this.data.tbl_x * (1 - this.data.tbl_cell_w)) +
-				(scrn * this.data.tbl_cell_w * col * 0.5) -
+			const w = stim * this.data.cell_w;
+			const h = stim * this.data.cell_h;
+			const x = (scrn * this.data.x * (1 - this.data.cell_w)) +
+				(scrn * this.data.cell_w * col * 0.5) -
 				(w * 0.5);
-			const y = (scrn * this.data.tbl_y * (1 - this.data.tbl_cell_h)) +
-				(scrn * this.data.tbl_cell_h * row * 0.5) -
+			const y = (scrn * this.data.y * (1 - this.data.cell_h)) +
+				(scrn * this.data.cell_h * row * 0.5) -
 				(h * 0.5);
-			const c = this.data.tbl_colour;
-			const l = this.data.tbl_lineWidth;
+			const c = this.data.colour;
+			const l = this.data.lineWidth;
 			tomJS.drawBox(x, y, w, h, c, l);
 		}
 
 		generateMatrix() {
-			const cols = this.data.tbl_cols;
-			const rows = this.data.tbl_rows;
+			const cols = this.data.cols;
+			const rows = this.data.rows;
 			let out = [];
 			for (let r = 0; r < rows; r++) {
 				const b = r * cols;
-				const e = b + this.data.tbl_cols;
-				out.push(this.data.tbl_content.slice(b, e));
+				const e = b + this.data.cols;
+				out.push(this.data.content.slice(b, e));
 			};
 			return out;
 		}
 
 		writeAllCells() {
 			// iterate over the content array and write each cell to the screen
-			for (let c = 0; c < this.data.tbl_cells; c++) this.writeOneCell(c);
+			for (let c = 0; c < this.data.cells; c++) this.writeOneCell(c);
 		}
 
 		writeOneCell(index) {
-			const col = index % this.data.tbl_cols;
-			const row = Math.floor(index / this.data.tbl_rows);
-			const content = this.data.tbl_content[index];
-			const x = (this.data.tbl_x * (1 - this.data.tbl_cell_w)) + (this.data.tbl_cell_w * col * 0.5);
-			const y = (this.data.tbl_y * (1 - this.data.tbl_cell_h)) + (this.data.tbl_cell_h * row * 0.5);
+			const col = index % this.data.cols;
+			const row = Math.floor(index / this.data.rows);
+			const content = this.data.content[index];
+			const x = (this.data.x * (1 - this.data.cell_w)) + (this.data.cell_w * col * 0.5);
+			const y = (this.data.y * (1 - this.data.cell_h)) + (this.data.cell_h * row * 0.5);
 			const args = { 'x': x, 'y': y };
 			tomJS.writeToCanvas(content, args);
 		}
@@ -1879,16 +1943,17 @@ const Stimuli = ((module) => {
 
 	module.Text = class Text extends module.Stimulus {
 
-		constructor(args = {}) {
-			super(args);
+		constructor(trial, args = {}) {
+            super(trial, args);
 			this.data.target = args.target;
 			this.data.difficulty = '';
-			this.data.text = args.text;
+            this.data.duration = args.text_duration ?? 1000; // ms
+			this.data.text = args.text_text ?? 'Hello World :)';
 			this.data.x = args.text_x ?? 0.5;
 			this.data.y = args.text_y ?? 0.5;
 			this.data.colour = args.text_colour ?? "white";
 			this.data.upper = args.text_upper ?? false;
-			this.data.size = args.size ?? 0.15;
+            this.data.size = args.text_size ?? 0.15;
 			this.data.fontSize = this.calculateFontSize(this.data.size);
 		}
 
@@ -1911,8 +1976,10 @@ const Stimuli = ((module) => {
 
 		constructor(trial, args = {}) {
 			super(trial, args);
-			this.data.text = args.text ?? "";
-			this.data.size = args.size ?? 0.10;
+            this.data.duration = args.feedback_duration ?? 1000; // ms
+			this.data.text = args.feedback_text ?? "";
+			this.data.size = args.feedback_size ?? 0.10;
+            this.data.colour = args.feedback_colour ?? "white";
 			this.calculateFontSize();
 		}
 
@@ -1923,7 +1990,13 @@ const Stimuli = ((module) => {
 			const outcome = this.trial.data.outcome;
 			this.data.text = this.trial.feedback_texts[outcome];
 			this.data.colour = this.trial.feedback_colors[outcome];
+            this.trial.data.feedback_on = tomJS.now;
 		}
+
+        exit() {
+            super.exit();
+            this.trial.data.feedback_off = tomJS.now;
+        }
 
 	}
 
@@ -1931,12 +2004,40 @@ const Stimuli = ((module) => {
 
 		constructor(trial, args = {}) {
 			super(trial, args);
-			this.data.text = args.text ?? "+";
-			this.data.size = args.size ?? 0.10;
+            this.data.duration = args.fixation_duration ?? 1000; // ms
+			this.data.text = args.fixation_text ?? "+";
+			this.data.size = args.fixation_size ?? 0.10;
+            this.data.colour = args.fixation_colour ?? "white";
 			this.calculateFontSize();
 		}
 
+        enter() {
+            super.enter();
+            this.trial.data.fixaton_on = tomJS.now;
+        }
+
+        exit() {
+            super.exit();
+            this.trial.data.fixaton_off = tomJS.now;
+        }
+
 	}
+
+    module.ITI = class ITI extends module.Stimulus {
+
+        constructor(trial, args = {}) {
+            super(trial, args); 
+            this.data.duration = args.iti_duration ?? 1000; // ms
+        }
+
+        // super
+
+        draw() {
+            super.draw();
+            tomJS.resetCanvas();
+        }
+
+    }
 
 	return module;
 
@@ -1974,29 +2075,24 @@ const Trials = ((module) => {
 			this.data.iti_duration = Number(choose(args.iti_duration, 1000));
 
 			// timeline
-			if ('timeline' in args) this.timeline = args.timeline
-			else {
-				this.timeline = new Timeline();
+			this.timeline = new Timeline();
 
-				const _fixation = new Stimuli.Fixation(this, args);
-				_fixation.data.duration = this.data.fixation_duration;
-				_fixation.data.size = this.data.fixation_size;
-				this.timeline.push(_fixation);
+            const _fixation = new (args.fixation ?? Stimuli.Fixation)(this, args);
+            _fixation.data.duration = this.data.fixation_duration;
+			this.timeline.push(_fixation);
 
-				const _gabor = new Stimuli.Gabor(this, args);
-				_gabor.data.duration = this.data.stimulus_duration;
-				_gabor.data.responses = tomJS.controls.inputs;
-				this.timeline.push(_gabor);
+            const _stimulus = new (args.stimulus ?? Stimuli.Gabor)(this, args);
+            _stimulus.data.duration = this.data.stimulus_duration;
+            _stimulus.data.responses = tomJS.controls.inputs;
+            this.timeline.push(_stimulus);
 
-				const _feedback = new Stimuli.Feedback(this, args);
-				_feedback.data.duration = this.data.feedback_duration;
-				_feedback.data.size = this.data.feedback_size;
-				this.timeline.push(_feedback);
+            const _feedback = new (args.feedback ?? Stimuli.Feedback)(this, args);
+            _feedback.data.duration = this.data.feedback_duration;
+			this.timeline.push(_feedback);
 
-				const _blank = new Stimuli.Stimulus(this, args);
-				_blank.data.duration = this.data.iti_duration;
-				this.timeline.push(_blank);
-			};
+            const _iti = new (args.iti ?? Stimuli.ITI)(this, args);
+            _iti.data.duration = this.data.iti_duration;
+			this.timeline.push(_iti);
 
 			// append data headings to global data heading storage
 			if (!(tomJS.headings.includes('block'))) tomJS.headings = ArrayTools.joinUniques(tomJS.headings, this.data.keys());
@@ -2032,6 +2128,7 @@ const Trials = ((module) => {
 		enter() {
 			super.enter();
 			this.data.start = tomJS.now;
+            this.data.start_timer = tomJS.timer;
 			this.estimateOnsets();
 			this.data.fixation_size = Math.round((this.data.fixation_size) * tomJS.visual.stimulus_size) + "px";
 			this.data.feedback_size = Math.round((this.data.feedback_size) * tomJS.visual.stimulus_size) + "px";
@@ -2041,6 +2138,8 @@ const Trials = ((module) => {
 		exit() {
 			super.exit();
 			this.data.end = tomJS.now;
+            this.data.end_timer = tomJS.timer;
+            this.data.duration = TextTools.duration(this.data.start_timer, this.data.end_timer);
 			if (this.attention_check & this.data.outcome != "Correct") tomJS.attentionCheckFailed();
 		}
 
@@ -2312,7 +2411,7 @@ const Trials = ((module) => {
 
 		// functions
 
-		drawProgressBar() {
+        drawProgressBar() {
 			if (this.timeline.currentState() == "ITI") { tomJS.resetCanvas(); return; }
 			this.signal.draw();
 			if (this.data.above_and_below) this.signal_lower.draw();
@@ -2700,7 +2799,22 @@ class Keyboard {
 
 
 const TextTools = ((module) => {	
-	
+
+    /** Calculate the duration between two tomJS timer strings. */
+    module.duration = function duration(start, end) {
+        const _start = Number(start.split(":")[0]) * 60 * 1000
+            + Number(start.split(":")[1]) * 60
+            + Number(start.split(":")[2]);        
+        const _end = Number(end.split(":")[0]) * 60 * 1000
+            + Number(end.split(":")[1]) * 60
+            + Number(end.split(":")[2]);        
+        const _d = _end - _start;
+        const _h = Math.floor((_d)/60/60);
+        const _m = Math.floor((_d)/60) - (60 * _h);
+        const _s = Math.floor((_d)) - (60 * _m);
+        return _h+":"+_m+":"+_s;
+    }
+
 	/** Evaluate the relationship between l and r based on o. */
 	module.evaluate = function evaluate(l, o, r) {
 		switch(o) {
@@ -2782,7 +2896,7 @@ institute = {
 				"We collect your anonymous data for research purposes.",
 			"Legal Basis for Data Processing":
 				"The legal basis for the processing of your data is your consent"
-				+ " according to Art. 6, §1(a) GDPR.",
+				+ " according to Art. 6.1(a) GDPR.",
 			"When is your Data Deleted or Anonymized?":
 				"All of your data is immediately anonymized. If your submission is returned"
 				+ " or rejected: your data will be imediatley deleted. If your"
