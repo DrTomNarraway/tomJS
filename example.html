@@ -10,7 +10,7 @@
             'fullscreen': false,
             'gridlines': false,
             'verbose': true,
-            'show_time' : true,
+            'show_time' : false,
         };
 
         const tomJS = new Experiment(args);
@@ -24,25 +24,25 @@
         };
 
         const TRIALWISE = {
-            'target': ['A', 'B'],
-            'condition': [0, 400, 800]
+            'condition': [0, 200, 400, 600, 800],
+            'gabor_contrast': [0.01, 0.03, 0.50],
+            'gabor_ori': [2, 358]
         };
 
         const ADDITIONAL = {            
-            'stimulus': Stimuli.Text,
-            'gabor_ori': 2,
-            'iti_duration': 1000,
+            'stimulus': Stimuli.Gabor,
+            'iti_duration': [800, 1000, 1200],
             'signal': Stimuli.NecroDancerBar
         };
 
         const CONDITIONAL = [
+            'if (gabor_ori > 180) target = A',
+            'if (gabor_ori < 180) target = B',
             'if (condition == 0) fixation_duration = 1800',
             'if (condition == 200) fixation_duration = 1600',
             'if (condition == 400) fixation_duration = 1400',
             'if (condition == 600) fixation_duration = 1200',
-            'if (condition == 800) fixation_duration = 1000',
-            'if (target == A) text_text = F',
-            'if (target == B) text_text = J'
+            'if (condition == 800) fixation_duration = 1000'
         ];
 
         const ATTENTION = {};
