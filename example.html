@@ -19,25 +19,23 @@
 
         // constants
 
-        const BLOCKWISE = {
-            'fixation_colour': ['blue', 'orange']
-        };
+        const BLOCKWISE = {};
 
         const TRIALWISE = {
             'condition': [0, 200, 400, 600, 800],
-            'gabor_contrast': [0.01, 0.03, 0.50],
-            'gabor_ori': [2, 358]
+            'text_text': ['F', 'J']
         };
 
         const ADDITIONAL = {            
-            'stimulus': Stimuli.Gabor,
+            'stimulus': Stimuli.Text,
             'iti_duration': [800, 1000, 1200],
-            'signal': Stimuli.NecroDancerBar
+            'signal': Stimuli.NecroDancerBar,
+            'signal_for': 250
         };
 
         const CONDITIONAL = [
-            'if (gabor_ori > 180) target = A',
-            'if (gabor_ori < 180) target = B',
+            'if (text_text == F) target = A',
+            'if (text_text == J) target = B',
             'if (condition == 0) fixation_duration = 1800',
             'if (condition == 200) fixation_duration = 1600',
             'if (condition == 400) fixation_duration = 1400',
@@ -56,10 +54,9 @@
         // slides
 
         const _keyboard = new Slides.Slide([
-            { 'class': 'text', 'text': 'Please press F and then J a few times to make sure your', 'y': 0.25 },
-            { 'class': 'text', 'text': 'keyboard is being read by the experiment correctly.', 'y': 0.30 },
-            { 'class': 'text', 'text': '~tomJS.keyboard.key~', 'upper': true },
-            { 'class': 'text', 'text': 'Press F and J to continue.', 'y': 0.75 },
+            {'class': 'text','text': 'EXAMPLE EXPERIMENT','y': 0.25},
+            {'class': 'text', 'text': '~tomJS.keyboard.key~', 'upper': true},
+            {'class': 'text', 'text': 'Press F and J to continue.', 'y': 0.75}
         ]);
 
         const _end_block = new Slides.EndBlock([

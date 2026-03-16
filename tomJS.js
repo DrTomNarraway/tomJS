@@ -1,6 +1,6 @@
 
 
-__version__ = '12.03.26 13:49';
+__version__ = '13.03.26 14:02';
 
 
 class Experiment {		
@@ -96,7 +96,7 @@ class Experiment {
 		this.timeline.push(new_state);
 	}
 
-	appendBlock(trial_type, trialwise={}, additional={}, conditional=[], attention={}, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
+	appendBlock(trial_type, trialwise={}, additional={}, conditional=[], attention=[], trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
 		const _block = new Block(trial_type, trialwise, additional, conditional, attention, trial_reps, start_slide, end_slide, add_countdown);
 		this.appendToTimeline(_block);
 	}
@@ -350,11 +350,11 @@ class Experiment {
 class State {
 
 	constructor() {
-		this.complete = false;
-		this.timeline = new Timeline();
+		this.complete = false;        
+		this.end = null;
 		this.name = this.constructor.name;
 		this.start = null;
-		this.end = null;
+		this.timeline = new Timeline();
 	}
 
 	enter() {
@@ -467,7 +467,7 @@ class Mutator extends State {
 
 class Block extends State {
 
-	constructor(trial_type, trialwise={}, additional={}, conditional=[], attention={}, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
+	constructor(trial_type, trialwise={}, additional={}, conditional=[], attention=[], trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
 		super();
 		this.block = tomJS.blocks;
 		tomJS.blocks++;
@@ -497,14 +497,18 @@ class Block extends State {
 
 	// functions
 
+    attentionChecks(args, checks) {
+        for (let i = 0; i < checks.length; i++) {
+            args.push(checks[i]);
+        };
+    }
+
 	checkConditions(args, conditions) {
-		const _args = args;
 		for (let c = 0; c < conditions.length; c++) {
 			for (let a of Object.keys(args)) {
 				args[a] = this.checkIf(args[a], conditions[c]);
 			};
 		};
-		return _args;
 	}
 
 	checkIf(args, statement) {
@@ -514,48 +518,22 @@ class Block extends State {
 		const r = "" + split[3];
 		if (!(Object.keys(args).includes(l))) return args;
 		const a = "" + args[l];
-		if (!(this.evaluate(a, o, r))) return args;
+		if (!(TextTools.evaluate(a+" "+o+" "+r))) return args;
 		const x = "" + split[4];
 		const y = "" + split[6];
 		args[x] = y
 		return args;
 	}
 
-	evaluate(l, o, r) {
-		switch(o) {
-			case '==' : return l == r;
-			case '!=' : return l != r;
-			case '<'  : return Number(l) < Number(r);
-			case '>'  : return Number(l) > Number(r);
-			case '<=' : return Number(l) <= Number(r);
-			case '>=' : return Number(l) >= Number(r);
-		};
-	}
-
 	generateTimeline(trial_type, trialwise, additional, conditional, attention, trial_reps, start_slide, end_slide, add_countdown) {
 		let _timeline = new Timeline();
 
-		// create the matrix and then array-ify it
+		// make a list of trials based on design cells
 		let _arguments = ObjectTools.allCombinations(trialwise);
 		_arguments = ArrayTools.tape(_arguments, additional);
-
-		// extend the array to the desired length
 		_arguments = ArrayTools.extend(_arguments, trial_reps);
-
-		// add attention checks if supplied
-		if (Object.keys(attention).length > 0) {
-			for (let i = 0; i < attention.targets.length; i++) {
-				let _new = attention;
-				_new.target = attention.targets[i];
-				_new.attention_check = true;
-				_arguments.push(_new);
-			};
-		};
-
-		// check conditions
-		if (conditional.length > 0) _arguments = this.checkConditions(_arguments, conditional);
-
-		// shuffle
+		if (attention.length > 0)   this.attentionChecks(_arguments, attention);
+		if (conditional.length > 0) this.checkConditions(_arguments, conditional);
 		_arguments = ArrayTools.shuffle(_arguments);
 
 		// add opening slides
@@ -734,15 +712,16 @@ const Slides = ((module) => {
 		constructor(content = [], args = {}) {
 			super();
 			this.content = content;
+            this.data = args;
 			this.force_wait = args.force_wait ?? 1000;
 			this.timeline = null;
-			this.realizeContent();
 			this.can_proceed = false;
+			this.realizeContent();
 		}
 
 		// super
 
-		enter() {
+		enter() {            
 			super.enter();
 			this.can_proceed = false;
 			setTimeout(() => { this.can_proceed = true }, this.force_wait);
@@ -759,7 +738,8 @@ const Slides = ((module) => {
 
 		checkConditions(content) {
 			if (!('conditions' in content)) return true;
-			for (let c of content.conditions) if (!eval(this.parseText(c))) return false;
+			for (let c of content.conditions)
+                if (!TextTools.evaluate(this.parseText(c))) return false;
 			return true;
 		}
 
@@ -767,12 +747,15 @@ const Slides = ((module) => {
 			if (tomJS.keyboard.allKeysPressed(tomJS.controls.inputs)) this.complete = true;
 		}
 
-		drawContent() {
+		drawContent() {            
 			for (const _c of this.content) {
+                if (!(this.checkConditions(_c))) continue;
 				switch (_c.class) {
 					case 'gabor':
-						if (tomJS.keyboard.dir == 'A') this.gp_L.draw()
-						else this.gp_R.draw();
+                        this.data.gabor_hash = tomJS.keyboard.dir == "A" ? 
+                            this.data.hash_A : this.data.hash_B;
+                        if (tomJS.keyboard.dir == "A") _c.A.draw()
+                        else _c.B.draw();
 						break;
 					case 'image':
 						const _path = this.parseText(_c.path);
@@ -786,7 +769,6 @@ const Slides = ((module) => {
 						this.table.draw();
 						break;
 					case 'text':
-						if (!(this.checkConditions(_c))) break;
 						const _text = this.parseText(_c.text);
 						tomJS.writeToCanvas(_text, _c);
 						break;
@@ -796,27 +778,33 @@ const Slides = ((module) => {
 						_tl.draw();
 						break;
 					case 'progressbar':
-						const percent = (tomJS.now - this.bar_start) / this.bar_max;
-						if (percent >= 1.5) this.bar_start = tomJS.now;
-						const bar = this['progressbar' + _c.tag ?? ''];
-						bar.set('percent', percent);
-						if (percent < 0 | percent > 1) {
-							bar.set('bar_colour', "#00000000");
-							bar.set('window_colour', this.window_colour);
+						this.data.bar_percent = 
+                            (tomJS.now - this.data.bar_start) / this.data.bar_max;
+
+						if (this.data.bar_percent >= 1.5) this.data.bar_start = tomJS.now;
+                        
+						if (this.data.bar_percent <= 0) {
+							this.data.bar_colour    = "#00000000";
+							this.data.window_colour = this.data._window_colour;
 						}
-						else if (percent < this.signal_on) {
-							bar.set('bar_colour', this.bar_colour);
-							bar.set('window_colour', this.window_colour);
+                        else if (this.data.bar_percent >= 1) {
+                            this.data.bar_colour    = "#00000000";
+							this.data.window_colour = this.data._window_colour;
+                        }
+						else if (this.data.bar_percent < this.data.signal_on) {
+							this.data.bar_colour    = this.data._bar_colour;
+							this.data.window_colour = this.data._window_colour;
 						}
-						else if (percent < this.signal_off) {
-							bar.set('bar_colour', this.signal_colour);
-							bar.set('window_colour', this.signal_colour);
+						else if (this.data.bar_percent < this.data.signal_off) {
+							this.data.bar_colour    = this.data._signal_colour;
+							this.data.window_colour = this.data._signal_colour;
 						}
 						else {
-							bar.set('bar_colour', this.bar_colour);
-							bar.set('window_colour', this.window_colour);
+							this.data.bar_colour    = this.data._bar_colour;
+							this.data.window_colour = this.data._window_colour;
 						};
-						bar.draw();
+
+						this['progressbar' + _c.tag ?? ''].draw();
 						break;
 				};
 			};
@@ -834,25 +822,20 @@ const Slides = ((module) => {
 			for (let c of this.content) {
 				switch (c.class) {
 					case 'gabor':
-						this.gp_L = new Stimuli.Gabor(null, { ...c, ...{ 'target': "A" } });
-						this.gp_R = new Stimuli.Gabor(null, { ...c, ...{ 'target': "B" } });
-						break;
-					case 'pixelpatch':
-						this.pp_A = new Stimuli.PixelPatch(null, { ...c, ...{ 'difficulty': c.A } });
-						this.pp_B = new Stimuli.PixelPatch(null, { ...c, ...{ 'difficulty': c.B } });
-						break;
-					case 'table':
-						this.table = new Stimuli.Table(null, c);
+                        c.A = new Stimuli.Gabor(this, {...c, 'gabor_ori':360-c.gabor_ori});
+                        this.data.hash_A = this.data.gabor_hash;
+                        c.B = new Stimuli.Gabor(this, {...c, 'gabor_ori':c.gabor_ori});
+                        this.data.hash_B = this.data.gabor_hash;
 						break;
 					case 'progressbar':
-						this.bar_start     = this.start;
-						this.bar_max       = c.bar_max ?? 2000;
-						this.bar_colour    = c.bar_colour ?? "White";
-						this.signal_colour = c.signal_colour ?? "DeepSkyBlue";
-						this.window_colour = c.window_colour ?? "Silver";
-						this.signal_on	   = c.signal_on ?? 0.50;
-						this.signal_off = c.signal_off ?? 0.75;
-						const _bar = new (c.signal ?? Stimuli.ProgressBar)(c);
+						this.data.bar_start     = this.start;
+						this.data.bar_max       = c.bar_max ?? 2000;
+						this.data._bar_colour    = c.bar_colour ?? "White";
+						this.data._signal_colour = c.signal_colour ?? "DeepSkyBlue";
+						this.data._window_colour = c.window_colour ?? "Silver";
+						this.data.signal_on	    = c.signal_on ?? 0.75
+						this.data.signal_off    = c.signal_off ?? 1.00;
+						const _bar = new (c.signal ?? Stimuli.ProgressBar)(this, c);
 						this['progressbar' + c.tag ?? ''] = _bar;
 						break;
 				};
@@ -1440,14 +1423,13 @@ const Stimuli = ((module) => {
         
         /** quasi-hash function to find this gabors global image data */
         hash() {            
-            let _c = "" + this.trial.data.gabor_contrast * 100;
-            _c.padStart(3, "0");
-            let _a = "" + this.trial.data.gabor_opacity * 100;
+            let _c = (""+this.trial.data.gabor_contrast*100).padStart(3,"0");
+            let _a = (""+this.trial.data.gabor_opacity*100).padStart(3,"0");
             let _o = "" + this.trial.data.gabor_ori;
             let _s = "" + this.trial.data.gabor_sf;
             let _z = "" + this.trial.data.gabor_size;
-            let _x = "" + this.trial.data.gabor_x * 100;
-            let _y = "" + this.trial.data.gabor_y * 100;
+            let _x = (""+this.trial.data.gabor_x*100).padStart(3,"0");
+            let _y = (""+this.trial.data.gabor_y*100).padStart(3,"0");
             // return Number((_c+_a+_o+_s+_z+_x+_y).replace(/[.-]/gm,''));
             return Number((_c+_a+_o+_s+_z+_x+_y));
         }
@@ -1832,17 +1814,45 @@ const Stimuli = ((module) => {
 			this.trial.data.text_fontSize = this.calculateFontSize(this.trial.data.text_size);
 		}
 
-		// super
-
-		draw() {
-			tomJS.writeToCanvas(this.data.text, this.data);
-		}
-
 		// functions
 
 		calculateFontSize(size) {
 			return Math.round(size * tomJS.visual.stimulus_size) + "px";
 		}
+
+        draw() {
+			tomJS.writeToCanvas(this.trial.data.text_text, this.trial.data);
+		}
+
+        enter() {
+            this.trial.data.stimulus_on = tomJS.now;
+            this.trial.data.stimulus_off = tomJS.now + this.trial.data.stimulus_duration;
+        }
+
+        exit() {
+            this.trial.data.stimulus_off = tomJS.now;
+        }
+
+        responseGiven() {
+			this.trial.recordResponse();
+			this.trial.calculateRT();
+			this.trial.determineAccuracy();
+			this.trial.determineOutcome();
+			this.trial.calculateScore();
+			this.complete = true;
+		}
+
+		timedOut() {
+			this.trial.determineOutcome();
+			this.complete = true;
+		}
+
+        update() {
+			if (this.complete) return;
+            if (tomJS.now > this.trial.data.stimulus_off) this.timedOut();
+			if (tomJS.keyboard.anyKeysPressed(['f','j'])) this.responseGiven();
+			this.draw();
+        }
 
 	}
 
@@ -2368,7 +2378,8 @@ const Trials = ((module) => {
 
 
 function assignImageData(source, sink) {
-	if (source.length != sink.length) console.warn('ERROR: source and sink are not the same length.',
+	if (source.length != sink.length) 
+        console.warn('ERROR: source and sink are not the same length.',
 		Math.sqrt(source.length), Math.sqrt(sink.length));
 	for (let i = 0; i < sink.length; i += 4) {
 		sink[i+0] = source[i+0];	// R
@@ -2379,7 +2390,7 @@ function assignImageData(source, sink) {
 }
 
 
-/** Choose one of the options from the passed list at random, or return the fallback value instead. */
+/** Choose one of the options from the passed list at random, or the fallback instead. */
 function choose(x, fallback = null) {
 	if (typeof x == 'number') return x;
 	if (typeof x == 'string') return x;
@@ -2481,7 +2492,7 @@ const ArrayTools = ((module) => {
 		let fails = 0;
 		for (let a of array) {
 			// check inclusions
-			if (TextTools.evaluate(a[key], operation, target)) {
+			if (TextTools.evaluate(a[key]+" "+operation+" "+target)) {
 				out.push(a);
 				fails = 0;
 			} else fails++;
@@ -2715,7 +2726,11 @@ const TextTools = ((module) => {
     }
 
 	/** Evaluate the relationship between l and r based on o. */
-	module.evaluate = function evaluate(l, o, r) {
+	module.evaluate = function evaluate(string) {
+        const _split = string.split(" ");
+        const l = _split[0];
+        const o = _split[1];
+        const r = _split[2];
 		switch(o) {
 			case '==' : return l == r;
 			case '!=' : return l != r;
@@ -2801,9 +2816,10 @@ institute = {
 				+ " or rejected: your data will be imediatley deleted. If your"
 				+ " submission is approved: your data will be kept indefinatley.",
 			"Who has Access to your Data?":
-				"Your data are only accessed by our research group, are not passed"
+				"Initially your data are only accessed by our research group, are not passed"
 				+ " to any other parties and are not transferred outside of the EU/ EEA."
-				+ " Your data may be made publicly available on scientific data repositories.",
+				+ " After removing your prolific ID, Your data may be made publicly"
+                + " available on scientific data repositories.",
 			"Protection from Unauthorized Access":
 				"Your data are initially linked to your anonymous Prolific ID."
 				+ " When your submission is approved: you are assigned a new random ID."
@@ -2825,7 +2841,7 @@ institute = {
 			"5. I consent to the storage of my data as described in the preceding information.",
 			"6. I accept that once my submission is approved I can no longer withdraw consent to the use of my anonymous data.",
 			"7. I understand that my participation is voluntary and that I can withdraw at any time without giving reasons, and that in this case I am entitled to compensation for the time spent participating up to that point.",
-			"8. I am aware that all of the information on this page is considered to bea part of the consent form."
+			"8. I am aware that all of the information on this page is considered to be part of the consent form."
 		],
 	}
 }
