@@ -1,6 +1,6 @@
 
 
-__version__ = '13.03.26 14:02';
+__version__ = '16.03.26 14:55';
 
 
 class Experiment {		
@@ -115,7 +115,7 @@ class Experiment {
 
 	attentionCheckFailed() {
 		this.attention.failed++;
-		if (this.attention.failed >= this.attention.limit & 
+		if (this.attention.failed >= this.attention.limit &
 			((this.now - this.started)/1000/60) <= this.attention.check_for)
 			this.requestReturn();
 		if (this.debug.verbose) console.log(this.attention);
@@ -310,7 +310,7 @@ class Experiment {
 		for (let r of data) {
 			const x = {...r, ...demo, ...visu};
 			let y = [];
-			for (let h of tomJS.headings) y.push(x[h]);
+			for (let h of this.headings) y.push(x[h]);
 			csv += y.toString() + '\n';
 		};
 		return csv;
@@ -578,7 +578,7 @@ const Data = ((module) => {
 
 	module.DataWrapper = class DataWrapper {
 
-		constructor() { }
+		constructor() {}
 
 		keys() {
 			return Object.keys(this);
@@ -1810,8 +1810,13 @@ const Stimuli = ((module) => {
 			this.trial.data.text_y = args.text_y ?? 0.5;
 			this.trial.data.text_colour = args.text_colour ?? "white";
 			this.trial.data.text_upper = args.text_upper ?? false;
-            this.trial.data.text_size = args.text_size ?? 0.15;
-			this.trial.data.text_fontSize = this.calculateFontSize(this.trial.data.text_size);
+            this.trial.data.text_size = Math.round((args.text_size ?? 0.10) * tomJS.visual.stimulus_size) + "px";
+            this.drawArgs = {
+                'color': this.trial.data.text_colour,
+                'fontSize': this.trial.data.text_size,
+                'x': this.trial.data.text_x,
+                'y': this.trial.data.text_y
+            };
 		}
 
 		// functions
@@ -1821,7 +1826,7 @@ const Stimuli = ((module) => {
 		}
 
         draw() {
-			tomJS.writeToCanvas(this.trial.data.text_text, this.trial.data);
+			tomJS.writeToCanvas(this.trial.data.text_text, this.drawArgs);
 		}
 
         enter() {
@@ -1861,9 +1866,12 @@ const Stimuli = ((module) => {
 		constructor(trial, args = {}) {
 			super(trial, args);
 			this.trial.data.feedback_text = args.feedback_text ?? "";
-			this.trial.data.feedback_size = args.feedback_size ?? 0.10;
+			this.trial.data.feedback_size = Math.round((args.feedback_size ?? 0.10) * tomJS.visual.stimulus_size) + "px";
             this.trial.data.feedback_colour = args.feedback_colour ?? "white";
-            this.drawArgs = {};
+            this.drawArgs = {
+                'color': this.trial.data.feedback_colour,
+                'fontSize': this.trial.data.feedback_size
+            };
 		}
 
 		draw() {
@@ -1876,10 +1884,6 @@ const Stimuli = ((module) => {
 			this.trial.data.feedback_colour = this.trial.feedback_colors[outcome];
             this.trial.data.feedback_on = tomJS.now;
             this.trial.data.feedback_off = tomJS.now + this.trial.data.feedback_duration;            
-            this.drawArgs = {
-                'color':this.trial.data.feedback_colour,
-                'fontSize': this.trial.data.feedback_size
-            }
 		}
 
         exit() {
@@ -1899,11 +1903,16 @@ const Stimuli = ((module) => {
 		constructor(trial, args={}) {
 			super(trial, args);
 			this.trial.data.fixation_text = args.fixation_text ?? "+";
-			this.trial.data.fixation_size = args.fixation_size ?? 0.15;
+			this.trial.data.fixation_size = Math.round((args.fixation_size ?? 0.15) * tomJS.visual.stimulus_size) + "px";
             this.trial.data.fixation_colour = args.fixation_colour ?? "white";
             this.trial.data.fixation_x = args.fixation_x ?? 0.5;
             this.trial.data.fixation_y = args.fixation_y ?? 0.5;
-            this.drawArgs = {};
+            this.drawArgs = {
+                'color': this.trial.data.fixation_colour,
+                'fontSize': this.trial.data.fixation_size,
+                'x': this.trial.data.fixation_x,
+                'y': this.trial.data.fixation_y
+            };
 		}
 
         draw() {
@@ -1913,10 +1922,6 @@ const Stimuli = ((module) => {
         enter() {
             this.trial.data.fixation_on = tomJS.now;
             this.trial.data.fixation_off = tomJS.now + this.trial.data.fixation_duration;
-            this.drawArgs = {
-                'color':this.trial.data.fixation_colour,
-                'fontSize': this.trial.data.fixation_size
-            }
         }
 
         exit() {
@@ -2036,8 +2041,6 @@ const Trials = ((module) => {
 			super.enter();
 			this.data.start = tomJS.now;
             this.data.start_timer = tomJS.timer;
-			this.data.fixation_size = Math.round((this.data.fixation_size) * tomJS.visual.stimulus_size) + "px";
-			this.data.feedback_size = Math.round((this.data.feedback_size) * tomJS.visual.stimulus_size) + "px";
 			this.timeline.enter();
 		}
 
@@ -2296,6 +2299,19 @@ const Trials = ((module) => {
 
 			// signal(s)
 			this.signal = new (args.signal ?? Stimuli.ProgressBar)(this, args);
+			
+			// placeholder
+			this.data.rtt = null;
+			this.data.signal_on = null;
+			this.data.signal_off = null;
+			this.data.warning_on = null;
+			this.data.warning_off = null;
+			this.data.early = null;
+			this.data.late = null;
+
+            // append data headings to global data heading storage
+			if (!(tomJS.headings.includes('signal_for'))) tomJS.headings = ArrayTools.joinUniques(tomJS.headings, this.data.keys());
+
 		}
 
         // override
@@ -2791,7 +2807,7 @@ institute = {
 				+ " explained to you during the experiment. The experiment takes"
 				+ " approximately 60 minutes and will force your browser into fullscreen mode.",
 			"Reimbursement":
-				"You will be reimbursed at the rate of 9.5 GBP per hour on the"
+				"You will be reimbursed at the rate of 10 GBP per hour on the"
 				+ " condition that you meet your obligations.",
 			"Obligations":
 				" You are obliged to pay a fair amount of attention throughout this study."
@@ -2834,7 +2850,7 @@ institute = {
 				+ " and if are otherwise eligible: can receive pro rata compensation for your time.",
 		},
 		'consent_form': [
-			"1. I consent to offering 1 hour of participation in this study in exchange for 9.5 GBP.",
+			"1. I consent to offering 1 hour of participation in this study in exchange for 10 GBP.",
 			"2. I am aware of the study procedure, and all of my questions regarding it have been answered.",
 			"3. I agree to the recording and analysis of my anonymous data.",
 			"4. I am satisfied with the data protection practices of this study.",

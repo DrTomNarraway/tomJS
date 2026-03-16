@@ -9,6 +9,7 @@
         const study_codes = {
             'vrs' : 'BE5A68E6',
 			'vrs_II' : 'CKQXC305',
+			'vrs_III' : 'CKQXC305'
         }
 
 		jatos.onLoad(endStudy);        
@@ -25,7 +26,7 @@
                 jatos.endStudyAndRedirect(url = link, message = "exit 0");
             }
             else {
-                writeToBody('You can close this window when you are ready :)');
+                HTMLTools.Write('You can close this window when you are ready :)');
             };
 		};
 
