@@ -5,9 +5,9 @@
     <script src="jatos.js" id="jatos"></script>
     <script src="tomJS.js" id="tomJS"></script>
     <script>
-
+        
         const args = {
-            'fullscreen': false,
+            'fullscreen': true,
             'gridlines': false,
             'verbose': true,
             'show_time' : false,
@@ -19,33 +19,66 @@
 
         // constants
 
+        const TRIALTYPE = Trials.ProgressBarResponseSignal;
+
         const BLOCKWISE = {};
 
         const TRIALWISE = {
-            'condition': [200, 400, 600],
-            'text_text': ['F', 'J']
+            'condition': [0, 200, 400, 600, 800, 1600],
+            'gabor_contrast': [0.03, 0.50],
+            'gabor_ori': [2, 358]
         };
 
         const ADDITIONAL = {            
-            'stimulus': Stimuli.Text,
-            'iti_duration': [800, 1000, 1200],
+            'stimulus': Stimuli.Gabor,
+            'iti_duration': [650, 750, 850],
             'signal': Stimuli.NecroDancerBar,
-            'signal_for': 200
+            'signal_for': 300
         };
 
         const CONDITIONAL = [
-            'if (text_text == F) target = A',
-            'if (text_text == J) target = B',
-            'if (condition == 0) fixation_duration = 1800',
-            'if (condition == 200) fixation_duration = 1600',
-            'if (condition == 400) fixation_duration = 1400',
-            'if (condition == 600) fixation_duration = 1200',
-            'if (condition == 800) fixation_duration = 1000'
+            'if (gabor_ori == 358) target = A',
+            'if (gabor_ori == 3) target = B',
+            'if (condition == 0) fixation_duration = 2000',
+            'if (condition == 200) fixation_duration = 1800',
+            'if (condition == 400) fixation_duration = 1600',
+            'if (condition == 600) fixation_duration = 1400',
+            'if (condition == 800) fixation_duration = 1200',
+            'if (condition == 1600) fixation_duration = 400'
         ];
 
-        const ATTENTION = {};
+        const ATTENTION = [
+            {
+                'condition': 0,
+                'fixation_duration': 300,
+                'feedback_texts': {
+                    'Correct': 'Pass',
+                    'Incorrect':'Fail','Fast':'Fail','Slow':'Fail','Censored':'Fail'
+                },
+                'gabor_contrast': 1.00,
+                'gabor_ori': 5,
+                'signal': Stimuli.NecroDancerBar,
+                'signal_for': 2000,
+                'stimulus': Stimuli.Gabor,
+                'target': 'B'
+            },
+            {
+                'condition': 0,
+                'fixation_duration': 300,
+                'feedback_texts': {
+                    'Correct':'Pass',
+                    'Incorrect':'Fail','Fast':'Fail','Slow':'Fail','Censored':'Fail'
+                },
+                'gabor_contrast': 1.00,
+                'gabor_ori': 355,
+                'signal': Stimuli.NecroDancerBar,
+                'signal_for': 2000,
+                'stimulus': Stimuli.Gabor,
+                'target': 'A'
+            }
+        ];
 
-        const BLOCKREPS = 2;
+        const BLOCKREPS = 4;
 
         const TRIALREPS = 1;
 
@@ -82,7 +115,7 @@
         tomJS.appendToTimeline(_keyboard);
 
         tomJS.appendBlocks(
-            trial_type = Trials.ProgressBarResponseSignal,
+            trial_type = TRIALTYPE,
             blockwise = BLOCKWISE,
             trialwise = TRIALWISE,
             additional = ADDITIONAL,

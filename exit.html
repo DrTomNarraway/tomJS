@@ -1,35 +1,21 @@
 
 <html>
-<head></head>
+<head>
+</head>
 <body>
-	<script src="jatos.js"></script>
-	<script src="tomJS.js"></script>
-	<script>
+    <script src="jatos.js"></script>
+    <script src="tomJS.js"></script>
+    <script>
 
-        const study_codes = {
-            'vrs' : 'BE5A68E6',
-			'vrs_II' : 'CKQXC305',
-			'vrs_III' : 'CKQXC305'
-        }
+        jatos.onLoad(endStudy);
 
-		jatos.onLoad(endStudy);        
-
-		function endStudy() {
-
+        function endStudy() {
             const data = jatos.studySessionData;
             jatos.submitResultData(data);
+            const link="https://app.prolific.com/submissions/complete?cc=CKQXC305";
+            jatos.endStudyAndRedirect(url=link,message="exit 0");
+        };
 
-            const study_name = jatos.studyAssets;
-            if (study_name in study_codes) {
-                const study_code = study_codes[study_name];
-                const link = "https://app.prolific.co/submissions/complete?cc=" + study_code;
-                jatos.endStudyAndRedirect(url = link, message = "exit 0");
-            }
-            else {
-                HTMLTools.Write('You can close this window when you are ready :)');
-            };
-		};
-
-	</script>
+    </script>
 </body>
 </html>

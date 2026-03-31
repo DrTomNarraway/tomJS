@@ -1,9 +1,9 @@
 
 
-__version__ = '16.03.26 14:55';
+__version__ = '30.03.25 15:31';
 
 
-class Experiment {		
+class Experiment {
 	
 	constructor(args={}) {
 		
@@ -78,9 +78,9 @@ class Experiment {
 
 		// attention checks
 		this.attention = {};
-		this.attention.failed    = 0; // current fail count
-		this.attention.limit     = args.attention_limit ?? 3; // failted trail limit
-		this.attention.check_for = args.attention_check_for ?? 15; // minutes
+		this.attention.failed = 0; // current fail count
+		this.attention.limit  = args.attention_limit ?? 3; // failted trail limit
+		this.attention.check_until = args.attention_check_until ?? 0.5; // minutes
 
 		// other
 		this.rounding = args.rounding ?? 5;
@@ -115,8 +115,8 @@ class Experiment {
 
 	attentionCheckFailed() {
 		this.attention.failed++;
-		if (this.attention.failed >= this.attention.limit &
-			((this.now - this.started)/1000/60) <= this.attention.check_for)
+		if (this.attention.failed >= this.attention.limit
+			& this.block <= (Math.floor(this.blocks*this.attention.check_until))-1)
 			this.requestReturn();
 		if (this.debug.verbose) console.log(this.attention);
 	}
@@ -361,6 +361,8 @@ class State {
 		this.complete = false;
 		this.start = tomJS.now;
 		tomJS.flushKeys();
+        if (tomJS.debug.fullscreen & document.fullscreenElement == null) 
+                document.documentElement.requestFullscreen();
 	}
 
 	exit() {
@@ -499,30 +501,30 @@ class Block extends State {
 
     attentionChecks(args, checks) {
         for (let i = 0; i < checks.length; i++) {
-            args.push(checks[i]);
+            var arg = {...checks[i], ...{'attention_check':true}};
+            args.push(arg);
         };
     }
 
 	checkConditions(args, conditions) {
 		for (let c = 0; c < conditions.length; c++) {
 			for (let a of Object.keys(args)) {
-				args[a] = this.checkIf(args[a], conditions[c]);
+				this.checkIf(args[a], conditions[c]);
 			};
 		};
 	}
 
-	checkIf(args, statement) {
+	checkIf(arg, statement) {
 		const split = statement.replace("(", "").replace(")", "").split(" ");
 		const l = "" + split[1];
 		const o = "" + split[2];
 		const r = "" + split[3];
-		if (!(Object.keys(args).includes(l))) return args;
-		const a = "" + args[l];
-		if (!(TextTools.evaluate(a+" "+o+" "+r))) return args;
+		if (!(Object.keys(arg).includes(l))) return;
+		const a = "" + arg[l];
+		if (!(TextTools.evaluate(a+" "+o+" "+r))) return;
 		const x = "" + split[4];
 		const y = "" + split[6];
-		args[x] = y
-		return args;
+		arg[x] = y;
 	}
 
 	generateTimeline(trial_type, trialwise, additional, conditional, attention, trial_reps, start_slide, end_slide, add_countdown) {
@@ -910,7 +912,8 @@ const Slides = ((module) => {
 
 		exitButtonClicked() {
 			this.state.complete = true;
-			if (tomJS.debug.fullscreen) document.documentElement.requestFullscreen();
+			if (tomJS.debug.fullscreen & document.fullscreenElement == null) 
+                document.documentElement.requestFullscreen();
 		}
 
 		createLogo() {
@@ -2176,7 +2179,9 @@ const Trials = ((module) => {
 
 			// calculated
 			this.data.stimulus_duration += this.data.condition + this.data.signal_for;
-			this.data.trial_duration = this.data.fixation_duration + this.data.condition + this.data.signal_for;
+			this.data.trial_duration = this.data.fixation_duration
+                + this.data.condition
+                + this.data.signal_for;
 
 			// placeholder
 			this.data.rtt = null;
@@ -2295,7 +2300,9 @@ const Trials = ((module) => {
 
             // calculated
 			this.data.stimulus_duration += this.data.condition + this.data.signal_for;
-			this.data.bar_duration = this.data.fixation_duration + this.data.condition + this.data.signal_for;
+			this.data.bar_duration = this.data.fixation_duration
+                + this.data.condition
+                + this.data.signal_for;
 
 			// signal(s)
 			this.signal = new (args.signal ?? Stimuli.ProgressBar)(this, args);
