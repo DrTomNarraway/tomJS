@@ -1,6 +1,6 @@
 
 
-__version__ = '30.03.25 15:31';
+__version__ = '01.04.26 15:24';
 
 
 class Experiment {
@@ -66,7 +66,6 @@ class Experiment {
         this.trial    = 0;
         this.trials   = 0;
 		this.started  = null;
-        this.timer    = 0; // timer showing time since expeirment started
         this.lowest   = null;
 
         // global stimuli storage
@@ -184,10 +183,6 @@ class Experiment {
 		tomJS.visual.context.drawImage(img, _x, _y, _size, _size);
 	}
 
-    drawTimer() {
-        this.writeToCanvas(this.timer, {'y':0.02, 'colour':'red'});
-    }
-
 	endExperiment() {
 		this.running  = false;
 		this.complete = true;
@@ -238,16 +233,15 @@ class Experiment {
 		if (document.fullscreenElement != null) document.exitFullscreen();
 		this.resetCanvas();
 		this.writeToCanvas('You have failed too many attention checks, please return your submission.');
+		if (this.jatos) jatos.submitResultData("failed attention checks, data cleared.");
 	}
 
 	run = () => {
 		if (this.complete) return;
 		this.now = Math.round(window.performance.now());
 		this.resetCanvas();
-        this.updateTimer();
 		this.update();
         if (this.debug.gridlines) this.drawGridLines();
-        if (this.debug.show_time) this.drawTimer();
 		requestAnimationFrame(this.run);
 	}
 
@@ -294,13 +288,6 @@ class Experiment {
 		if (this.complete) this.endExperiment();
 		else this.timeline.update();        
 	}
-
-    updateTimer() {
-        const _h = Math.floor((this.now - this.started)/1000/60/60);
-        const _m = Math.floor((this.now - this.started)/1000/60) - (60 * _h);
-        const _s = Math.floor((this.now - this.started)/1000) - (60 * _m);
-        this.timer = _h+":"+_m+":"+_s;
-    }
 
 	writeCSV() {
 		const data = this.data;
@@ -617,9 +604,6 @@ const Data = ((module) => {
 			this.censored = null;
 			this.hits = null;
 			this.miss = null;
-            this.start_timer = null;
-            this.end_timer = null;
-            this.duration = null;
 		}
 
 		calculateAverages(data) {
@@ -633,15 +617,6 @@ const Data = ((module) => {
 			this.miss = clamp(100 - this.hits, 0, 100);
 		}
 
-        calculateDuration(data) {
-            const _start = ArrayTools.extract(data,'start_timer')[0];
-            const _end = ArrayTools.extract(data,'end_timer')[ArrayTools.extract(data,'end_timer').length-1];
-            const _dur = TextTools.duration(_start, _end);
-            this.start_timer = _start;
-            this.end_timer   = _end;
-            this.duration    = _dur;
-        }
-
 		calculatePercentages(data) {
 			const n = data.length;
 			let outcomes = ArrayTools.extract(data, 'outcome');
@@ -654,7 +629,6 @@ const Data = ((module) => {
 
 		calculateData(data) {
 			this.calculateAverages(data);
-            this.calculateDuration(data);
 			this.calculatePercentages(data);
 			this.calculateComplex();
 		}
@@ -695,9 +669,6 @@ const Data = ((module) => {
 			this.feedback_off = null;
 			this.iti_duration = null;
 			this.end = null;
-            this.start_timer = null;
-            this.end_timer = null;
-            this.duration = null;
 		}
 
 	}
@@ -2043,15 +2014,12 @@ const Trials = ((module) => {
 		enter() {
 			super.enter();
 			this.data.start = tomJS.now;
-            this.data.start_timer = tomJS.timer;
 			this.timeline.enter();
 		}
 
 		exit() {
 			super.exit();
 			this.data.end = tomJS.now;
-            this.data.end_timer = tomJS.timer;
-            this.data.duration = TextTools.duration(this.data.start_timer, this.data.end_timer);
 			if (this.attention_check & this.data.outcome != "Correct") tomJS.attentionCheckFailed();
 		}
 
@@ -2732,21 +2700,6 @@ class Keyboard {
 
 
 const TextTools = ((module) => {	
-
-    /** Calculate the duration between two tomJS timer strings. */
-    module.duration = function duration(start, end) {
-        const _start = Number(start.split(":")[0]) * 60 * 1000
-            + Number(start.split(":")[1]) * 60
-            + Number(start.split(":")[2]);        
-        const _end = Number(end.split(":")[0]) * 60 * 1000
-            + Number(end.split(":")[1]) * 60
-            + Number(end.split(":")[2]);        
-        const _d = _end - _start;
-        const _h = Math.floor((_d)/60/60);
-        const _m = Math.floor((_d)/60) - (60 * _h);
-        const _s = Math.floor((_d)) - (60 * _m);
-        return _h+":"+_m+":"+_s;
-    }
 
 	/** Evaluate the relationship between l and r based on o. */
 	module.evaluate = function evaluate(string) {

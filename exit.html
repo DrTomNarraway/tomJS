@@ -1,20 +1,18 @@
 
 <html>
-<head>
-</head>
+<head></head>
 <body>
     <script src="jatos.js"></script>
-    <script src="tomJS.js"></script>
     <script>
+		
+		jatos.onLoad(endStudy);        
 
-        jatos.onLoad(endStudy);
-
-        function endStudy() {
+		function endStudy() {
             const data = jatos.studySessionData;
             jatos.submitResultData(data);
-            const link="https://app.prolific.com/submissions/complete?cc=CKQXC305";
-            jatos.endStudyAndRedirect(url=link,message="exit 0");
-        };
+            const link = "https://app.prolific.com/submissions/complete?cc=CKQXC305";
+            jatos.endStudyAndRedirect(url = link, message = "exit 0");            			
+		};
 
     </script>
 </body>
