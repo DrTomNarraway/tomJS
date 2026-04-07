@@ -1,6 +1,6 @@
 
 
-__version__ = '01.04.26 15:24';
+__version__ = '07.04.26 11:27';
 
 
 class Experiment {
@@ -232,8 +232,9 @@ class Experiment {
 		this.complete = true;
 		if (document.fullscreenElement != null) document.exitFullscreen();
 		this.resetCanvas();
-		this.writeToCanvas('You have failed too many attention checks, please return your submission.');
-		if (this.jatos) jatos.submitResultData("failed attention checks, data cleared.");
+        this.writeToCanvas('You have failed too many attention checks, please return your submission.');
+        const csv = "FAILED ATTENTION CHECKS \n \n" + this.writeCSV();
+        if (this.jatos) jatos.submitResultData(csv);
 	}
 
 	run = () => {
@@ -294,7 +295,8 @@ class Experiment {
 		const demo = this.demographics;
 		const visu = this.visual;
 		let csv = this.headings.toString() + '\n';
-		for (let r of data) {
+        for (let r of data) {
+            if (r.block > tomJS.block) continue;
 			const x = {...r, ...demo, ...visu};
 			let y = [];
 			for (let h of this.headings) y.push(x[h]);
