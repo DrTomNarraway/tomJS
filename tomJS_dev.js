@@ -3,6 +3,10 @@
 __version__ = '14.04.26 14:06';
 
 
+// adding counterbalanace functions
+// editing blockwise functions
+
+
 class Experiment {
 	
 	constructor(args={}) {
@@ -101,7 +105,7 @@ class Experiment {
 		this.appendToTimeline(_block);
 	}
 
-	appendBlocks(blockwise={}, trialwise={}, additional={}, conditional=[], attention={}, block_reps=1, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
+	appendBlocks(blockwise={}, trialwise={}, additional={}, conditional=[], attention=[], block_reps=1, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
 		let _b_cells  = ObjectTools.length(blockwise);
         for (let b = 0; b < block_reps; b++) {
             let _blockwise = ObjectTools.allCombinations(blockwise);
@@ -111,7 +115,41 @@ class Experiment {
                 this.appendBlock(trialwise, _additional, conditional, attention, trial_reps, start_slide, end_slide, add_countdown);
 			};
 		};
-	}
+    }
+
+    appendCounterbalancedBlocks(A, B, blocks) {
+        const cbg = this.getCounterbalanceGroup();
+
+        // A
+        const a_cells = ObjectTools.length(A.blockwise);
+        let _a = ObjectTools.allCombinations(A.blockwise);
+        _a = ArrayTools.tape(_a, A.additional);
+        _a = ArrayTools.extend(_a, blocks/2/a_cells);
+        _a = ArrayTools.shuffle(_a);
+
+        // B
+        const b_cells = ObjectTools.length(B.blockwise);
+        let _b = ObjectTools.allCombinations(B.blockwise);
+        _b = ArrayTools.tape(_b, B.additional);
+        _b = ArrayTools.extend(_b, blocks/2/b_cells);
+        _b = ArrayTools.shuffle(_b);
+
+        // Combine
+        let order = [];
+        if (cbg == 0) {
+            for (let i = 0; i < blocks; i++) {
+                if (i % 2 == 0) order.push(_a.pop())
+                else order.push(_b.pop());
+            };
+        }
+        else {
+            for (let i = 0; i < blocks; i++) {
+                if (i % 2 == 0) order.push(_b.pop())
+                else order.push(_a.pop());
+            };
+        };
+        console.log(order);
+    }
 
 	attentionCheckFailed() {
 		this.attention.failed++;
@@ -216,7 +254,16 @@ class Experiment {
 	flushKeys() {
 		this.keyboard.key = '';
 		this.keyboard.dir = '';
-	}
+    }
+
+    forceCounterbalanceGroup(group) {
+        if (group != 0 | group != 1) tomJS.error("Forcing invalid counterbalance group.");
+        this.demographics.cbg = group;
+    }
+
+    getCounterbalanceGroup() {
+        return this.demographics.n % 2
+    }
 
 	replaceEndBlockWithEndExperiment(end_slide) {		
 		const i = this.timeline.length - 1;

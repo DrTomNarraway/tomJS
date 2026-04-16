@@ -19,34 +19,93 @@
 
         if (jatos.constructor != HTMLScriptElement) jatos.onConnected(() => { tomJS.connectToJatos(false) });
 
+        const CBG = tomJS.getCounterbalanceGroup();
+
         // constants
 
-        const BLOCKWISE = {
-            'trial_type' : [Trials.ProgressBarResponseSignal, Trials.Trial]
-        };
+        const FR_BLOCKWISE = {};
 
-        const TRIALWISE = {
-            'condition': [0, 400, 800],
-            'gabor_contrast': [0.03, 0.50],
+        const FR_TRIALWISE = {
             'gabor_ori': [2, 358]
         };
 
-        const ADDITIONAL = {            
+        const FR_ADDITIONAL = {     
+            'condition': 'FR',
+            'gabor_contrast': 0.03,
+            'stimulus': Stimuli.Gabor,
+            'iti_duration': [650, 750, 850],
+            'trial_type': Trials.Trial
+        };
+
+        const FR_CONDITIONAL = [
+            'if (gabor_ori > 180) target = A',
+            'if (gabor_ori < 180) target = B',
+        ];
+
+        const FR_ATTENTION = [
+            {
+                'condition': 'FR',
+                'feedback_texts': {
+                    'Correct': 'Pass',
+                    'Incorrect': 'Fail', 'Fast': 'Fail', 'Slow': 'Fail', 'Censored': 'Fail'
+                },
+                'gabor_contrast': 1.00,
+                'gabor_ori': 5,
+                'stimulus': Stimuli.Gabor,
+                'target': 'B',
+                'trial_type': Trials.Trial
+            },
+            {
+                'condition': 'FR',
+                'feedback_texts': {
+                    'Correct': 'Pass',
+                    'Incorrect': 'Fail', 'Fast': 'Fail', 'Slow': 'Fail', 'Censored': 'Fail'
+                },
+                'gabor_contrast': 1.00,
+                'gabor_ori': 355,
+                'stimulus': Stimuli.Gabor,
+                'target': 'A',
+                'trial_type': Trials.Trial
+            }
+        ];
+
+        const FR_BLOCK = {
+            'blockwise':        FR_BLOCKWISE,
+            'trialwise':        FR_TRIALWISE,
+            'additional':       FR_ADDITIONAL,
+            'conditional':      FR_CONDITIONAL,
+            'attention':        FR_ATTENTION,
+            'trial_reps':       12,
+            'start_slide':      null,
+            'end_slide':        null,
+            'add_countdown':    true
+        };
+
+        const RS_BLOCKWISE = {};
+
+        const RS_TRIALWISE = {
+            'condition': [0, 500, 1000],
+            'gabor_ori': [2, 358]
+        };
+
+        const RS_ADDITIONAL = {        
+            'gabor_contrast': 0.03,
             'stimulus': Stimuli.Gabor,
             'iti_duration': [650, 750, 850],
             'signal': Stimuli.NecroDancerBar,
-            'signal_for': 300
+            'signal_for': 300,
+            'trial_type': Trials.ProgressBarResponseSignal
         };
 
-        const CONDITIONAL = [
+        const RS_CONDITIONAL = [
             'if (gabor_ori > 180) target = A',
             'if (gabor_ori < 180) target = B',
-            'if (condition == 0) fixation_duration = 1700',
-            'if (condition == 400) fixation_duration = 1300',
-            'if (condition == 800) fixation_duration = 900',
+            'if (condition == 0) fixation_duration = 1500',
+            'if (condition == 500) fixation_duration = 1000',
+            'if (condition == 1000) fixation_duration = 500',
         ];
 
-        const ATTENTION = [
+        const RS_ATTENTION = [
             {
                 'condition': 0,
                 'fixation_duration': 0,
@@ -79,11 +138,17 @@
             }
         ];
 
-        const BLOCKREPS = 4;
-
-        const TRIALREPS = 1;
-
-        const ADDCOUNTDOWN = true;
+        const RS_BLOCK = {
+            'blockwise':        RS_BLOCKWISE,
+            'trialwise':        RS_TRIALWISE,
+            'additional':       RS_ADDITIONAL,
+            'conditional':      RS_CONDITIONAL,
+            'attention':        RS_ATTENTION,
+            'trial_reps':       2,
+            'start_slide':      null,
+            'end_slide':        null,
+            'add_countdown':    true
+        };
 
         // slides
 
@@ -115,17 +180,10 @@
 
         tomJS.appendToTimeline(_keyboard);
 
-        tomJS.appendBlocks(
-            blockwise = BLOCKWISE,
-            trialwise = TRIALWISE,
-            additional = ADDITIONAL,
-            conditional = CONDITIONAL,
-            attention = ATTENTION,
-            block_reps = BLOCKREPS,
-            trial_reps = TRIALREPS,
-            start_slide = null,
-            end_slide = _end_block,
-            add_countdown = ADDCOUNTDOWN
+        tomJS.appendCounterbalancedBlocks(
+            A = FR_BLOCK,
+            B = RS_BLOCK,
+            blocks = 26
         );
 
         tomJS.appendToTimeline(_end_exp);
