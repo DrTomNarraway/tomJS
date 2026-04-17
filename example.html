@@ -3,14 +3,11 @@
 <html>
 <body>
     <script src="jatos.js" id="jatos"></script>
-    <script src="tomJS_dev.js" id="tomJS"></script>
+    <script src="tomJS.js" id="tomJS"></script>
     <script>
         
         const args = {
-            'fullscreen': false,
-            'gridlines': false,
             'verbose': true,
-            'show_time' : false,
         };
 
         const tomJS = new Experiment(args);
@@ -22,8 +19,6 @@
         const CBG = tomJS.getCounterbalanceGroup();
 
         // constants
-
-        const FR_BLOCKWISE = {};
 
         const FR_TRIALWISE = {
             'gabor_ori': [2, 358]
@@ -69,22 +64,8 @@
             }
         ];
 
-        const FR_BLOCK = {
-            'blockwise':        FR_BLOCKWISE,
-            'trialwise':        FR_TRIALWISE,
-            'additional':       FR_ADDITIONAL,
-            'conditional':      FR_CONDITIONAL,
-            'attention':        FR_ATTENTION,
-            'trial_reps':       12,
-            'start_slide':      null,
-            'end_slide':        null,
-            'add_countdown':    true
-        };
-
-        const RS_BLOCKWISE = {};
-
         const RS_TRIALWISE = {
-            'condition': [0, 500, 1000],
+            'condition': [400, 600, 800, 1200, 1400, 1600],
             'gabor_ori': [2, 358]
         };
 
@@ -100,9 +81,12 @@
         const RS_CONDITIONAL = [
             'if (gabor_ori > 180) target = A',
             'if (gabor_ori < 180) target = B',
-            'if (condition == 0) fixation_duration = 1500',
-            'if (condition == 500) fixation_duration = 1000',
-            'if (condition == 1000) fixation_duration = 500',
+            'if (condition == 400) fixation_duration = 1600',
+            'if (condition == 600) fixation_duration = 1400',
+            'if (condition == 800) fixation_duration = 1200',
+            'if (condition == 1200) fixation_duration = 800',
+            'if (condition == 1400) fixation_duration = 600',
+            'if (condition == 1600) fixation_duration = 400',
         ];
 
         const RS_ATTENTION = [
@@ -138,19 +122,10 @@
             }
         ];
 
-        const RS_BLOCK = {
-            'blockwise':        RS_BLOCKWISE,
-            'trialwise':        RS_TRIALWISE,
-            'additional':       RS_ADDITIONAL,
-            'conditional':      RS_CONDITIONAL,
-            'attention':        RS_ATTENTION,
-            'trial_reps':       2,
-            'start_slide':      null,
-            'end_slide':        null,
-            'add_countdown':    true
-        };
-
         // slides
+
+        const _fullscreen = new Slides.Fullscreen();
+        const _credit_card = new Slides.CreditCard();
 
         const _keyboard = new Slides.Slide([
             {'class': 'text','text': 'EXAMPLE EXPERIMENT','y': 0.25},
@@ -176,14 +151,41 @@
             { 'class': 'text', 'text': 'Press F and J at the same time to end the experiment.', 'y': 0.75 },
         ]);
 
+        // block arguments
+
+        const FR_BLOCK = {
+            'blockwise': {},
+            'trialwise': FR_TRIALWISE,
+            'additional': FR_ADDITIONAL,
+            'conditional': FR_CONDITIONAL,
+            'attention': FR_ATTENTION,
+            'trial_reps': 12,
+            'start_slide': null,
+            'end_slide': _end_block,
+            'add_countdown': true
+        };
+
+        const RS_BLOCK = {
+            'trialwise': RS_TRIALWISE,
+            'additional': RS_ADDITIONAL,
+            'conditional': RS_CONDITIONAL,
+            'attention': RS_ATTENTION,
+            'trial_reps': 2,
+            'start_slide': null,
+            'end_slide': _end_block,
+            'add_countdown': true
+        };
+
         // timeline
 
+        tomJS.appendToTimeline(_fullscreen);
+        tomJS.appendToTimeline(_credit_card);
         tomJS.appendToTimeline(_keyboard);
 
         tomJS.appendCounterbalancedBlocks(
             A = FR_BLOCK,
             B = RS_BLOCK,
-            blocks = 26
+            blocks = 4
         );
 
         tomJS.appendToTimeline(_end_exp);

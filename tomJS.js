@@ -1,6 +1,10 @@
 
 
-__version__ = '07.04.26 11:27';
+__version__ = '17.04.26 16:06';
+
+
+// adding counterbalanace functions
+// editing blockwise functions
 
 
 class Experiment {
@@ -65,6 +69,7 @@ class Experiment {
 		this.blocks   = 0;
         this.trial    = 0;
         this.trials   = 0;
+		this.index    = 0;
 		this.started  = null;
         this.lowest   = null;
 
@@ -78,8 +83,8 @@ class Experiment {
 		// attention checks
 		this.attention = {};
 		this.attention.failed = 0; // current fail count
-		this.attention.limit  = args.attention_limit ?? 3; // failted trail limit
-		this.attention.check_until = args.attention_check_until ?? 0.5; // minutes
+		this.attention.limit  = args.attention_limit ?? 3; // failed trail limit
+		this.attention.check_until = args.attention_check_until ?? 0.4; // percent
 
 		// other
 		this.rounding = args.rounding ?? 5;
@@ -95,22 +100,63 @@ class Experiment {
 		this.timeline.push(new_state);
 	}
 
-	appendBlock(trial_type, trialwise={}, additional={}, conditional=[], attention=[], trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
-		const _block = new Block(trial_type, trialwise, additional, conditional, attention, trial_reps, start_slide, end_slide, add_countdown);
+    appendBlock(args = {}) {
+        // extract from args
+        var trialwise     = args.trialwise     ?? {};
+        var additional    = args.additional    ?? {};
+        var conditional   = args.conditional   ?? [];
+        var attention     = args.attention     ?? [];
+        var trial_reps    = args.trial_reps    ?? 1;
+        var start_slide   = args.start_slide   ?? null;
+        var end_slide     = args.end_slide     ?? null;
+        var add_countdown = args.add_countdown ?? true;
+        // create and append
+        const _block = new Block(trialwise, additional, conditional, attention, trial_reps, start_slide, end_slide, add_countdown);
 		this.appendToTimeline(_block);
 	}
 
-	appendBlocks(trial_type, blockwise={}, trialwise={}, additional={}, conditional=[], attention={}, block_reps=1, trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
-		let _b_cells  = ObjectTools.length(blockwise);
+    appendBlocks(args = {}) {
+        // extract from args
+        var blockwise = args.blockwise ?? {};
+        var trialwise = args.trialwise ?? {};
+        var additional = args.additional ?? {};
+        var conditional = args.conditional ?? [];
+        var attention = args.attention ?? [];
+        var block_reps = args.block_reps ?? 1;
+        var trial_reps = args.trial_reps ?? 1;
+        var start_slide = args.start_slide ?? null;
+        var end_slide = args.end_slide ?? null;
+        var add_countdown = args.add_countdown ?? true;
+        // account for blockwise arguments and append
+        let _b_cells = ObjectTools.length(blockwise);
         for (let b = 0; b < block_reps; b++) {
             let _blockwise = ObjectTools.allCombinations(blockwise);
             _blockwise = ArrayTools.shuffle(_blockwise);
             for (let i = 0; i < _b_cells; i++) {
-				let _additional = Object.assign({}, _blockwise[i % _b_cells], additional);
-                this.appendBlock(trial_type, trialwise, _additional, conditional, attention, trial_reps, start_slide, end_slide, add_countdown);
+                let _additional = Object.assign({}, _blockwise[i % _b_cells], additional);
+                var args = {
+                    'trialwise'     : trialwise,
+                    'additional'    : _additional,
+                    'conditional'   : conditional,
+                    'attention'     : attention,
+                    'trial_reps'    : trial_reps,
+                    'start_slide'   : start_slide,
+                    'end_slide'     : end_slide,
+                    'add_countdown' : add_countdown
+                }
+                this.appendBlock(args);
 			};
 		};
-	}
+    }
+
+    //** Append blocks of type A and B sequentially depending on the current users N. */
+    appendCounterbalancedBlocks(A, B, blocks) {
+        const cbg = this.getCounterbalanceGroup();
+        for (let i = 0; i < blocks; i++) {
+            if (i % 2 == cbg) this.appendBlock(A)
+            else this.appendBlock(B);
+        };
+    }
 
 	attentionCheckFailed() {
 		this.attention.failed++;
@@ -215,7 +261,16 @@ class Experiment {
 	flushKeys() {
 		this.keyboard.key = '';
 		this.keyboard.dir = '';
-	}
+    }
+
+    forceCounterbalanceGroup(group) {
+        if (group != 0 | group != 1) tomJS.error("Forcing invalid counterbalance group.");
+        this.demographics.cbg = group;
+    }
+
+    getCounterbalanceGroup() {
+        return this.demographics.n % 2
+    }
 
 	replaceEndBlockWithEndExperiment(end_slide) {		
 		const i = this.timeline.length - 1;
@@ -301,7 +356,7 @@ class Experiment {
 			let y = [];
 			for (let h of this.headings) y.push(x[h]);
 			csv += y.toString() + '\n';
-		};
+		};        
 		return csv;
 	}
 
@@ -458,12 +513,12 @@ class Mutator extends State {
 
 class Block extends State {
 
-	constructor(trial_type, trialwise={}, additional={}, conditional=[], attention=[], trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
+	constructor(trialwise={}, additional={}, conditional=[], attention=[], trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
 		super();
 		this.block = tomJS.blocks;
 		tomJS.blocks++;
 		this.n = 0;	
-		this.generateTimeline(trial_type, trialwise, additional, conditional, attention, trial_reps, start_slide, end_slide, add_countdown);
+		this.generateTimeline(trialwise, additional, conditional, attention, trial_reps, start_slide, end_slide, add_countdown);
 	}
 
 	// super
@@ -516,16 +571,16 @@ class Block extends State {
 		arg[x] = y;
 	}
 
-	generateTimeline(trial_type, trialwise, additional, conditional, attention, trial_reps, start_slide, end_slide, add_countdown) {
+	generateTimeline(trialwise, additional, conditional, attention, trial_reps, start_slide, end_slide, add_countdown) {
 		let _timeline = new Timeline();
 
 		// make a list of trials based on design cells
 		let _arguments = ObjectTools.allCombinations(trialwise);
 		_arguments = ArrayTools.tape(_arguments, additional);
 		_arguments = ArrayTools.extend(_arguments, trial_reps);
-		if (attention.length > 0)   this.attentionChecks(_arguments, attention);
 		if (conditional.length > 0) this.checkConditions(_arguments, conditional);
-		_arguments = ArrayTools.shuffle(_arguments);
+		if (attention.length > 0)   this.attentionChecks(_arguments, attention);
+		_arguments = ArrayTools.shuffle(_arguments);        
 
 		// add opening slides
 		if (start_slide != null) _timeline.push(start_slide);
@@ -537,7 +592,8 @@ class Block extends State {
 			_args.block = this.block;
 			_args.trial = t;
 			_args.index = tomJS.trials;
-			const _new_trial = new trial_type(_args);
+            if (!('trial_type' in _args)) tomJS.error('Trial type not passed to trial.');
+			const _new_trial = new _args.trial_type(_args);
 			_timeline.push(_new_trial);
 			this.n++;
 			tomJS.trials++;
@@ -676,6 +732,32 @@ const Data = ((module) => {
 	}
 
 	return module;
+
+})({});
+
+
+const Nodes = ((module) => {
+
+    module.TapCollector = class TapCollector {
+
+        constructor(target='Space') {
+            this.target = target;
+            this.taps = ['index,state,timestamp\n'];
+            this.collect = this.collect.bind(this);
+            document.addEventListener('keydown', this.collect, true);
+        };
+
+        collect(event) {
+		    if (event.code != this.target) return;
+            const data = ''+tomJS.index+','+tomJS.lowest.currentState()+','+event.timeStamp+'\n';
+            this.taps.push(data);
+            if (tomJS.jatos & tomJS.debug.save)
+                jatos.uploadResultFile(this.taps.toString(), 'tapData.csv');
+        };
+		
+    };
+
+    return module;
 
 })({});
 
@@ -2021,6 +2103,8 @@ const Trials = ((module) => {
 
 		exit() {
 			super.exit();
+			tomJS.trial += 1;
+			tomJS.index += 1;
 			this.data.end = tomJS.now;
 			if (this.attention_check & this.data.outcome != "Correct") tomJS.attentionCheckFailed();
 		}
