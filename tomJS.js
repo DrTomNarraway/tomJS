@@ -1,6 +1,6 @@
 
 
-__version__ = '17.04.26 16:06';
+__version__ = '17.04.26 16:36';
 
 
 // adding counterbalanace functions
@@ -312,7 +312,7 @@ class Experiment {
 		this.visual.canvas.style.left = (this.visual.width - this.visual.screen_size + 16) / 2 + "px";
 	}
 
-	setFont(fontFamily="Arial", t=0.05, h1=0.07, h0=0.10) {
+	setFont(fontFamily="Times New Roman", t=0.05, h1=0.07, h0=0.10) {
 		this.visual.fontFamily = fontFamily;
 		this.visual.h0       = (this.visual.stimulus_size * h0) + "px";
 		this.visual.h1       = (this.visual.stimulus_size * h1) + "px";
@@ -405,8 +405,8 @@ class State {
 		this.complete = false;
 		this.start = tomJS.now;
 		tomJS.flushKeys();
-        if (tomJS.debug.fullscreen & document.fullscreenElement == null) 
-                document.documentElement.requestFullscreen();
+        //if (tomJS.debug.fullscreen & document.fullscreenElement == null) 
+        //        document.documentElement.requestFullscreen();
 	}
 
 	exit() {
@@ -918,7 +918,7 @@ const Slides = ((module) => {
 
 		update() {
 			let time = Math.ceil((this.start + this.lifetime - tomJS.now) / 1000);
-			tomJS.writeToCanvas(time, { 'fontSize': this.fontSize });
+			tomJS.writeToCanvas(Max(1, time), { 'fontSize': this.fontSize });
 			if (tomJS.now >= this.start + this.lifetime) this.complete = true;
 			super.update();
 		}
@@ -1396,6 +1396,67 @@ const Slides = ((module) => {
 			return tomJS.data;
 		}
 
+	}
+
+	module.Fullscreen = class Fullscreen extends module.Slide {
+		
+		constructor(args = {}) {
+			super([], args);			
+		}
+		
+		createContainer() {
+			const ctr = document.createElement('div');
+			ctr.id = "container";
+			ctr.style.width = "100%";
+			ctr.style.height = "100%";
+			ctr.style.justifyContent = "center";
+			ctr.style.alignItems = "center";
+			ctr.style.display = "flex";
+			ctr.style.flexDirection = "column";
+			ctr.style.flexWrap = "wrap";
+			ctr.style.textAlign = "right";
+			ctr.style.fontFamily = tomJS.visual.fontFamily;
+			ctr.style.position = "absolute";
+			ctr.style.top = "50%";
+			ctr.style.left = "50%";
+			ctr.style.transform = "translate(-50%, -50%)";
+			this.container = ctr;
+			document.body.appendChild(ctr);
+		}
+		
+		enter() {
+			super.enter();
+			this.createContainer();
+			this.fsb = HTMLTools.Button(
+				"fullscreenButton", 
+				"Enter Fullscreen", 
+				this.fullscreenPressed, 
+				this.container);
+			this.fsb.state = this;
+		}
+		
+		exit() {
+			super.exit();
+			this.container.remove();
+		}
+		
+		fullscreenPressed() {
+			// this. is the button
+			document.documentElement.requestFullscreen();
+			this.e = HTMLTools.Button(
+				"exitButton", 
+				"Continue", 
+				this.state.exitPressed, 
+				this.state.container);
+			this.e.state = this.state;
+			this.remove();
+		}
+		
+		exitPressed() {
+			// this. is the button
+			this.state.complete = true;
+		}
+		
 	}
 
 	return module;
