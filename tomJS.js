@@ -1,10 +1,6 @@
 
 
-__version__ = '17.04.26 16:36';
-
-
-// adding counterbalanace functions
-// editing blockwise functions
+__version__ = '20.04.2026 10:54';
 
 
 class Experiment {
@@ -19,7 +15,7 @@ class Experiment {
 		this.debug.fullscreen = args.fullscreen ?? true;
 		this.debug.save       = args.save       ?? true;
 		this.debug.verbose    = args.verbose    ?? false;
-        this.debug.show_time  = args.show_time  ?? false;
+        this.debug.size_overlay = args.size_overlay  ?? false;
 
 		// visual
 		this.visual = {};
@@ -101,49 +97,18 @@ class Experiment {
 	}
 
     appendBlock(args = {}) {
-        // extract from args
-        var trialwise     = args.trialwise     ?? {};
-        var additional    = args.additional    ?? {};
-        var conditional   = args.conditional   ?? [];
-        var attention     = args.attention     ?? [];
-        var trial_reps    = args.trial_reps    ?? 1;
-        var start_slide   = args.start_slide   ?? null;
-        var end_slide     = args.end_slide     ?? null;
-        var add_countdown = args.add_countdown ?? true;
-        // create and append
-        const _block = new Block(trialwise, additional, conditional, attention, trial_reps, start_slide, end_slide, add_countdown);
+        const _block = new Block(args);
 		this.appendToTimeline(_block);
 	}
 
     appendBlocks(args = {}) {
-        // extract from args
         var blockwise = args.blockwise ?? {};
-        var trialwise = args.trialwise ?? {};
-        var additional = args.additional ?? {};
-        var conditional = args.conditional ?? [];
-        var attention = args.attention ?? [];
-        var block_reps = args.block_reps ?? 1;
-        var trial_reps = args.trial_reps ?? 1;
-        var start_slide = args.start_slide ?? null;
-        var end_slide = args.end_slide ?? null;
-        var add_countdown = args.add_countdown ?? true;
-        // account for blockwise arguments and append
         let _b_cells = ObjectTools.length(blockwise);
         for (let b = 0; b < block_reps; b++) {
             let _blockwise = ObjectTools.allCombinations(blockwise);
             _blockwise = ArrayTools.shuffle(_blockwise);
             for (let i = 0; i < _b_cells; i++) {
-                let _additional = Object.assign({}, _blockwise[i % _b_cells], additional);
-                var args = {
-                    'trialwise'     : trialwise,
-                    'additional'    : _additional,
-                    'conditional'   : conditional,
-                    'attention'     : attention,
-                    'trial_reps'    : trial_reps,
-                    'start_slide'   : start_slide,
-                    'end_slide'     : end_slide,
-                    'add_countdown' : add_countdown
-                }
+                args.additional = Object.assign({}, _blockwise[i % _b_cells], additional);
                 this.appendBlock(args);
 			};
 		};
@@ -229,6 +194,11 @@ class Experiment {
 		tomJS.visual.context.drawImage(img, _x, _y, _size, _size);
 	}
 
+    drawSizeOverlay() {
+        this.strokeRect(0.5, 0.5, this.visual.screen_size, this.visual.screen_size, "grey", 1);
+        this.strokeRect(0.5, 0.5, this.visual.stimulus_size, this.visual.stimulus_size, "red", 1);
+    }
+
 	endExperiment() {
 		this.running  = false;
 		this.complete = true;
@@ -298,6 +268,7 @@ class Experiment {
 		this.resetCanvas();
 		this.update();
         if (this.debug.gridlines) this.drawGridLines();
+        if (this.debug.size_overlay) this.drawSizeOverlay();
 		requestAnimationFrame(this.run);
 	}
 
@@ -328,11 +299,13 @@ class Experiment {
 		requestAnimationFrame(this.run);
 	}
 
-	/** Draw a hollow rectangle. x and y degine the position of the top-left pixel. */
+	/** Draw a hollow rectangle. */
 	strokeRect(x, y, width, height, colour = "white", lineWidth = 1) {
 		this.visual.context.strokeStyle = colour;
-		this.visual.context.lineWidth = lineWidth;
-		this.visual.context.strokeRect(x, y, width, height);
+        this.visual.context.lineWidth = lineWidth;
+        const _x = tomJS.visual.screen_size * x - (width * 0.5);
+        const _y = tomJS.visual.screen_size * y - (height * 0.5);
+		this.visual.context.strokeRect(_x, _y, width, height);
 	}
 
 	getTimeline() {
@@ -377,11 +350,11 @@ class Experiment {
 		const _tf = args.fontFamily ?? tomJS.visual.fontFamily;
 		const _font = _pt + " " + _tf;
 		tomJS.visual.context.font = _font;
-		let _x = args.x ?? 0.5;
-		let _y = args.y ?? 0.5;
-		let _pos_x = tomJS.visual.screen_size * _x;
-		let _pos_y = tomJS.visual.screen_size * _y + (0.33 * (""+_pt).split('p')[0]);
-		let _width = tomJS.visual.screen_size ?? 1;
+		const _x = args.x ?? 0.5;
+		const _y = args.y ?? 0.5;
+		const _pos_x = tomJS.visual.screen_size * _x;
+		const _pos_y = tomJS.visual.screen_size * _y + (0.33 * (""+_pt).split('p')[0]);
+		const _width = tomJS.visual.screen_size ?? 1;
 		tomJS.visual.context.fillText(_text, _pos_x, _pos_y, _width);
 	}
 
@@ -513,12 +486,21 @@ class Mutator extends State {
 
 class Block extends State {
 
-	constructor(trialwise={}, additional={}, conditional=[], attention=[], trial_reps=1, start_slide=null, end_slide=null, add_countdown=true) {
-		super();
+    constructor(args = {}) {
+        super();
+        this.name = args.name ?? "Block";
+        this.trialwise = args.trialwise ?? {};
+        this.additional = args.additional ?? {};
+        this.conditional = args.conditional ?? [];
+        this.attention = args.attention ?? [];
+        this.trial_reps = args.trial_reps ?? 1;
+        this.start_slide = args.start_slide ?? null;
+        this.end_slide = args.end_slide ?? null;
+        this.add_countdown = args.add_countdown ?? true;
 		this.block = tomJS.blocks;
 		tomJS.blocks++;
 		this.n = 0;	
-		this.generateTimeline(trialwise, additional, conditional, attention, trial_reps, start_slide, end_slide, add_countdown);
+		this.generateTimeline();
 	}
 
 	// super
@@ -571,20 +553,20 @@ class Block extends State {
 		arg[x] = y;
 	}
 
-	generateTimeline(trialwise, additional, conditional, attention, trial_reps, start_slide, end_slide, add_countdown) {
+	generateTimeline() {
 		let _timeline = new Timeline();
 
 		// make a list of trials based on design cells
-		let _arguments = ObjectTools.allCombinations(trialwise);
-		_arguments = ArrayTools.tape(_arguments, additional);
-		_arguments = ArrayTools.extend(_arguments, trial_reps);
-		if (conditional.length > 0) this.checkConditions(_arguments, conditional);
-		if (attention.length > 0)   this.attentionChecks(_arguments, attention);
+		let _arguments = ObjectTools.allCombinations(this.trialwise);
+        _arguments = ArrayTools.tape(_arguments, this.additional);
+        _arguments = ArrayTools.extend(_arguments, this.trial_reps);
+        if (this.conditional.length > 0) this.checkConditions(_arguments, this.conditional);
+        if (this.attention.length > 0) this.attentionChecks(_arguments, this.attention);
 		_arguments = ArrayTools.shuffle(_arguments);        
 
 		// add opening slides
-		if (start_slide != null) _timeline.push(start_slide);
-		if (add_countdown) { _timeline.push(new Slides.Countdown(3000)) };
+        if (this.start_slide != null) _timeline.push(this.start_slide);
+        if (this.add_countdown) { _timeline.push(new Slides.Countdown(3000)) };
 
 		// add trials
 		for (let t = 0; t < _arguments.length; t++) {
@@ -600,7 +582,7 @@ class Block extends State {
 		};
 
 		// add closing slide
-		if (end_slide != null) _timeline.push(end_slide);
+		if (this.end_slide != null) _timeline.push(this.end_slide);
 
 		// assign data
 		this.timeline = _timeline;
@@ -881,8 +863,10 @@ const Slides = ((module) => {
 					case 'gabor':
                         c.A = new Stimuli.Gabor(this, {...c, 'gabor_ori':360-c.gabor_ori});
                         this.data.hash_A = this.data.gabor_hash;
+                        c.A.prepareImageData();
                         c.B = new Stimuli.Gabor(this, {...c, 'gabor_ori':c.gabor_ori});
                         this.data.hash_B = this.data.gabor_hash;
+                        c.B.prepareImageData();
 						break;
 					case 'progressbar':
 						this.data.bar_start     = this.start;
@@ -918,7 +902,7 @@ const Slides = ((module) => {
 
 		update() {
 			let time = Math.ceil((this.start + this.lifetime - tomJS.now) / 1000);
-			tomJS.writeToCanvas(Max(1, time), { 'fontSize': this.fontSize });
+			tomJS.writeToCanvas(Math.max(1, time), { 'fontSize': this.fontSize });
 			if (tomJS.now >= this.start + this.lifetime) this.complete = true;
 			super.update();
 		}
@@ -1124,7 +1108,7 @@ const Slides = ((module) => {
 		adjustStimulusSize() {
 			const w = this.credit_card.clientWidth;
 			const _s = Math.round(w * (this.slider.value / 100));
-			tomJS.visual.stimulus_size = _s;
+			tomJS.visual.stimulus_size = Math.min(_s, tomJS.visual.screen_size);
 		}
 
 		adjustWindowSize() {
@@ -1514,16 +1498,13 @@ const Stimuli = ((module) => {
 			this.trial.data.gabor_y = args.gabor_y ?? 0.5;	// in screen units
 
             // determine this gabors global image counterpart
-            this.trial.data.gabor_hash = this.hash();
-            
-            // create the global image if it does not exist
-            if (!(this.trial.data.gabor_hash in tomJS.stimuli)) this.prepareImageData();
-
+            this.trial.data.gabor_hash = this.hash();                       
 		}
 
 		draw() {
-			const _s = this.trial.data.gabor_size;
-            const _i = tomJS.stimuli[this.trial.data.gabor_hash];
+            const _s = this.trial.data.gabor_size;
+            if (!(this.trial.data.gabor_hash in tomJS.stimuli.gabor)) tomJS.error("False hash passed.");
+            const _i = tomJS.stimuli.gabor[this.trial.data.gabor_hash];
 			const img = tomJS.visual.context.createImageData(_s, _s);
 			assignImageData(_i, img.data);
 			let pos_x = tomJS.visual.screen_size * this.trial.data.gabor_x - (_s * 0.5);
@@ -1534,6 +1515,8 @@ const Stimuli = ((module) => {
         enter() {
             this.trial.data.stimulus_on = tomJS.now;
             this.trial.data.stimulus_off = tomJS.now + this.trial.data.stimulus_duration;
+            if (!('gabor' in tomJS.stimuli)) tomJS.stimuli.gabor = {};
+            if (!(this.trial.data.gabor_hash in tomJS.stimuli.gabor)) this.prepareImageData();
         }
 
         exit() {
@@ -1582,8 +1565,9 @@ const Stimuli = ((module) => {
 					image_data.push(v);							// B
 					image_data.push(Math.round(255 * gauss));	// A
 				}
-			}
-			tomJS.stimuli[this.trial.data.gabor_hash] = new Uint8ClampedArray(image_data);
+            };
+            if (!('gabor' in tomJS.stimuli)) tomJS.stimuli.gabor = {};
+            tomJS.stimuli.gabor[this.trial.data.gabor_hash] = new Uint8ClampedArray(image_data);
 		}
 
         responseGiven() {
@@ -1828,8 +1812,8 @@ const Stimuli = ((module) => {
 		drawWindow() {
 			const w = tomJS.visual.stimulus_size * this.trial.data.window_width * this.trial.data.bar_width;
 			const h = tomJS.visual.stimulus_size * this.trial.data.bar_height;
-			const x = (tomJS.visual.screen_size * this.trial.data.bar_x) - (w * 0.5);
-			const y = (tomJS.visual.screen_size * this.trial.data.bar_y) - (h * 0.5);
+			const x = this.trial.data.bar_x;
+			const y = this.trial.data.bar_y;
 			const c = this.trial.data.window_colour;
 			const l = this.trial.data.window_linewidth;
 			tomJS.strokeRect(x, y, w, h, c, l);

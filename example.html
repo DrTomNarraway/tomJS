@@ -130,7 +130,8 @@
 
         const _keyboard = new Slides.Slide([
             {'class': 'text','text': 'EXAMPLE EXPERIMENT','y': 0.25},
-            {'class': 'text', 'text': '~tomJS.keyboard.key~', 'upper': true},
+            { 'class': 'text', 'text': '~tomJS.keyboard.key~', 'upper': true },
+            { 'class': 'gabor', 'gabor_size': 0.5, 'gabor_contrast': 0.50, 'gabor_ori': 2, 'gabor_y': 0.55 },
             {'class': 'text', 'text': 'Press F and J at the same time to continue.', 'y': 0.75}
         ]);
 
@@ -163,7 +164,8 @@
             'trial_reps': 12,
             'start_slide': null,
             'end_slide': _end_block,
-            'add_countdown': true
+            'add_countdown': true,
+            'name': "FR"
         };
 
         const RS_BLOCK = {
@@ -174,19 +176,19 @@
             'trial_reps': 2,
             'start_slide': null,
             'end_slide': _end_block,
-            'add_countdown': true
+            'add_countdown': true,
+            'name': "RS"
         };
 
         // timeline
 
-		tomJS.appendToTimeline(_fullscreen);
         tomJS.appendToTimeline(_credit_card);
         tomJS.appendToTimeline(_keyboard);
 
         tomJS.appendCounterbalancedBlocks(
             A = FR_BLOCK,
             B = RS_BLOCK,
-            blocks = 4
+            blocks = 6
         );
 
         tomJS.appendToTimeline(_end_exp);
