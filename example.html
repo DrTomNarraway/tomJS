@@ -12,15 +12,12 @@
 
         const tomJS = new Experiment(args);
 
-        const tap = new Nodes.TapCollector();
-
         if (jatos.constructor != HTMLScriptElement) jatos.onConnected(() => { tomJS.connectToJatos(false) });
-
-        const CBG = tomJS.getCounterbalanceGroup();
 
         // constants
 
         const FR_TRIALWISE = {
+		'fixation_duration': [500, 1000, 1500],
             'gabor_ori': [2, 358]
         };
 
@@ -65,7 +62,7 @@
         ];
 
         const RS_TRIALWISE = {
-            'condition': [400, 600, 800, 1200, 1400, 1600],
+            'condition': [500, 1000, 1500],
             'gabor_ori': [2, 358]
         };
 
@@ -81,12 +78,9 @@
         const RS_CONDITIONAL = [
             'if (gabor_ori > 180) target = A',
             'if (gabor_ori < 180) target = B',
-            'if (condition == 400) fixation_duration = 1600',
-            'if (condition == 600) fixation_duration = 1400',
-            'if (condition == 800) fixation_duration = 1200',
-            'if (condition == 1200) fixation_duration = 800',
-            'if (condition == 1400) fixation_duration = 600',
-            'if (condition == 1600) fixation_duration = 400',
+            'if (condition == 500) fixation_duration = 1500',
+            'if (condition == 1000) fixation_duration = 1000',
+            'if (condition == 1500) fixation_duration = 500'
         ];
 
         const RS_ATTENTION = [
@@ -131,7 +125,6 @@
         const _keyboard = new Slides.Slide([
             {'class': 'text','text': 'EXAMPLE EXPERIMENT','y': 0.25},
             { 'class': 'text', 'text': '~tomJS.keyboard.key~', 'upper': true },
-            { 'class': 'gabor', 'gabor_size': 0.5, 'gabor_contrast': 0.50, 'gabor_ori': 2, 'gabor_y': 0.55 },
             {'class': 'text', 'text': 'Press F and J at the same time to continue.', 'y': 0.75}
         ]);
 
@@ -161,7 +154,7 @@
             'additional': FR_ADDITIONAL,
             'conditional': FR_CONDITIONAL,
             'attention': FR_ATTENTION,
-            'trial_reps': 12,
+            'trial_reps': 2,
             'start_slide': null,
             'end_slide': _end_block,
             'add_countdown': true,
@@ -182,14 +175,11 @@
 
         // timeline
 
-        tomJS.appendToTimeline(_credit_card);
+		// tomJS.appendToTimeline(_fullscreen);
+        // tomJS.appendToTimeline(_credit_card);
         tomJS.appendToTimeline(_keyboard);
 
-        tomJS.appendCounterbalancedBlocks(
-            A = FR_BLOCK,
-            B = RS_BLOCK,
-            blocks = 6
-        );
+        tomJS.appendCounterbalancedBlocks({'A': FR_BLOCK, 'B': RS_BLOCK, 'blocks': 6});
 
         tomJS.appendToTimeline(_end_exp);
 

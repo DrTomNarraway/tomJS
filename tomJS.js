@@ -1,6 +1,6 @@
 
 
-__version__ = '20.04.2026 10:54';
+__version__ = '22.04.2026 16:10';
 
 
 class Experiment {
@@ -13,9 +13,8 @@ class Experiment {
 		this.debug = {};
 		this.debug.gridlines  = args.gridlines  ?? false;
 		this.debug.fullscreen = args.fullscreen ?? true;
-		this.debug.save       = args.save       ?? true;
 		this.debug.verbose    = args.verbose    ?? false;
-        this.debug.size_overlay = args.size_overlay  ?? false;
+        this.debug.overlay    = args.overlay    ?? false;
 
 		// visual
 		this.visual = {};
@@ -46,6 +45,7 @@ class Experiment {
 		
 		// jatos
 		this.jatos = false;
+		this.fullfill_queue_on_jatos = args.fullfill_queue_on_jatos ?? true;
 
 		// demographics
 		this.demographics = {};
@@ -54,6 +54,7 @@ class Experiment {
 		this.demographics.gender = null;
 		this.demographics.hand = null;
 		this.demographics.n = Math.round(Math.random() * 2);
+		this.demographics.G = this.demographics.n % 2;
 
 		// timeline
 		this.built    = window.performance.now();
@@ -68,6 +69,7 @@ class Experiment {
 		this.index    = 0;
 		this.started  = null;
         this.lowest   = null;
+		this._queue   = [];
 
         // global stimuli storage
         this.stimuli = {};
@@ -75,6 +77,7 @@ class Experiment {
 		// data
 		this.headings = ['participant','age','gender','hand'];
 		this.data = [];
+		this.save = args.save ?? true;
 
 		// attention checks
 		this.attention = {};
@@ -85,9 +88,6 @@ class Experiment {
 		// other
 		this.rounding = args.rounding ?? 5;
 
-		// research institute
-		this.institute = institute[args.institute ?? 'bremen'];
-		
 	}
 
 	// functions
@@ -114,12 +114,11 @@ class Experiment {
 		};
     }
 
-    //** Append blocks of type A and B sequentially depending on the current users N. */
-    appendCounterbalancedBlocks(A, B, blocks) {
-        const cbg = this.getCounterbalanceGroup();
-        for (let i = 0; i < blocks; i++) {
-            if (i % 2 == cbg) this.appendBlock(A)
-            else this.appendBlock(B);
+    //** Append blocks of type A and B sequentially depending on the users G. */
+    appendCounterbalancedBlocks(args = {}) {
+        for (let i = 0; i < args.blocks; i++) {
+            if (i % 2 == this.demographics.G) this.appendBlock(args.A)
+            else this.appendBlock(args.B);
         };
     }
 
@@ -131,15 +130,19 @@ class Experiment {
 		if (this.debug.verbose) console.log(this.attention);
 	}
 
-	connectToJatos(counterbalance=false) {
+	connectToJatos() {
 		// this. is the window
 		tomJS.jatos = true;
 		const url = jatos.urlQueryParameters ?? {};
-		const wrk = 'workerID' in url;
+		const wrk = 'PROLIFIC_PID' in url;
 		const jts = jatos.studyResultId;
-		tomJS.demographics.participant = wrk ? url.workerID : jts;
+		tomJS.demographics.participant = wrk ? url.PROLIFIC_PID : jts;
 		tomJS.demographics.n = Math.round(jts);
-		if (counterbalance) tomJS.counterbalanceAB();
+		tomJS.demographics.G = jts % 2;
+		if (this.fullfill_queue_on_jatos) {
+			this.fullfillQueue();
+			if (this.debug.verbose) console.log(this.timeline.timeline);
+		};
 		console.log('Connected to JATOS.');
 	}
 
@@ -157,13 +160,24 @@ class Experiment {
 	}
 
 	counterbalanceAB() {
-		const mod = this.demographics.n % 2;
+		const mod = this.demographics.G;
 		const A = (mod == 0) ? this.controls.key_a : this.controls.key_b;
 		const B = (A == this.controls.key_a) ? this.controls.key_b : this.controls.key_a;
 		this.controls.key_a = A;
         this.controls.key_b = B;
 		this.controls.key_a_upper = A.toUpperCase();
 		this.controls.key_b_upper = B.toUpperCase();
+	}
+	
+	drawDebugOverlay() {
+		// size boxes
+		this.strokeRect(0.5, 0.5, this.visual.screen_size, this.visual.screen_size, "grey", 1);
+        this.strokeRect(0.5, 0.5, this.visual.stimulus_size, this.visual.stimulus_size, "red", 1);
+		// text
+		this.writeToCanvas(this.index, {'x':0.1, 'y': 0.03});
+		this.writeToCanvas(this.keyboard.key, {'x':0.1, 'y': 0.06});
+		this.writeToCanvas(this.keyboard.dir, {'x':0.1, 'y': 0.09});
+		this.writeToCanvas(document.fullscreenElement!=null, {'x':0.1, 'y': 0.12});
 	}
 
 	drawGridLines() {
@@ -194,20 +208,15 @@ class Experiment {
 		tomJS.visual.context.drawImage(img, _x, _y, _size, _size);
 	}
 
-    drawSizeOverlay() {
-        this.strokeRect(0.5, 0.5, this.visual.screen_size, this.visual.screen_size, "grey", 1);
-        this.strokeRect(0.5, 0.5, this.visual.stimulus_size, this.visual.stimulus_size, "red", 1);
-    }
-
 	endExperiment() {
 		this.running  = false;
 		this.complete = true;
-		if (document.fullscreenElement != null) document.exitFullscreen();
+		if (document.fullscreenElement!=null) document.exitFullscreen();
         const sessionData = new Data.BlockData();
 		sessionData.calculateData(this.data);
 		if (this.jatos)	{			
 			jatos.setStudySessionData(sessionData.toString());
-			jatos.startNextComponent("exit 0");
+			jatos.startNextComponent();
 		}
 		else {			
 			this.resetCanvas();
@@ -235,12 +244,24 @@ class Experiment {
 
     forceCounterbalanceGroup(group) {
         if (group != 0 | group != 1) tomJS.error("Forcing invalid counterbalance group.");
-        this.demographics.cbg = group;
+        this.demographics.G = group;
     }
-
-    getCounterbalanceGroup() {
-        return this.demographics.n % 2
-    }
+	
+	fullfillQueue() {
+		for (let q of this._queue) {
+			var callable = q[0];
+			var args = q[1];
+			tomJS[callable](args);
+		};
+	}
+	
+	onFullscreenChange(event) {
+		console.log(event);
+	}
+	
+	queue(callable, args={}) {
+		this._queue.push([callable, args]);
+	}
 
 	replaceEndBlockWithEndExperiment(end_slide) {		
 		const i = this.timeline.length - 1;
@@ -255,7 +276,7 @@ class Experiment {
 	requestReturn() {
 		this.running  = false;
 		this.complete = true;
-		if (document.fullscreenElement != null) document.exitFullscreen();
+		if (document.fullscreenElement!=null) document.exitFullscreen();
 		this.resetCanvas();
         this.writeToCanvas('You have failed too many attention checks, please return your submission.');
         const csv = "FAILED ATTENTION CHECKS \n \n" + this.writeCSV();
@@ -268,7 +289,7 @@ class Experiment {
 		this.resetCanvas();
 		this.update();
         if (this.debug.gridlines) this.drawGridLines();
-        if (this.debug.size_overlay) this.drawSizeOverlay();
+        if (this.debug.overlay) this.drawDebugOverlay();
 		requestAnimationFrame(this.run);
 	}
 
@@ -378,8 +399,6 @@ class State {
 		this.complete = false;
 		this.start = tomJS.now;
 		tomJS.flushKeys();
-        //if (tomJS.debug.fullscreen & document.fullscreenElement == null) 
-        //        document.documentElement.requestFullscreen();
 	}
 
 	exit() {
@@ -418,6 +437,10 @@ class Timeline {
 
 	exit() {
 		this.timeline[this.position].exit();
+	}
+	
+	finish() {
+		this.complete = true;
 	}
 
 	insert(state, position) {
@@ -644,6 +667,8 @@ const Data = ((module) => {
 			this.censored = null;
 			this.hits = null;
 			this.miss = null;
+			this.n = null;
+			this.checks = null;
 		}
 
 		calculateAverages(data) {
@@ -657,28 +682,31 @@ const Data = ((module) => {
 			this.miss = clamp(100 - this.hits, 0, 100);
 		}
 
-		calculatePercentages(data) {
-			const n = data.length;
-			let outcomes = ArrayTools.extract(data, 'outcome');
-			this.correct = Math.round((ArrayTools.count(outcomes, 'Correct') / n) * 100);
-			this.incorrect = Math.round((ArrayTools.count(outcomes, 'Incorrect') / n) * 100);
-			this.fast = Math.round((ArrayTools.count(outcomes, 'Fast') / n) * 100);
-			this.slow = Math.round((ArrayTools.count(outcomes, 'Slow') / n) * 100);
-			this.censored = Math.round((ArrayTools.count(outcomes, 'Censored') / n) * 100);
+		calculatePercentages(data) {			
+			const outcomes = ArrayTools.extract(data, 'outcome');
+			this.correct = Math.round((ArrayTools.count(outcomes, 'Correct') / this.n) * 100);
+			this.incorrect = Math.round((ArrayTools.count(outcomes, 'Incorrect') / this.n) * 100);
+			this.fast = Math.round((ArrayTools.count(outcomes, 'Fast') / this.n) * 100);
+			this.slow = Math.round((ArrayTools.count(outcomes, 'Slow') / this.n) * 100);
+			this.censored = Math.round((ArrayTools.count(outcomes, 'Censored') / this.n) * 100);
 		}
 
 		calculateData(data) {
-			this.calculateAverages(data);
-			this.calculatePercentages(data);
+			const d = ArrayTools.filter(data, 'start != null');
+			this.n = d.length;
+			this.checks = tomJS.attention.failed;
+			this.calculateAverages(d);
+			this.calculatePercentages(d);
 			this.calculateComplex();
 		}
-
+		
 	}
 
 	module.TrialData = class TrialData extends module.DataWrapper {
 
 		constructor() {
 			super();
+			this.condition = null;
 			this.block = null;
 			this.trial = null;
 			this.index = null;
@@ -709,6 +737,7 @@ const Data = ((module) => {
 			this.feedback_off = null;
 			this.iti_duration = null;
 			this.end = null;
+			this.fullscreen = null;
 		}
 
 	}
@@ -733,7 +762,7 @@ const Nodes = ((module) => {
 		    if (event.code != this.target) return;
             const data = ''+tomJS.index+','+tomJS.lowest.currentState()+','+event.timeStamp+'\n';
             this.taps.push(data);
-            if (tomJS.jatos & tomJS.debug.save)
+            if (tomJS.jatos & tomJS.save)
                 jatos.uploadResultFile(this.taps.toString(), 'tapData.csv');
         };
 		
@@ -752,7 +781,7 @@ const Slides = ((module) => {
 			super();
 			this.content = content;
             this.data = args;
-			this.force_wait = args.force_wait ?? 1000;
+			this.force_wait = args.force_wait ?? 1500;
 			this.timeline = null;
 			this.can_proceed = false;
 			this.realizeContent();
@@ -876,6 +905,7 @@ const Slides = ((module) => {
 						this.data._window_colour = c.window_colour ?? "Silver";
 						this.data.signal_on	    = c.signal_on ?? 0.75
 						this.data.signal_off    = c.signal_off ?? 1.00;
+						this.data.window_width  = c.window_width ?? 0.20;
 						const _bar = new (c.signal ?? Stimuli.ProgressBar)(this, c);
 						this['progressbar' + c.tag ?? ''] = _bar;
 						break;
@@ -890,7 +920,7 @@ const Slides = ((module) => {
 		constructor(lifetime, args = {}, content = []) {
 			super(content, args);
 			this.lifetime = lifetime;
-			this.fontSize = choose(args.fontSize, 0.05);
+			this.fontSize = choose(args.fontSize, 0.10);
 		}
 
 		// super
@@ -905,155 +935,6 @@ const Slides = ((module) => {
 			tomJS.writeToCanvas(Math.max(1, time), { 'fontSize': this.fontSize });
 			if (tomJS.now >= this.start + this.lifetime) this.complete = true;
 			super.update();
-		}
-
-	}
-
-	module.Consent = class Consent extends module.Slide {
-
-		constructor(args = {}) {
-			super([], args);
-			this.exit_pressed = false;
-			this.exit_button = null;
-			this.container = null;
-		}
-
-		// override
-
-		update() {
-			if (this.complete) return;
-			tomJS.fillRect(0, 0, tomJS.visual.screen_size, tomJS.visual.screen_size, "white");
-			if (tomJS.now < this.start + this.force_wait) return;
-		}
-
-		// super
-
-		enter() {
-			super.enter();
-			this.container = HTMLTools.Container("container", document.body, {'width':'85%'});
-			document.body.style.backgroundColor = "white";
-			document.body.style.color = "black";
-			this.createTopPanel();
-			this.createInformationPage();
-			this.createConsentForm();
-			this.exitButton = HTMLTools.Button("exitButton", "Consent", this.exitButtonClicked, this.container);
-			this.exitButton.state = this;
-		}
-
-		exit() {
-			super.exit();
-			this.container.remove();
-			document.body.style.backgroundColor = tomJS.visual.backgroundColor;
-			document.body.style.color = tomJS.visual.color;
-		}
-
-		// functions
-
-		exitButtonClicked() {
-			this.state.complete = true;
-			if (tomJS.debug.fullscreen & document.fullscreenElement == null) 
-                document.documentElement.requestFullscreen();
-		}
-
-		createLogo() {
-			const url = tomJS.institute.logo;
-			const img = document.createElement('IMG');
-			img.id = "Logo";
-			img.src = url;
-			img.style.width = "400px";
-			img.style.height = "150px";
-			return img;
-		}
-
-		createContactPanel() {
-			const div = document.createElement('div');
-			div.id = "Contact Panel";
-			div.style.display = "flex";
-			div.style.flexDirection = "column";
-			div.style.textAlign = "left";
-			div.style.width = "45%";
-			div.style.marginLeft = "10%";
-			// institute
-			let ins = document.createElement('label');
-			ins.textContent = tomJS.institute.institute;
-			ins.style.fontSize = tomJS.visual.h0;
-			div.append(ins);
-			// department
-			let dep = document.createElement('label');
-			dep.textContent = tomJS.institute.department;
-			dep.style.marginTop = "1em";
-			dep.style.fontSize = tomJS.visual.h1,
-				div.append(dep);
-			// group
-			let grp = document.createElement('label');
-			grp.textContent = tomJS.institute.group;
-			grp.style.marginTop = "1em";
-			div.append(grp);
-			// contact
-			let ctc = document.createElement('label');
-			ctc.textContent = "Contact";
-			ctc.style.marginTop = "1em";
-			ctc.style.fontSize = tomJS.visual.h1;
-			div.append(ctc);
-			// contacts
-			for (let i = 0; i < tomJS.institute.contacts.length; i++) {
-				let tmp = document.createElement('label');
-				tmp.textContent = tomJS.institute.contacts[i];
-				tmp.style.marginTop = "1em";
-				div.append(tmp);
-			};
-			return div;
-		}
-
-		createConsentForm() {
-			const div = document.createElement('div');
-			div.id = "Consent Form";
-			div.style.display = "flex";
-			div.style.flexDirection = "column";
-			div.style.width = "100%";
-			div.style.textAlign = "left";
-			this.container.appendChild(div);
-			HTMLTools.Label("Terms", "Terms", div, {'fontSize':tomJS.visual.h1});
-			const _cf = tomJS.institute.consent_form;
-			for (let i = 0; i < _cf.length; i++) HTMLTools.Label("cf" + i, _cf[i], div);
-			const _args = { 'marginTop': "3%" }
-			const _statement = "I have read the foregoing information, or it has been read to me."
-				+ " I have had the opportunity to ask questions about it and any"
-				+ " questions I have asked have been answered to my satisfaction."
-				+ " I consent voluntarily to be a participant in this study."
-			HTMLTools.Label("cf_statement", _statement, div, _args);
-		}
-
-		createInformationPage() {
-			const div = document.createElement('div');
-			div.id = "Main Panel";
-			div.style.display = "flex";
-			div.style.flexDirection = "column";
-			div.style.width = "100%";
-			div.style.textAlign = "left";
-			this.container.append(div);
-			const _is = tomJS.institute.information_statement;
-			for (let i = 0; i < Object.keys(_is).length; i++) {
-				const key = Object.keys(_is)[i];
-				const value = Object.values(_is)[i];
-				const kargs = { 'fontSize': tomJS.visual.h1 }
-				HTMLTools.Label(key + "Key", key, div, kargs);
-				HTMLTools.Label(key + "Value", value, div);
-			};
-		}
-
-		createTopPanel() {
-			const div = document.createElement('div');
-			div.id = "Top Panel";
-			div.style.display = "flex";
-			div.style.flexDirection = "row";
-			div.style.width = "100%";
-			div.style.marginBottom = "32px";
-			div.style.marginTop = "32px";
-			const logo = this.createLogo();
-			const info = this.createContactPanel();
-			div.append(logo, info);
-			this.container.append(div);
 		}
 
 	}
@@ -1356,7 +1237,7 @@ const Slides = ((module) => {
 		enter() {
 			super.enter();
 			this.data.calculateData(this.gatherData());
-			if (tomJS.debug.save) tomJS.saveData();
+			if (tomJS.save) tomJS.saveData();
 		}
 
 		// functions
@@ -2084,6 +1965,7 @@ const Trials = ((module) => {
             if (!('target' in args)) tomJS.error('No target passed to trial.');
             this.data.target = args.target;
 
+			this.data.condition = args.condition ?? null;
 			this.data.block = Number(args.block ?? tomJS.block);
 			this.data.trial = Number(args.trial ?? tomJS.trial);
 			this.data.index = Number(this.index);
@@ -2151,6 +2033,7 @@ const Trials = ((module) => {
 			tomJS.trial += 1;
 			tomJS.index += 1;
 			this.data.end = tomJS.now;
+			this.data.fullscreen = (document.fullscreenElement!=null);
 			if (this.attention_check & this.data.outcome != "Correct") tomJS.attentionCheckFailed();
 		}
 
@@ -2864,95 +2747,6 @@ const TextTools = ((module) => {
 
 
 // data =======================================================================
-
-
-institute = {
-	'bremen': {
-		'institute': "Department of Psychology",
-		'department': "Faculty 11",
-		'group': "Human and Health Sciences",
-		'contacts': [
-			"Psychological Research Methods and Cognitive Psychology",
-			"Tom Narraway: narraway@uni-bremen.de",
-			"Heinrich Liesefeld: heinrich.liesefeld@uni-bremen.de"],
-		'logo': "https://www.uni-bremen.de/_assets/8ec6f74154680cbbd6366024eea31e0b/Images/logo_ub_2021.png",
-		'information_statement': {
-			"General information":
-				"Thank you for your interest in our scientific study."
-				+ " Please read the following information carefully and then decide"
-				+ " whether or not to participate in this study. If you have any"
-				+ " further questions about the study beyond this information please"
-				+ "message or email Tom Narraway.",
-			"Objective of this Research Project":
-				"In this study, we want to determine how our experimental"
-				+ " manipulation affects the speed and accuracy of your responses.",
-			"Study Procedure":
-				"First you will use an ID-1 sized card to set the size of the stimuli"
-				+ " on your screen. Then we ask for your age, gender, and dominant "
-				+ " hand, but these details are optional. You will be asked to"
-				+ " perform a decision making task in response to simple visual stimuli."
-				+ " For example, you may be asked to determine if a stimulus is rotated left or right,"
-				+ " or if a stimulus is more blue or more orange."
-				+ " For each decision we record how long you take to respond and if"
-				+ " your response is correct or not. The exact procedure will be"
-				+ " explained to you during the experiment. The experiment takes"
-				+ " approximately 60 minutes and will force your browser into fullscreen mode.",
-			"Reimbursement":
-				"You will be reimbursed at the rate of 10 GBP per hour on the"
-				+ " condition that you meet your obligations.",
-			"Obligations":
-				" You are obliged to pay a fair amount of attention throughout this study."
-				+ " In order to determine if this obligation is met, this study"
-				+ " contains attention checks. As per Prolific policy, if you fail"
-				+ " too many of these checks the experiment will end and you will"
-				+ " be asked to return your submission. If you wish to withdraw"
-				+ " consent to the use of your data you are obligated to contact"
-				+ " Tom Narraway before your submisison is approved or rejected.",
-			"Responsible Bodies":
-				"Data generated by this study is only processed by our research"
-				+ " group and therefore the responsible body is the University of Bremen.",
-			"Categories of Data":
-				"As a part of this study, we collect only anonymous data.",
-			"Purpose of Data Collection":
-				"We collect your anonymous data for research purposes.",
-			"Legal Basis for Data Processing":
-				"The legal basis for the processing of your data is your consent"
-				+ " according to Art. 6.1(a) GDPR.",
-			"When is your Data Deleted or Anonymized?":
-				"All of your data is immediately anonymized. If your submission is returned"
-				+ " or rejected: your data will be imediatley deleted. If your"
-				+ " submission is approved: your data will be kept indefinatley.",
-			"Who has Access to your Data?":
-				"Initially your data are only accessed by our research group, are not passed"
-				+ " to any other parties and are not transferred outside of the EU/ EEA."
-				+ " After removing your prolific ID, Your data may be made publicly"
-                + " available on scientific data repositories.",
-			"Protection from Unauthorized Access":
-				"Your data are initially linked to your anonymous Prolific ID."
-				+ " When your submission is approved: you are assigned a new random ID."
-				+ " This ensures that once your data is submitted: it is impossible"
-				+ " for anyone, including us, to link your data back to you.",
-			"Your Rights":
-				"Because your Prolific ID is removed from the data once it is approved:"
-				+ " you only have the right to revoke consent to the use of your data"
-				+ " up until your submission is approved. After that time we can no "
-				+ " longer identify which data is yours and therefore cannot delete it."
-				+ " You may withdraw from the study at any time, without giving reasons,"
-				+ " and if are otherwise eligible: can receive pro rata compensation for your time.",
-		},
-		'consent_form': [
-			"1. I consent to offering 1 hour of participation in this study in exchange for 10 GBP.",
-			"2. I am aware of the study procedure, and all of my questions regarding it have been answered.",
-			"3. I agree to the recording and analysis of my anonymous data.",
-			"4. I am satisfied with the data protection practices of this study.",
-			"5. I consent to the storage of my data as described in the preceding information.",
-			"6. I accept that once my submission is approved I can no longer withdraw consent to the use of my anonymous data.",
-			"7. I understand that my participation is voluntary and that I can withdraw at any time without giving reasons, and that in this case I am entitled to compensation for the time spent participating up to that point.",
-			"8. I am aware that all of the information on this page is considered to be part of the consent form."
-		],
-	}
-}
-
 
 colours = {
 	//			R    G    B    A
