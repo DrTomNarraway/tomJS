@@ -1,0 +1,88 @@
+
+<!DOCTYPE html>
+<html>
+<body>
+    <script src="tomJS_dev.js" id="tomJS"></script>
+    <script>
+        
+        const args = {
+            'verbose': true,
+        };
+
+        const tomJS = new Experiment(args);
+
+        // constants
+
+        const TRIALWISE = {
+            'condition': [500, 1000, 1500],
+            'gabor_ori': [2, 358]
+        };
+
+        const ADDITIONAL = {
+            'gabor_contrast': 0.03,
+            'stimulus': Stimuli.Gabor,
+            'iti_duration': [650, 750, 850],
+            'signal_for': 300,
+            'trial_type': Trials.BratzkeSignal
+        };
+
+        const CONDITIONAL = [
+            'if (gabor_ori > 180) target = A',
+            'if (gabor_ori < 180) target = B'
+        ];
+
+        const ATTENTION = [];
+
+        // slides
+
+        const _keyboard = new Slides.Slide([
+            {'class': 'text', 'text': 'EXAMPLE EXPERIMENT','y': 0.25},
+            {'class': 'text', 'text': '~tomJS.keyboard.key~', 'upper': true},
+            {'class': 'text', 'text': 'Press F and J at the same time to continue.', 'y': 0.75}
+        ]);
+
+        const _end_block = new Slides.EndBlock([
+            { 'class': 'text', 'text': 'End of block. Please take a short break.', 'y': 0.25 },
+            { 'class': 'text', 'text': 'Your accuracy was great!', 'y': 0.48, 'conditions': ['~this.data.accuracy~ >= 80'] },
+            { 'class': 'text', 'text': 'Your accuracy was good.', 'y': 0.48, 'conditions': ['~this.data.accuracy~ < 80', '~this.data.accuracy~ >= 60'] },
+            { 'class': 'text', 'text': 'Your accuracy needs improvement.', 'y': 0.48, 'conditions': ['~this.data.accuracy~ < 60'] },
+            { 'class': 'text', 'text': 'Your timing was great!', 'y': 0.52, 'conditions': ['~this.data.hits~ >= 80'] },
+            { 'class': 'text', 'text': 'Your timing was good.', 'y': 0.52, 'conditions': ['~this.data.hits~ < 80', '~this.data.hits~ >= 60'] },
+            { 'class': 'text', 'text': 'Your timing needs improvement.', 'y': 0.52, 'conditions': ['~this.data.hits~ < 60'] },
+            { 'class': 'text', 'text': 'Press F and J at the same time to continue.', 'y': 0.75 },
+        ]);
+
+        const _end_exp = new Slides.EndExperiment([
+            { 'class': 'text', 'text': 'End of Experiment. Thank you for your help.', 'y': 0.25 },
+            { 'class': 'text', 'text': 'You were correct on ~this.data.accuracy~% of all test trials.', 'y': 0.48 },
+            { 'class': 'text', 'text': 'You responded on time on ~this.data.hits~% of all test trials.', 'y': 0.52 },
+            { 'class': 'text', 'text': 'Press F and J at the same time to end the experiment.', 'y': 0.75 },
+        ]);
+
+        // block arguments
+
+        const BLOCK = {
+            'trialwise': TRIALWISE,
+            'additional': ADDITIONAL,
+            'conditional': CONDITIONAL,
+            'attention': ATTENTION,
+            'trial_reps': 1,
+            'start_slide': null,
+            'end_slide': _end_block,
+            'add_countdown': true,
+            'name': ""
+        };
+
+        // timeline
+
+        tomJS.appendToTimeline(_keyboard);
+
+        tomJS.appendBlock(BLOCK);
+
+        tomJS.appendToTimeline(_end_exp);
+
+        tomJS.start();
+
+    </script>
+</body>
+</html>
