@@ -456,6 +456,11 @@ class Timeline {
 		this.length += 1;
 	}
 
+	push_front(state) {
+		this.timeline.unshift(state);
+		this.length += 1;
+	}
+
 	returnLength() {
 		return this.timeline.length;
 	}
@@ -1943,6 +1948,41 @@ const Stimuli = ((module) => {
 
     }
 
+	module.TextCue = class TextCue extends module.Stimulus {
+
+		constructor(trial, args = {}) {
+			super(trial, args);
+			this.trial.data.text_cue_text = args.text_cue_text ?? "+";
+			this.trial.data.text_cue_size = Math.round((args.text_cue_size ?? 0.10) * tomJS.visual.stimulus_size) + "px";
+            this.trial.data.text_cue_colour = args.text_cue_colour ?? "white";
+            this.drawArgs = {
+                'color': this.trial.data.text_cue_colour,
+                'fontSize': this.trial.data.text_cue_size
+            };
+		}
+
+		draw() {
+			tomJS.writeToCanvas(this.trial.data.text_cue_text, this.drawArgs);
+		}
+
+		enter() {
+            this.trial.data.text_cue_on = tomJS.now;
+            this.trial.data.text_cue_off = tomJS.now + this.trial.data.text_cue_duration;            
+		}
+
+        exit() {
+            this.trial.data.text_cue_off = tomJS.now;
+			this.trial.data.text_cue_real_duration = tomJS.now - this.trial.data.text_cue_on;
+        }
+
+        update() {
+			if (this.complete) return;
+            if (tomJS.now > this.trial.data.text_cue_off) this.complete = true;
+			else this.draw();
+        }
+
+	}
+
 	return module;
 
 })({});
@@ -2374,6 +2414,21 @@ const Trials = ((module) => {
 
 	}
 
+	module.CuedDeadline = class CuedDeadline extends module.Trial {
+
+		constructor(args = {}) {
+			if (!('condition' in args)) tomJS.error('no condition (deadline) passed to feedback deadline trial');
+			super(args);
+			const _cue = new (args.cue ?? Stimuli.TextCue)(this, args);
+			this.timeline.push_front(_cue);
+			this.data.text_cue_duration = args.cue_duration ?? 1000;
+			this.data.text_cue_text = this.data.condition;
+			this.data.stimulus_slow = this.data.condition;
+			this.data.stimulus_fast = args.stimulus_fast ?? 0;
+		}
+
+	}
+
 	return module;
 
 })({});
@@ -2773,7 +2828,7 @@ demographics_prompts = {
 	},
 	'hand': {
 		'en': 'Which is your main hand?',
-		'de': 'Welche Händigkeit haben Sie?',
+		'de': 'Welche Hï¿½ndigkeit haben Sie?',
 	}
 }
 

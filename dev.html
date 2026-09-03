@@ -11,8 +11,6 @@
 
         const tomJS = new Experiment(args);
 
-        // constants
-
         const TRIALWISE = {
             'condition': [500, 1000, 1500],
             'gabor_ori': [2, 358]
@@ -32,8 +30,6 @@
         ];
 
         const ATTENTION = [];
-
-        // slides
 
         const _keyboard = new Slides.Slide([
             {'class': 'text', 'text': 'EXAMPLE EXPERIMENT','y': 0.25},
@@ -59,8 +55,6 @@
             { 'class': 'text', 'text': 'Press F and J at the same time to end the experiment.', 'y': 0.75 },
         ]);
 
-        // block arguments
-
         const BLOCK = {
             'trialwise': TRIALWISE,
             'additional': ADDITIONAL,
@@ -72,8 +66,6 @@
             'add_countdown': true,
             'name': ""
         };
-
-        // timeline
 
         tomJS.appendToTimeline(_keyboard);
 
