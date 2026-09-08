@@ -2,13 +2,13 @@
 <!DOCTYPE html>
 <html>
 <body>
-    <script src="tomJS_dev.js" id="tomJS"></script>
+    <script src="tomJS_signal.js" id="tomJS"></script>
     <script>
-        
-        const args = {
-            'verbose': true,
-        };
 
+        const args = {
+            
+        }
+        
         const tomJS = new Experiment(args);
 
         const TRIALWISE = {
@@ -21,7 +21,7 @@
             'stimulus': Stimuli.Gabor,
             'iti_duration': [650, 750, 850],
             'signal_for': 300,
-            'trial_type': Trials.BratzkeSignal
+            'trial_type': Trials.Trial
         };
 
         const CONDITIONAL = [
@@ -60,6 +60,7 @@
             'additional': ADDITIONAL,
             'conditional': CONDITIONAL,
             'attention': ATTENTION,
+            'block_reps': 2,
             'trial_reps': 1,
             'start_slide': null,
             'end_slide': _end_block,
@@ -69,7 +70,7 @@
 
         tomJS.appendToTimeline(_keyboard);
 
-        tomJS.appendBlock(BLOCK);
+        tomJS.appendBlocks(BLOCK);
 
         tomJS.appendToTimeline(_end_exp);
 

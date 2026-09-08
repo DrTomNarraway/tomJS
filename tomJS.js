@@ -1,6 +1,6 @@
 
 
-__version__ = '22.04.2026 16:10';
+__version__ = '08.09.26 14:00';
 
 
 class Experiment {
@@ -1981,6 +1981,51 @@ const Stimuli = ((module) => {
 			else this.draw();
         }
 
+	}
+
+	module.BratzkeBars = class BratzkeBars extends module.Stimulus {
+	
+		constructor(trial, args = {}) {
+			super(trial, args);
+			this.trial.data.note_width = args.note_width ?? 0.01;
+			this.trial.data.note_height = args.note_height ?? 0.30;
+			this.trial.data.note_colour = args.note_colour ?? "white";
+			this.trial.data.window_width = args.window_width ?? 0.50;
+			this.trial.data.window_height = args.window_height ?? 0.50;
+			this.trial.data.window_colouur = args.window_colour ?? "white";
+			this.trial.data.window_linewidth = args.window_liinewidth ?? 2;
+		}
+
+		draw() {
+			super.draw();
+			this.drawNote("L");
+			this.drawNote("R");
+			this.drawWindow();
+		}
+
+		// functions
+
+		drawNote(which) {
+			const w = tomJS.visual.screen_size * this.trial.data.note_width;
+			const h = tomJS.visual.screen_size * this.trial.data.note_height;
+			const p = which == "L" ? clamp(this.trial.data.percent * 0.5, 0, 0.5) : 
+				1 - clamp(this.trial.data.percent * 0.5, 0, 0.5);
+			const x = (w * 0.5) + (tomJS.visual.screen_size * p);
+			const y = (tomJS.visual.screen_size * 0.5) - (h * 0.5);
+			const c = this.trial.data.note_colour;
+			tomJS.fillRect(x, y, w, h, c);
+		}
+
+		drawWindow() {
+			const w = tomJS.visual.screen_size * this.trial.data.window_width;
+			const h = tomJS.visual.screen_size * this.trial.data.window_height;
+			const x = 0.5;
+			const y = 0.5;
+			const c = this.trial.data.window_colour;
+			const l = this.trial.data.window_linewidth;
+			tomJS.strokeRect(x, y, w, h, c, l);
+		}
+	
 	}
 
 	return module;
