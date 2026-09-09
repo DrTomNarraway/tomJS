@@ -1,6 +1,6 @@
 
 
-__version__ = '08.09.26 14:00';
+__version__ = '09.09.26 16:22';
 
 
 class Experiment {
@@ -9,52 +9,13 @@ class Experiment {
 		
 		console.log('booting tomJS version ' + __version__);
 
-		// debug
-		this.debug = {};
-		this.debug.gridlines  = args.gridlines  ?? false;
-		this.debug.fullscreen = args.fullscreen ?? true;
-		this.debug.verbose    = args.verbose    ?? false;
-        this.debug.overlay    = args.overlay    ?? false;
-
-		// visual
-		this.visual = {};
-		this.visual.backgroundColor = args.backgroundColor ?? "black";
-		this.visual.color = args.color ?? "white";				
-		this.visual.height = window.innerHeight - 16;
-		this.visual.width  = window.innerWidth - 16;
-		const screen_size = Math.min(this.visual.height, this.visual.width);
-		this.visual.screen_size = screen_size;
-		this.visual.stimulus_size = Math.round(this.visual.screen_size * 0.5);
-		this.createCanvas();
-		this.setCanvasSize(this.visual.screen_size);
-		this.setFont();
-
-		// apply visual settings to document
-		document.body.style.fontFamily      = this.visual.fontFamily;
-		document.body.style.fontSize        = this.visual.fontSize;
-		document.body.style.color           = this.visual.color;
-		document.body.style.backgroundColor = this.visual.backgroundColor;
-		
-		// controls
-		this.controls = {};
-		this.controls.inputs = args.inputs ?? ['f', 'j'];
-		this.controls.responses = args.responses ?? { 'f': 'A', 'j': 'B' };
-		this.controls.inputs = Object.keys(this.controls.responses);
-		this.controls.options = Object.values(this.controls.responses);
-		this.keyboard = new Keyboard();
-		
-		// jatos
-		this.jatos = false;
-		this.fullfill_queue_on_jatos = args.fullfill_queue_on_jatos ?? true;
-
-		// demographics
-		this.demographics = {};
-		this.demographics.participant = Math.round(Math.random()*999999);
-		this.demographics.age = null;
-		this.demographics.gender = null;
-		this.demographics.hand = null;
-		this.demographics.n = Math.round(Math.random() * 2);
-		this.demographics.G = this.demographics.n % 2;
+		this.attention = args.attention ?? new Components.Attention(args);
+		this.dataframe = args.dataframe ?? new Components.Dataframe(args);
+		this.debug = args.debug ?? new Components.Debug(args);
+		this.demographics = args.demographics ?? new Components.Demographics(args);
+		this.jatos = args.jatos ?? new Components.JATOS(args);
+		this.keyboard = args.keyboard ?? new Components.Keyboard(args);
+		this.visual = args.visual ?? new Components.Visual(args);
 
 		// timeline
 		this.built    = window.performance.now();
@@ -67,187 +28,47 @@ class Experiment {
         this.trial    = 0;
         this.trials   = 0;
 		this.index    = 0;
-		this.started  = null;
+		this.created  = null;
         this.lowest   = null;
 		this._queue   = [];
 
         // global stimuli storage
         this.stimuli = {};
 
-		// data
-		this.headings = ['participant','age','gender','hand'];
-		this.data = [];
-		this.save = args.save ?? true;
-
-		// attention checks
-		this.attention = {};
-		this.attention.failed = 0; // current fail count
-		this.attention.limit  = args.attention_limit ?? 3; // failed trail limit
-		this.attention.check_until = args.attention_check_until ?? 0.4; // percent
-
 		// other
 		this.rounding = args.rounding ?? 5;
 
+		// signals
+		this.block_ended = new CustomEvent("block_ended");
+		this.started = new CustomEvent("started");
+		this.updated = new CustomEvent("updated");
+
 	}
 
-	// functions
-	
-	appendToTimeline(new_state) {
-		this.timeline.push(new_state);
-	}
-
-    appendBlock(args = {}) {
-        const _block = new Block(args);
-		this.appendToTimeline(_block);
-	}
-
-    appendBlocks(args = {}) {
-        var blockwise = args.blockwise ?? {};
-        let _b_cells = ObjectTools.length(blockwise);
-        for (let b = 0; b < block_reps; b++) {
-            let _blockwise = ObjectTools.allCombinations(blockwise);
-            _blockwise = ArrayTools.shuffle(_blockwise);
-            for (let i = 0; i < _b_cells; i++) {
-                args.additional = Object.assign({}, _blockwise[i % _b_cells], additional);
-                this.appendBlock(args);
-			};
-		};
-    }
-
-    //** Append blocks of type A and B sequentially depending on the users G. */
-    appendCounterbalancedBlocks(args = {}) {
-        for (let i = 0; i < args.blocks; i++) {
-            if (i % 2 == this.demographics.G) this.appendBlock(args.A)
-            else this.appendBlock(args.B);
-        };
-    }
-
-	attentionCheckFailed() {
-		this.attention.failed++;
-		if (this.attention.failed >= this.attention.limit
-			& this.block <= (Math.floor(this.blocks*this.attention.check_until))-1)
-			this.requestReturn();
-		if (this.debug.verbose) console.log(this.attention);
-	}
-
-	connectToJatos() {
-		// this. is the window
-		tomJS.jatos = true;
-		const url = jatos.urlQueryParameters ?? {};
-		const wrk = 'PROLIFIC_PID' in url;
-		const jts = jatos.studyResultId;
-		tomJS.demographics.participant = wrk ? url.PROLIFIC_PID : jts;
-		tomJS.demographics.n = Math.round(jts);
-		tomJS.demographics.G = jts % 2;
-		if (this.fullfill_queue_on_jatos) {
-			this.fullfillQueue();
-			if (this.debug.verbose) console.log(this.timeline.timeline);
-		};
-		console.log('Connected to JATOS.');
-	}
-
-	createCanvas() {
-		this.visual.canvas = document.createElement('canvas');		
-		this.visual.canvas.id = "canvas";
-		this.visual.canvas.width = "95vmin";
-		this.visual.canvas.height = "95vmin";
-		this.visual.canvas.style.position = "absolute"; 
-		this.visual.canvas.style.backgroundColor = this.visual.backgroundColor;
-		this.visual.canvas.style.color = this.visual.colour;
-		this.visual.canvas.style.cursor = "none";
-		document.body.appendChild(this.visual.canvas);
-		this.visual.context = this.visual.canvas.getContext("2d");
-	}
-
-	counterbalanceAB() {
-		const mod = this.demographics.G;
-		const A = (mod == 0) ? this.controls.key_a : this.controls.key_b;
-		const B = (A == this.controls.key_a) ? this.controls.key_b : this.controls.key_a;
-		this.controls.key_a = A;
-        this.controls.key_b = B;
-		this.controls.key_a_upper = A.toUpperCase();
-		this.controls.key_b_upper = B.toUpperCase();
-	}
-	
-	drawDebugOverlay() {
-		// size boxes
-		this.strokeRect(0.5, 0.5, this.visual.screen_size, this.visual.screen_size, "grey", 1);
-        this.strokeRect(0.5, 0.5, this.visual.stimulus_size, this.visual.stimulus_size, "red", 1);
-		// text
-		this.writeToCanvas(this.index, {'x':0.1, 'y': 0.03});
-		this.writeToCanvas(this.keyboard.key, {'x':0.1, 'y': 0.06});
-		this.writeToCanvas(this.keyboard.dir, {'x':0.1, 'y': 0.09});
-		this.writeToCanvas(document.fullscreenElement!=null, {'x':0.1, 'y': 0.12});
-	}
-
-	drawGridLines() {
-		// horizontal
-		for (let i = 0; i < 5; i++) {
-			let w = this.visual.screen_size;
-			let h = this.visual.screen_size * 0.001;
-			let x = (this.visual.screen_size * 0.5) - (w * 0.5);
-			let y = (this.visual.screen_size * 0.5 * (i/2)) - (h * 0.5);
-			this.fillRect(x, y, w, h, this.visual.colour);
-		};
-		// vertical
-		for (let i = 0; i < 5; i++) {
-			let w = this.visual.screen_size * 0.001;
-			let h = this.visual.screen_size;
-			let x = (this.visual.screen_size * 0.5 * (i/2)) - (w * 0.5);
-			let y = (this.visual.screen_size * 0.5) - (h * 0.5);
-			this.fillRect(x, y, w, h, this.visual.colour);
-		};
-	}
-
-	drawImage (path, args={}) {
-		const img = new Image();
-		img.src = path;
-		const _size = tomJS.visual.stimulus_size * (args.size ?? 0.5);
-		const _x = tomJS.visual.screen_size * (args.x ?? 0.5) - (_size * 0.5);
-		const _y = tomJS.visual.screen_size * (args.y ?? 0.5) - (_size * 0.5);
-		tomJS.visual.context.drawImage(img, _x, _y, _size, _size);
-	}
-
-	endExperiment() {
+	endExperiment () {
 		this.running  = false;
 		this.complete = true;
 		if (document.fullscreenElement!=null) document.exitFullscreen();
         const sessionData = new Data.BlockData();
 		sessionData.calculateData(this.data);
 		if (this.jatos)	{			
-			jatos.setStudySessionData(sessionData.toString());
+			jatos.setStudySessionData(sessionData.to_string());
 			jatos.startNextComponent();
 		}
 		else {			
-			this.resetCanvas();
-			this.writeToCanvas('You can close the window when you are ready :)');
+			this.visual.clear();
+			this.visual.write('You can close the window when you are ready :)');
             console.log(sessionData);
 		};
 	}
 
-	error(message) {
-		this.running = false;
-		this.fillRect(0, 0, this.visual.screen_size, this.visual.screen_size, "red");
-		this.writeToCanvas('ERROR: '+message);
+	error (message) {
+		this.complete = true;
+		this.visual.fill_rect(0, 0, this.visual.screen_size, this.visual.screen_size, "red");
+		this.visual.write('ERROR: '+message);
 	}
-
-	/** Draw a filled rectangle. x and y degine the position of the top-left pixel. */
-	fillRect(x, y, width, height, colour="white") {
-		this.visual.context.fillStyle = colour;
-		this.visual.context.fillRect(x, y, width, height);
-	}
-
-	flushKeys() {
-		this.keyboard.key = '';
-		this.keyboard.dir = '';
-    }
-
-    forceCounterbalanceGroup(group) {
-        if (group != 0 | group != 1) tomJS.error("Forcing invalid counterbalance group.");
-        this.demographics.G = group;
-    }
 	
-	fullfillQueue() {
+	fullfillQueue () {
 		for (let q of this._queue) {
 			var callable = q[0];
 			var args = q[1];
@@ -255,30 +76,57 @@ class Experiment {
 		};
 	}
 	
-	onFullscreenChange(event) {
+	onFullscreenChange (event) {
 		console.log(event);
 	}
+
+	push (state) {
+		this.timeline.push(state);
+	}
+
+	push_block (args={}) {
+        const _block = new Block(args);
+		this.push(_block);
+	}
+
+	push_blocks (args={}) {
+        var blockwise = args.blockwise ?? {};
+        let _b_cells = ObjectTools.length(blockwise);
+		for (let b of Object(blockwise).keys()) {
+			if (!(this.dataframe.headings.includes(b))) 
+				this.dataframe.headings.push(b);
+		};
+        for (let b = 0; b < block_reps; b++) {
+            let _blockwise = ObjectTools.allCombinations(blockwise);
+            _blockwise = ArrayTools.shuffle(_blockwise);
+            for (let i = 0; i < _b_cells; i++) {
+                args.additional = Object.assign({}, _blockwise[i % _b_cells], additional);
+                this.push_block(args);
+			};
+		};
+    }
+
+	push_counterbalanded_blocks (args = {}) {
+        for (let i = 0; i < args.blocks; i++) {
+            if (i % 2 == this.demographics.G) this.push_block(args.A)
+            else this.push_block(args.B);
+        };
+    }
+
+	push_front (state) {
+		this.timeline.push_front(state);
+	}
 	
-	queue(callable, args={}) {
+	queue (callable, args={}) {
 		this._queue.push([callable, args]);
 	}
 
-	replaceEndBlockWithEndExperiment(end_slide) {		
-		const i = this.timeline.length - 1;
-		const j = this.timeline.timeline[i].timeline.length - 1;
-		this.timeline.timeline[i].timeline.timeline[j] = end_slide;
-	}
-	
-	resetCanvas () {
-		this.fillRect(0, 0, this.visual.screen_size, this.visual.screen_size, this.visual.backgroundColor);
-	}
-
-	requestReturn() {
+	requestReturn () {
 		this.running  = false;
 		this.complete = true;
 		if (document.fullscreenElement!=null) document.exitFullscreen();
-		this.resetCanvas();
-        this.writeToCanvas('You have failed too many attention checks, please return your submission.');
+		this.visual.clear();
+        this.write('You have failed too many attention checks, please return your submission.');
         const csv = "FAILED ATTENTION CHECKS \n \n" + this.writeCSV();
         if (this.jatos) jatos.submitResultData(csv);
 	}
@@ -286,97 +134,30 @@ class Experiment {
 	run = () => {
 		if (this.complete) return;
 		this.now = Math.round(window.performance.now());
-		this.resetCanvas();
+		this.visual.clear();
 		this.update();
-        if (this.debug.gridlines) this.drawGridLines();
-        if (this.debug.overlay) this.drawDebugOverlay();
 		requestAnimationFrame(this.run);
-	}
-
-	saveData() {
-		const csv = this.writeCSV();
-		if (this.jatos) jatos.submitResultData(csv);
-	}
-
-	setCanvasSize(size) {
-		this.visual.canvas.width  = size;
-		this.visual.canvas.height = size;
-		this.visual.canvas.style.left = (this.visual.width - this.visual.screen_size + 16) / 2 + "px";
-	}
-
-	setFont(fontFamily="Times New Roman", t=0.05, h1=0.07, h0=0.10) {
-		this.visual.fontFamily = fontFamily;
-		this.visual.h0       = (this.visual.stimulus_size * h0) + "px";
-		this.visual.h1       = (this.visual.stimulus_size * h1) + "px";
-		this.visual.fontSize = (this.visual.stimulus_size * t)  + "px";
 	}
 
 	start () {
 		this.running = true;
 		this.complete = false;
-		this.started = window.performance.now();
-		this.resetCanvas();
+		this.created = window.performance.now();
+		this.visual.clear();
 		this.timeline.enter();
 		requestAnimationFrame(this.run);
+		document.dispatchEvent(this.started);
 	}
 
-	/** Draw a hollow rectangle. */
-	strokeRect(x, y, width, height, colour = "white", lineWidth = 1) {
-		this.visual.context.strokeStyle = colour;
-        this.visual.context.lineWidth = lineWidth;
-        const _x = tomJS.visual.screen_size * x - (width * 0.5);
-        const _y = tomJS.visual.screen_size * y - (height * 0.5);
-		this.visual.context.strokeRect(_x, _y, width, height);
-	}
-
-	getTimeline() {
+	getTimeline () {
 		return this.timeline.timeline;
 	}
 	
 	update () {		
 		this.complete = this.timeline.complete;
 		if (this.complete) this.endExperiment();
-		else this.timeline.update();        
-	}
-
-	writeCSV() {
-		const data = this.data;
-		const demo = this.demographics;
-		const visu = this.visual;
-		let csv = this.headings.toString() + '\n';
-        for (let r of data) {
-            if (r.block > tomJS.block) continue;
-			const x = {...r, ...demo, ...visu};
-			let y = [];
-			for (let h of this.headings) y.push(x[h]);
-			csv += y.toString() + '\n';
-		};        
-		return csv;
-	}
-
-	/** Write text to the canvas with a relative position (0.5 being center). 
-	 * align: html alignment. How should text align itself to the canvas?
-	 * colour: html color. What colour to render the text in.
-	 * fontSize: int. What pt size should the text render with?
-	 * upper: bool (false). Should text be rendered in all uppercase?
-	 * x: portion (0.5): Where should the text render horizontally, from 0 (left) to 1 (right)?
-	 * y: portion (0.5): Where should the text render vertically, from 0 (top) to 1 (bottom)?
-	 */
-	writeToCanvas (text, args={}) {		
-		const _upper = args.upper ?? false;
-		const _text = _upper ? text.toUpperCase() : text;
-		tomJS.visual.context.fillStyle = args.colour ?? tomJS.visual.color;
-		tomJS.visual.context.textAlign = args.align  ?? "center";
-		const _pt = args.fontSize ?? tomJS.visual.fontSize;
-		const _tf = args.fontFamily ?? tomJS.visual.fontFamily;
-		const _font = _pt + " " + _tf;
-		tomJS.visual.context.font = _font;
-		const _x = args.x ?? 0.5;
-		const _y = args.y ?? 0.5;
-		const _pos_x = tomJS.visual.screen_size * _x;
-		const _pos_y = tomJS.visual.screen_size * _y + (0.33 * (""+_pt).split('p')[0]);
-		const _width = tomJS.visual.screen_size ?? 1;
-		tomJS.visual.context.fillText(_text, _pos_x, _pos_y, _width);
+		else this.timeline.update();
+		document.dispatchEvent(this.updated);
 	}
 
 }
@@ -398,7 +179,7 @@ class State {
 	enter() {
 		this.complete = false;
 		this.start = tomJS.now;
-		tomJS.flushKeys();
+		tomJS.keyboard.flush();
 	}
 
 	exit() {
@@ -426,24 +207,24 @@ class Timeline {
 		this.delete   = args.delete ?? true;
 	}
 	
-	currentState() {
+	currentState () {
 		return this.timeline[this.position].constructor.name;
 	}
 
-	enter() {
+	enter () {
         this.timeline[this.position].enter();
         tomJS.lowest = this;
 	}
 
-	exit() {
+	exit () {
 		this.timeline[this.position].exit();
 	}
 	
-	finish() {
+	finish () {
 		this.complete = true;
 	}
 
-	insert(state, position) {
+	insert (state, position) {
 		const _before = this.timeline.slice(0, position);
 		const _after = this.timeline.slice(position);
 		const _timeline = _before.concat(state).concat(_after);
@@ -451,21 +232,48 @@ class Timeline {
 		this.length += 1;
 	}
 
-	push(state) {
+	push (state) {
 		this.timeline.push(state);
 		this.length += 1;
 	}
 
-	push_front(state) {
+	push_block (args={}) {
+        const _block = new Block(args);
+		this.push(_block);
+	}
+
+	push_blocks (args={}) {
+        var blockwise = args.blockwise ?? {};
+        let _b_cells = ObjectTools.length(blockwise);
+        for (let b = 0; b < block_reps; b++) {
+            let _blockwise = ObjectTools.allCombinations(blockwise);
+            _blockwise = ArrayTools.shuffle(_blockwise);
+            for (let i = 0; i < _b_cells; i++) {
+                args.additional = Object.assign({}, _blockwise[i % _b_cells], additional);
+                this.push_block(args);
+			};
+		};
+    }
+
+	push_counterbalanded_blocks (args = {}) {
+        for (let i = 0; i < args.blocks; i++) {
+            if (i % 2 == this.demographics.G) this.push_block(args.A)
+            else this.push_block(args.B);
+        };
+    }
+
+	push_front (state) {
 		this.timeline.unshift(state);
 		this.length += 1;
 	}
 
-	returnLength() {
-		return this.timeline.length;
+	replace (state, position) {
+		if (tomJS.debug.verbose) 
+			console.log("replacing ",this.timeline[position]," with ",state);
+		this.timeline[position] = state;
 	}
 
-	update() {
+	update () {
 		if (this.complete) return;
 		if (this.timeline[this.position].complete) this.nextState()
 		else this.timeline[this.position].update();
@@ -524,7 +332,7 @@ class Block extends State {
         this.trial_reps = args.trial_reps ?? 1;
         this.start_slide = args.start_slide ?? null;
         this.end_slide = args.end_slide ?? null;
-        this.add_countdown = args.add_countdown ?? true;
+        this.add_countdown = args.add_countdown ?? false;
 		this.block = tomJS.blocks;
 		tomJS.blocks++;
 		this.n = 0;	
@@ -596,6 +404,12 @@ class Block extends State {
         if (this.start_slide != null) _timeline.push(this.start_slide);
         if (this.add_countdown) { _timeline.push(new Slides.Countdown(3000)) };
 
+		// add headings
+		for (let t of Object.keys(this.trialwise)) {
+			if (!(tomJS.dataframe.headings.includes(t))) 
+				tomJS.dataframe.headings.push(t);
+		};
+
 		// add trials
 		for (let t = 0; t < _arguments.length; t++) {
 			const _args = _arguments[t];
@@ -637,19 +451,35 @@ const Data = ((module) => {
 
 		constructor() {}
 
-		keys() {
+		keys () {
 			return Object.keys(this);
 		}
 
-		values() {
+		values () {
 			return Object.values(this);
 		}
 
-		toString() {
+		to_csv (data_only=true) {
 			const keys = this.keys();
 			const values = this.values();
 			let out = "";
 			for (let a = 0; a < keys.length; a++) {
+				if (data_only & !(tomJS.dataframe.headings.includes(keys[a]))) 
+					continue;
+				out += values[a] + ", ";
+			};
+			out = out.slice(0, -2); // drop last comma and space
+			out += "\n";
+			return out;
+		}
+
+		to_string (data_only=true) {
+			const keys = this.keys();
+			const values = this.values();
+			let out = "";
+			for (let a = 0; a < keys.length; a++) {
+				if (data_only & !(tomJS.dataframe.headings.includes(keys[a]))) 
+					continue;
 				out += keys[a] + ": " + values[a] + ", ";
 			};
 			out = out.slice(0, -2); // drop last comma and space
@@ -662,7 +492,7 @@ const Data = ((module) => {
 
 		constructor() {
 			super();
-			this.accuracy = null;
+			this.pc = null;
 			this.rt = null;
 			this.score = null;
 			this.correct = null;
@@ -678,7 +508,7 @@ const Data = ((module) => {
 
 		calculateAverages(data) {
 			this.rt = Math.round(ArrayTools.average(ArrayTools.extract(data, 'rt')));
-			this.accuracy = Math.round(ArrayTools.average(ArrayTools.extract(data, 'accuracy')) * 100);
+			this.pc = Math.round(ArrayTools.average(ArrayTools.extract(data, 'accuracy')) * 100);
 			this.score = Math.round(ArrayTools.average(ArrayTools.extract(data, 'score')));
 		}
 
@@ -752,7 +582,232 @@ const Data = ((module) => {
 })({});
 
 
-const Nodes = ((module) => {
+const Components = ((module) => {
+
+	module.Attention = class Attention {
+
+		constructor (args) {
+			this.limit  = args.attention_limit ?? 3; // failed trail limit
+			this.check_until = args.attention_check_until ?? 0.4; // percent
+			this.failed = 0; // current fail count
+		}
+
+		log_failiure () {
+			this.failed++;
+			const lim = (Math.floor(this.blocks*this.check_until))-1;
+			if (this.failed >= this.limit & tomJS.block <= lim)
+				tomJS.requestReturn();
+			if (this.debug.verbose) console.log(this);
+		}
+
+	}
+
+	module.Dataframe = class Dataframe {
+
+		constructor (args) {
+			const h = args.headings ?? ['participant','block','trial','accuracy','rt'];
+			this.headings = h.concat(args.extra_headings ?? []);
+			this.save = args.save ?? true;
+			this._data = [];
+			this.submit = this.submit.bind(this);
+			document.addEventListener("block_ended", this.submit, false);
+		}
+
+		data () {
+			return this._data;
+		}
+
+		get (index) {
+			return this._data[index];
+		}
+
+		push (data) {
+			this._data.push(data);
+		}
+
+		submit () {
+			const csv = this.to_csv();
+			if (tomJS.jatos.online) jatos.submitResultData(csv);
+		}
+
+		to_csv () {
+			const data = this.data;
+			const demo = tomJS.demographics;
+			const visu = tomJS.visual;
+			let csv = this.headings.to_string() + '\n';
+			for (let r of data) {
+				if (r.block > tomJS.block) continue;
+				const x = {...r, ...demo, ...visu};
+				let y = [];
+				for (let h of this.headings) y.push(x[h]);
+				csv += y.to_csv() + '\n';
+			};
+			return csv;
+		}
+
+	}
+
+	module.Debug = class Debug {
+
+		constructor (args={}) {
+			this.verbose = args.verbose       ?? false;
+        	this.overlay = args.debug_overlay ?? false;
+
+			this._queue = [];
+
+			if (this.overlay) {
+				// canvas
+				this.canvas = document.createElement('canvas');		
+				this.canvas.id = "debug_canvas";
+				this.canvas.width = window.innerWidth -32;
+				this.canvas.height = window.innerHeight - 32; 
+				this.canvas.style.position = "absolute";
+				this.canvas.style.zIndex = 2;
+				document.body.appendChild(this.canvas);
+				this.context = this.canvas.getContext("2d");
+				this.context.fillStyle = "green";
+				this.context.font = "15px Arial";
+
+				// listeners
+				this.on_updated = this.on_updated.bind(this);
+				document.addEventListener('updated', this.on_updated, false);
+			};
+
+		}
+
+		draw_overlay () {
+			for (let i = 0; i < this._queue.length; i++) {
+				const text = "" + this._queue[i];
+				const x = 5;
+				const y = 20 + (i * 20);
+				this.context.fillText(text, x, y);
+			};
+			this._queue = [tomJS.timeline.position, tomJS.now, tomJS.jatos.connected];
+		}
+
+		push (content) {
+			if (this.overlay == false) return;
+			this._queue.push(content);
+		}
+
+		on_updated () {
+			this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+			if (this.overlay) this.draw_overlay();
+		}
+
+	}
+
+	module.Demographics = class Demographics {
+
+		constructor (args) {
+			this.participant = args.participant ?? Math.round(Math.random()*999999);
+			this.age = args.age ?? null;
+			this.gender = args.gender ?? null;
+			this.hand = args.hand ?? null;
+			this.n = Math.round(Math.random() * 2);
+			this.G = this.n % 2;
+		}
+
+		force_group (group) {
+			if (group != 0 | group != 1) tomJS.error("Forcing invalid counterbalance group.");
+			this.G = group;
+		}
+
+	}
+
+	module.JATOS = class JATOS {
+
+		constructor (args) {
+			this.fullfill_queue_on_connect ?? args.fullfill_queue_on_connect ?? true;
+			this.connected = false;
+			this.connect = this.connect.bind(this);
+			if (window.jatos === undefined) return;
+			if (jatos.constructor != HTMLScriptElement) 
+				jatos.onConnected(() => { this.connect() });
+		}
+
+		connect () {
+			this.connected = true;
+			const url = jatos.urlQueryParameters ?? {};
+			const wrk = 'PROLIFIC_PID' in url;
+			const jts = jatos.studyResultId;
+			tomJS.demographics.participant = wrk ? url.PROLIFIC_PID : jts;
+			tomJS.demographics.n = Math.round(jts);
+			tomJS.demographics.G = jts % 2;
+			if (this.fullfill_queue_on_connect) {
+				this.fullfillQueue();
+				if (this.debug.verbose) console.log(this.timeline.timeline);
+			};
+			console.log('Connected to JATOS.');
+		}
+
+	}
+
+	module.Keyboard = class Keyboard {
+
+		constructor (args={}) {
+			this.responses = args.responses ?? { 'f': 'A', 'j': 'B' };
+			this.inputs = Object.keys(this.responses);
+			this.options = Object.values(this.responses);
+			this.key = '';
+			this.dir = '';
+			this.timestamp = 0;
+			this.keys = {};
+			this.on_press = this.on_press.bind(this);
+			this.on_release = this.on_release.bind(this);
+			document.addEventListener('keydown', this.on_press, true);
+			document.addEventListener('keyup', this.on_release, true);
+		}
+
+		all_pressed (targets) {
+			// loop over all keys and check if all targets are pressed
+			for (let target of targets) {
+				if (!target in this.keys | !this.keys[target]) return false;
+			};
+			// if we reach the end of the for loop then all target keys are pressed
+			return true;
+		}
+
+		any_pressed (targets) {
+			if (targets == null) return null;
+			// loop over all keys and check if any targets are pressed
+			for (let target of targets) {
+				if (this.keys.includes(target) & this.keys[target]) return true;
+			};
+			// if we reach the end of the for loop then no target keys are pressed
+			return false;
+		}
+
+		counterbalance_inputs() {
+			const mod = tomJS.demographics.G;
+			const A = (mod == 0) ? this.key_a : this.key_b;
+			const B = (A == this.key_a) ? this.key_b : this.key_a;
+			this.key_a = A;
+			this.key_b = B;
+			this.key_a_upper = A.toUpperCase();
+			this.key_b_upper = B.toUpperCase();
+		}
+
+		flush () {
+			this.key = '';
+			this.dir = '';
+    	}
+
+		on_press (event) {
+			let key = event.key;
+			if (!key in this.keys) this.keys[key] = null;
+			this.key = key;
+			this.timestamp = event.timeStamp;
+			this.keys[key] = true;
+			if (this.inputs.includes(key)) this.dir = this.responses[key];
+		}
+
+		on_release (event) {
+			let key = event.key;
+			this.keys[key] = false;
+		}
+
+	}
 
     module.TapCollector = class TapCollector {
 
@@ -767,11 +822,102 @@ const Nodes = ((module) => {
 		    if (event.code != this.target) return;
             const data = ''+tomJS.index+','+tomJS.lowest.currentState()+','+event.timeStamp+'\n';
             this.taps.push(data);
-            if (tomJS.jatos & tomJS.save)
-                jatos.uploadResultFile(this.taps.toString(), 'tapData.csv');
+            if (tomJS.jatos.online & tomJS.dataframe.save)
+                jatos.uploadResultFile(this.taps.to_string(), 'tapData.csv');
         };
 		
-    };
+    }
+
+	module.Visual = class Visual {
+
+		constructor (args) {
+			this.backgroundColor = args.backgroundColor ?? "black";
+			this.colour = args.colour ?? "white";				
+			this.height = window.innerHeight - 16;
+			this.width  = window.innerWidth - 16;
+			const screen_size = Math.min(this.height, this.width);
+			this.screen_size = screen_size;
+			this.stimulus_size = Math.round(this.screen_size * 0.5);
+			this.create_canvas();
+			this.set_canvas_size(this.screen_size);
+			this.set_font();
+			document.body.style.fontFamily      = this.fontFamily;
+			document.body.style.fontSize        = this.fontSize;
+			document.body.style.color           = this.colour;
+			document.body.style.backgroundColor = this.backgroundColor;
+		}
+
+		clear () {
+			this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+		}
+
+		create_canvas () {
+			this.canvas = document.createElement('canvas');		
+			this.canvas.id = "canvas";
+			this.canvas.width = "95vmin";
+			this.canvas.height = "95vmin";
+			this.canvas.style.position = "absolute"; 
+			this.canvas.style.backgroundColor = this.backgroundColor;
+			this.canvas.style.color = this.colour;
+			this.canvas.style.cursor = "none";
+			this.canvas.style.zIndex = 0;
+			document.body.appendChild(this.canvas);
+			this.context = this.canvas.getContext("2d");
+		}
+
+		image (path, args={}) {
+			const img = new Image();
+			img.src = path;
+			const _size = this.stimulus_size * (args.size ?? 0.5);
+			const _x = this.screen_size * (args.x ?? 0.5) - (_size * 0.5);
+			const _y = this.screen_size * (args.y ?? 0.5) - (_size * 0.5);
+			this.context.image(img, _x, _y, _size, _size);
+		}
+
+		fill_rect (x, y, width, height, colour="black") {
+			this.context.fillStyle = colour;
+			this.context.fillRect(x, y, width, height);
+		}
+
+		set_canvas_size (size) {
+			this.canvas.width  = size;
+			this.canvas.height = size;
+			this.canvas.style.left = (this.width - this.screen_size + 16) / 2 + "px";
+		}
+
+		set_font (fontFamily="Times New Roman", t=0.05, h1=0.07, h0=0.10) {
+			this.fontFamily = fontFamily;
+			this.h0         = (this.stimulus_size * h0) + "px";
+			this.h1         = (this.stimulus_size * h1) + "px";
+			this.fontSize   = (this.stimulus_size * t)  + "px";
+		}
+
+		stroke_rect (x, y, width, height, colour="white", lineWidth=1) {
+			this.context.strokeStyle = colour;
+			this.context.lineWidth = lineWidth;
+			const _x = this.screen_size * x - (width * 0.5);
+			const _y = this.screen_size * y - (height * 0.5);
+			this.context.strokeSect(_x, _y, width, height);
+		}
+
+		write (text, args={}) {
+			const _upper = args.upper ?? false;
+			const _text = _upper ? text.toUpperCase() : text;
+			this.context.fillStyle = args.colour ?? this.colour;
+			this.context.textAlign = args.align  ?? "center";
+			const _pt = args.fontSize ?? this.fontSize;
+			const _tf = args.fontFamily ?? this.fontFamily;
+			const _font = _pt + " " + _tf;
+			this.context.font = _font;
+			const _x = args.x ?? 0.5;
+			const _y = args.y ?? 0.5;
+			const _pos_x = this.screen_size * _x;
+			const _pos_y = this.screen_size * _y + (0.33 * (""+_pt).split('p')[0]);
+			const _width = this.screen_size ?? 1;
+			this.context.fillText(_text, _pos_x, _pos_y, _width);
+		}
+
+	}
 
     return module;
 
@@ -817,7 +963,8 @@ const Slides = ((module) => {
 		}
 
 		checkUserInput() {
-			if (tomJS.keyboard.allKeysPressed(tomJS.controls.inputs)) this.complete = true;
+			if (tomJS.keyboard.all_pressed(tomJS.keyboard.inputs)) 
+				this.complete = true;
 		}
 
 		drawContent() {            
@@ -832,7 +979,7 @@ const Slides = ((module) => {
 						break;
 					case 'image':
 						const _path = this.parseText(_c.path);
-						tomJS.drawImage(_path, _c);
+						tomJS.image(_path, _c);
 						break;
 					case 'pixelpatch':
 						if (tomJS.dir == 'A') this.pp_A.draw()
@@ -843,7 +990,7 @@ const Slides = ((module) => {
 						break;
 					case 'text':
 						const _text = this.parseText(_c.text);
-						tomJS.writeToCanvas(_text, _c);
+						tomJS.visual.write(_text, _c);
 						break;
 					case 'twolines':
 						const _tl_args = { ..._c, ...{ 'target': this.parseText(_c.target) } };
@@ -854,7 +1001,8 @@ const Slides = ((module) => {
 						this.data.bar_percent = 
                             (tomJS.now - this.data.bar_start) / this.data.bar_max;
 
-						if (this.data.bar_percent >= 1.5) this.data.bar_start = tomJS.now;
+						if (this.data.bar_percent >= 1.5) 
+							this.data.bar_start = tomJS.now;
                         
 						if (this.data.bar_percent <= 0) {
 							this.data.bar_colour    = "#00000000";
@@ -922,7 +1070,7 @@ const Slides = ((module) => {
 
 	module.Countdown = class Countdown extends module.Slide {
 
-		constructor(lifetime, args = {}, content = []) {
+		constructor(lifetime = 3.0, args = {}, content = []) {
 			super(content, args);
 			this.lifetime = lifetime;
 			this.fontSize = choose(args.fontSize, 0.10);
@@ -937,7 +1085,7 @@ const Slides = ((module) => {
 
 		update() {
 			let time = Math.ceil((this.start + this.lifetime - tomJS.now) / 1000);
-			tomJS.writeToCanvas(Math.max(1, time), { 'fontSize': this.fontSize });
+			tomJS.visual.write(Math.max(1, time), { 'fontSize': this.fontSize });
 			if (tomJS.now >= this.start + this.lifetime) this.complete = true;
 			super.update();
 		}
@@ -1002,8 +1150,8 @@ const Slides = ((module) => {
 			tomJS.visual.width = window.innerWidth - 16;
 			const screen_size = Math.min(tomJS.visual.height, tomJS.visual.width);
 			tomJS.visual.screen_size = screen_size;
-			tomJS.setCanvasSize(screen_size);
-			tomJS.setFont();
+			tomJS.visual.set_canvas_size(screen_size);
+			tomJS.visual.set_font();
 		}
 
 		createCreditCard() {
@@ -1242,13 +1390,19 @@ const Slides = ((module) => {
 		enter() {
 			super.enter();
 			this.data.calculateData(this.gatherData());
-			if (tomJS.save) tomJS.saveData();
+			document.dispatchEvent(tomJS.block_ended);
+		}
+
+		update () {
+			super.update();
+			tomJS.debug.push("pc: " + this.data.pc);
+			tomJS.debug.push("rt: " + this.data.rt);
 		}
 
 		// functions
 
 		gatherData() {
-			return ArrayTools.filter(tomJS.data, this.filter);
+			return ArrayTools.filter(tomJS.dataframe.data(), this.filter);
 		}
 
 	}
@@ -1263,7 +1417,7 @@ const Slides = ((module) => {
 		// override
 
 		gatherData() {
-			return tomJS.data;
+			return tomJS.dataframe.data();
 		}
 
 	}
@@ -1366,7 +1520,7 @@ const Stimuli = ((module) => {
 		}
 
         update() {
-            tomJS.resetCanvas();
+            tomJS.visual.clear();
         }
 
 	}
@@ -1382,9 +1536,7 @@ const Stimuli = ((module) => {
             this.trial.data.gabor_size = Math.round(tomJS.visual.stimulus_size * (args.gabor_size ?? 1.0));
 			this.trial.data.gabor_x = args.gabor_x ?? 0.5;	// in screen units
 			this.trial.data.gabor_y = args.gabor_y ?? 0.5;	// in screen units
-
-            // determine this gabors global image counterpart
-            this.trial.data.gabor_hash = this.hash();                       
+            this.trial.data.gabor_hash = this.hash(); // id for unique form of this data
 		}
 
 		draw() {
@@ -1473,7 +1625,7 @@ const Stimuli = ((module) => {
         update() {
 			if (this.complete) return;
             if (tomJS.now > this.trial.data.stimulus_off) this.timedOut();
-			if (tomJS.keyboard.anyKeysPressed(['f','j'])) this.responseGiven();
+			if (tomJS.keyboard.any_pressed(['f','j'])) this.responseGiven();
 			this.draw();
         }
 
@@ -1501,7 +1653,7 @@ const Stimuli = ((module) => {
 
 		draw() {
 			super.draw();
-			if (this.data.tl_keep_fix) tomJS.writeToCanvas('+');
+			if (this.data.tl_keep_fix) tomJS.visual.write('+');
 			this.drawOneLine('A');
 			this.drawOneLine('B');
 		}
@@ -1520,7 +1672,7 @@ const Stimuli = ((module) => {
 			const offset_x = w * 0.5;
 			const x = (side === "A") ? pos_x - offset_x - distance : pos_x - offset_x + distance;
 			const c = (side === this.data.target) ? this.data.tl_color_L : this.data.tl_color_R;
-			tomJS.fillRect(x, y, w, h, c);
+			tomJS.fill_rect(x, y, w, h, c);
 		}
 
 	}
@@ -1624,7 +1776,7 @@ const Stimuli = ((module) => {
 			const x = (tomJS.visual.screen_size * this.trial.data.bar_x) - (w * 0.5);
 			const y = (tomJS.visual.screen_size * this.trial.data.bar_y) - (h * 0.5);
 			const c = this.trial.data.bar_border_colour;
-			tomJS.fillRect(x, y, w, h, c);
+			tomJS.fill_rect(x, y, w, h, c);
 		}
 
 		drawBar() {
@@ -1633,7 +1785,7 @@ const Stimuli = ((module) => {
 			const x = (tomJS.visual.screen_size * this.trial.data.bar_x) - (tomJS.visual.stimulus_size * this.trial.data.bar_width * 0.5);
 			const y = (tomJS.visual.screen_size * this.trial.data.bar_y) - (h * 0.5);
 			const c = this.trial.data.bar_colour;
-			tomJS.fillRect(x, y, w, h, c);
+			tomJS.fill_rect(x, y, w, h, c);
 		}
 
 	}
@@ -1677,7 +1829,7 @@ const Stimuli = ((module) => {
 				(w * 0.5);
 			const y = (tomJS.visual.screen_size * this.trial.data.bar_y) - (h * 0.5);
 			const c = this.trial.data.bar_colour;
-			tomJS.fillRect(x, y, w, h, c);
+			tomJS.fill_rect(x, y, w, h, c);
 		}
 
 		// functions
@@ -1692,7 +1844,7 @@ const Stimuli = ((module) => {
 				(w * 0.5);
 			const y = (tomJS.visual.screen_size * this.trial.data.bar_y) - (h * 0.5);
 			const c = this.trial.data.bar_colour;
-			tomJS.fillRect(x, y, w, h, c);
+			tomJS.fill_rect(x, y, w, h, c);
 		}
 
 		drawWindow() {
@@ -1702,7 +1854,7 @@ const Stimuli = ((module) => {
 			const y = this.trial.data.bar_y;
 			const c = this.trial.data.window_colour;
 			const l = this.trial.data.window_linewidth;
-			tomJS.strokeRect(x, y, w, h, c, l);
+			tomJS.stroke_rect(x, y, w, h, c, l);
 		}
 
 	}
@@ -1785,7 +1937,7 @@ const Stimuli = ((module) => {
 			const x = (this.data.x * (1 - this.data.cell_w)) + (this.data.cell_w * col * 0.5);
 			const y = (this.data.y * (1 - this.data.cell_h)) + (this.data.cell_h * row * 0.5);
 			const args = { 'x': x, 'y': y };
-			tomJS.writeToCanvas(content, args);
+			tomJS.visual.write(content, args);
 		}
 
 	}
@@ -1815,7 +1967,7 @@ const Stimuli = ((module) => {
 		}
 
         draw() {
-			tomJS.writeToCanvas(this.trial.data.text_text, this.drawArgs);
+			tomJS.visual.write(this.trial.data.text_text, this.drawArgs);
 		}
 
         enter() {
@@ -1844,7 +1996,7 @@ const Stimuli = ((module) => {
         update() {
 			if (this.complete) return;
             if (tomJS.now > this.trial.data.stimulus_off) this.timedOut();
-			if (tomJS.keyboard.anyKeysPressed(['f','j'])) this.responseGiven();
+			if (tomJS.keyboard.any_pressed(['f','j'])) this.responseGiven();
 			this.draw();
         }
 
@@ -1864,7 +2016,7 @@ const Stimuli = ((module) => {
 		}
 
 		draw() {
-			tomJS.writeToCanvas(this.trial.data.feedback_text, this.drawArgs);
+			tomJS.visual.write(this.trial.data.feedback_text, this.drawArgs);
 		}
 
 		enter() {
@@ -1905,7 +2057,7 @@ const Stimuli = ((module) => {
 		}
 
         draw() {
-			tomJS.writeToCanvas(this.trial.data.fixation_text, this.drawArgs);
+			tomJS.visual.write(this.trial.data.fixation_text, this.drawArgs);
 		}
 
         enter() {
@@ -1943,7 +2095,7 @@ const Stimuli = ((module) => {
         update() {
 			if (this.complete) return;
             if (tomJS.now > this.trial.data.iti_off) this.complete = true;
-			else tomJS.resetCanvas();
+			else tomJS.visual.clear();
         }
 
     }
@@ -1962,7 +2114,7 @@ const Stimuli = ((module) => {
 		}
 
 		draw() {
-			tomJS.writeToCanvas(this.trial.data.text_cue_text, this.drawArgs);
+			tomJS.visual.write(this.trial.data.text_cue_text, this.drawArgs);
 		}
 
 		enter() {
@@ -2013,7 +2165,7 @@ const Stimuli = ((module) => {
 			const x = (w * 0.5) + (tomJS.visual.screen_size * p);
 			const y = (tomJS.visual.screen_size * 0.5) - (h * 0.5);
 			const c = this.trial.data.note_colour;
-			tomJS.fillRect(x, y, w, h, c);
+			tomJS.fill_rect(x, y, w, h, c);
 		}
 
 		drawWindow() {
@@ -2023,7 +2175,7 @@ const Stimuli = ((module) => {
 			const y = 0.5;
 			const c = this.trial.data.window_colour;
 			const l = this.trial.data.window_linewidth;
-			tomJS.strokeRect(x, y, w, h, c, l);
+			tomJS.stroke_rect(x, y, w, h, c, l);
 		}
 	
 	}
@@ -2044,8 +2196,8 @@ const Trials = ((module) => {
 			this.index = args.index ?? 0;
 
 			// data
-			tomJS.data.push(new Data.TrialData());
-			this.data = tomJS.data[this.index];                      
+			tomJS.dataframe.push(new Data.TrialData());
+			this.data = tomJS.dataframe.get(this.index);
 
             if (!('target' in args)) tomJS.error('No target passed to trial.');
             this.data.target = args.target;
@@ -2076,9 +2228,6 @@ const Trials = ((module) => {
             const _iti = new (args.iti ?? Stimuli.ITI)(this, args);
 			this.timeline.push(_iti);
 
-			// append data headings to global data heading storage
-			if (!(tomJS.headings.includes('block'))) tomJS.headings = ArrayTools.joinUniques(tomJS.headings, this.data.keys());
-
 			// feedback information
 			this.feedback_colors = args.feedback_colors ?? {
 				'Correct': 'white',
@@ -2099,55 +2248,57 @@ const Trials = ((module) => {
 			// mark if is attention check
 			this.attention_check = args.attention_check ?? false;
 
-			// ensure too slow response does not override stimulus duration, unless desired
-			if ('stimulus_duration' in args && ! 'stimulus_slow' in args)
-				this.data.stimulus_slow = this.data.stimulus_duration;
-
 		}
 
 		// super
 
-		enter() {
+		enter () {
 			super.enter();
 			this.data.start = tomJS.now;
 			this.timeline.enter();
 		}
 
-		exit() {
+		exit () {
 			super.exit();
 			tomJS.trial += 1;
 			tomJS.index += 1;
 			this.data.end = tomJS.now;
 			this.data.fullscreen = (document.fullscreenElement!=null);
-			if (this.attention_check & this.data.outcome != "Correct") tomJS.attentionCheckFailed();
+			if (this.attention_check & this.data.outcome != "Correct") 
+				tomJS.attention.log_failiure();
+			if (tomJS.debug.verbose)
+				console.log(this.data.to_string());
 		}
 
-		update() {
+		update () {
 			super.update();
 			this.complete = this.timeline.complete;
+			tomJS.debug.push(this.index);
+			tomJS.debug.push(this.data.condition);
+			tomJS.debug.push(this.data.target);
 			if (this.complete) return
 			else this.timeline.update();
 		}
 
 		// functions
 
-		calculateRT() {
+		calculateRT () {
 			const rg = this.data.response_given;
 			const on = this.data.stimulus_on;
 			this.data.rt = roundTo((rg - on), tomJS.rounding);
 		}
 
-		calculateScore() {
+		calculateScore () {
 			if (this.data.response == this.data.target) this.data.score = 100
 			else this.data.score = 0;
 		}
 
-		determineAccuracy() {
+		determineAccuracy () {
 			if (this.data.response == this.data.target) this.data.accuracy = 1
 			else this.data.accuracy = 0;
 		}
 
-		determineOutcome() {
+		determineOutcome () {
 			const rsp = this.data.response;
 			const rt = this.data.rt;
 			const tgt = this.data.target;
@@ -2160,7 +2311,7 @@ const Trials = ((module) => {
 			else { this.data.outcome = 'Incorrect' };
 		}
 
-		recordResponse() {
+		recordResponse () {
 			this.data.response       = tomJS.keyboard.dir;
 			this.data.response_key   = tomJS.keyboard.key;
 			this.data.response_given = tomJS.keyboard.timestamp;
@@ -2207,7 +2358,7 @@ const Trials = ((module) => {
 		}
 
 		cueUpdate() {
-			tomJS.drawImage(this.data.condition, this.args);
+			tomJS.image(this.data.condition, this.args);
 			if (tomJS.now >= this.data.cue_off) this.cueExit();
 		}
 
@@ -2263,8 +2414,6 @@ const Trials = ((module) => {
 			this.signal = new (args.signal ?? Stimuli.Text)(args);
 			if (this.data.above_and_below) this.signal_lower = new (args.signal ?? Stimuli.Text)(args);
 
-			// headings
-			if (!(tomJS.headings.includes('rtt'))) tomJS.headings = ArrayTools.joinUniques(tomJS.headings, this.data.keys());
 		}
 
 		// override
@@ -2383,9 +2532,6 @@ const Trials = ((module) => {
 			this.data.early = null;
 			this.data.late = null;
 
-            // append data headings to global data heading storage
-			if (!(tomJS.headings.includes('signal_for'))) tomJS.headings = ArrayTools.joinUniques(tomJS.headings, this.data.keys());
-
 		}
 
         // override
@@ -2434,7 +2580,7 @@ const Trials = ((module) => {
 		// functions
 
         drawProgressBar() {
-			if (this.timeline.currentState() == "ITI") { tomJS.resetCanvas(); return; }            
+			if (this.timeline.currentState() == "ITI") { tomJS.visual.clear(); return; }            
 			this.signal.draw();
 		}
 
@@ -2760,57 +2906,6 @@ const ObjectTools = ((module) => {
 	return module;
 
 })({});
-
-
-class Keyboard {
-	constructor(args = {}) {
-		this.args = args;
-		this.key = '';
-		this.dir = '';
-		this.timestamp = 0;
-		this.keys = {};
-		this.keyPress = this.keyPress.bind(this);
-		this.keyRelease = this.keyRelease.bind(this);
-		document.addEventListener('keydown', this.keyPress, true);
-		document.addEventListener('keyup', this.keyRelease, true);
-	}
-
-	allKeysPressed(targets) {
-		// loop over all keys and check if all targets are pressed
-		for (let i = 0; i < targets.length; i++) {
-			let target = targets[i];
-			if (!target in this.keys | !this.keys[target]) return false;
-		}
-		// if we reach the end of the for loop then all target keys are pressed
-		return true;
-	}
-
-	anyKeysPressed(targets) {
-		if (targets == null) return null;
-		// loop over all keys and check if any targets are pressed
-		for (let i = 0; i < targets.length; i++) {
-			let target = targets[i];
-			if (target in this.keys & this.keys[target]) return true;
-		}
-		// if we reach the end of the for loop then no target keys are pressed
-		return false;
-	}
-
-	keyPress(event) {
-		let key = event.key;
-		if (!key in this.keys) this.keys[key] = null;
-		this.key = key;
-		this.timestamp = event.timeStamp;
-		this.keys[key] = true;
-		if (tomJS.controls.inputs.includes(key)) this.dir = tomJS.controls.responses[key];
-	}
-
-	keyRelease(event) {
-		let key = event.key;
-		this.keys[key] = false;
-	}
-
-}
 
 
 const TextTools = ((module) => {	

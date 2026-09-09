@@ -8,20 +8,19 @@
         
         const args = {
             'verbose': true,
+            'debug_overlay': true,
         };
 
         const tomJS = new Experiment(args);
 
-        if (jatos.constructor != HTMLScriptElement) jatos.onConnected(() => { tomJS.connectToJatos(false) });
-
         // constants
 
-        const FR_TRIALWISE = {
+        const TRIALWISE = {
 		'fixation_duration': [500, 1000, 1500],
             'gabor_ori': [2, 358]
         };
 
-        const FR_ADDITIONAL = {     
+        const ADDITIONAL = {     
             'condition': 'FR',
             'gabor_contrast': 0.03,
             'stimulus': Stimuli.Gabor,
@@ -29,12 +28,12 @@
             'trial_type': Trials.Trial
         };
 
-        const FR_CONDITIONAL = [
+        const CONDITIONAL = [
             'if (gabor_ori > 180) target = A',
             'if (gabor_ori < 180) target = B',
         ];
 
-        const FR_ATTENTION = [
+        const ATTENTION = [
             {
                 'condition': 'FR',
                 'feedback_texts': {
@@ -58,77 +57,18 @@
                 'stimulus': Stimuli.Gabor,
                 'target': 'A',
                 'trial_type': Trials.Trial
-            }
-        ];
-
-        const RS_TRIALWISE = {
-            'condition': [500, 1000, 1500],
-            'gabor_ori': [2, 358]
-        };
-
-        const RS_ADDITIONAL = {        
-            'gabor_contrast': 0.03,
-            'stimulus': Stimuli.Gabor,
-            'iti_duration': [650, 750, 850],
-            'signal': Stimuli.NecroDancerBar,
-            'signal_for': 300,
-            'trial_type': Trials.ProgressBarResponseSignal
-        };
-
-        const RS_CONDITIONAL = [
-            'if (gabor_ori > 180) target = A',
-            'if (gabor_ori < 180) target = B',
-            'if (condition == 500) fixation_duration = 1500',
-            'if (condition == 1000) fixation_duration = 1000',
-            'if (condition == 1500) fixation_duration = 500'
-        ];
-
-        const RS_ATTENTION = [
-            {
-                'condition': 0,
-                'fixation_duration': 0,
-                'feedback_texts': {
-                    'Correct': 'Pass',
-                    'Incorrect':'Fail','Fast':'Fail','Slow':'Fail','Censored':'Fail'
-                },
-                'gabor_contrast': 1.00,
-                'gabor_ori': 5,
-                'signal': Stimuli.NecroDancerBar,
-                'signal_for': 3000,
-                'stimulus': Stimuli.Gabor,
-                'target': 'B',
-                'trial_type': Trials.ProgressBarResponseSignal
-            },
-            {
-                'condition': 0,
-                'fixation_duration': 0,
-                'feedback_texts': {
-                    'Correct':'Pass',
-                    'Incorrect':'Fail','Fast':'Fail','Slow':'Fail','Censored':'Fail'
-                },
-                'gabor_contrast': 1.00,
-                'gabor_ori': 355,
-                'signal': Stimuli.NecroDancerBar,
-                'signal_for': 3000,
-                'stimulus': Stimuli.Gabor,
-                'target': 'A',
-                'trial_type': Trials.ProgressBarResponseSignal
             }
         ];
 
         // slides
-		
-		const _fullscreen = new Slides.Fullscreen();
-		
-        const _credit_card = new Slides.CreditCard();
 
-        const _keyboard = new Slides.Slide([
+        const KEYBOARD = new Slides.Slide([
             {'class': 'text','text': 'EXAMPLE EXPERIMENT','y': 0.25},
             { 'class': 'text', 'text': '~tomJS.keyboard.key~', 'upper': true },
             {'class': 'text', 'text': 'Press F and J at the same time to continue.', 'y': 0.75}
         ]);
 
-        const _end_block = new Slides.EndBlock([
+        const END_BLOCK = new Slides.EndBlock([
             { 'class': 'text', 'text': 'End of block. Please take a short break.', 'y': 0.25 },
             { 'class': 'text', 'text': 'Your accuracy was great!', 'y': 0.48, 'conditions': ['~this.data.accuracy~ >= 80'] },
             { 'class': 'text', 'text': 'Your accuracy was good.', 'y': 0.48, 'conditions': ['~this.data.accuracy~ < 80', '~this.data.accuracy~ >= 60'] },
@@ -139,49 +79,26 @@
             { 'class': 'text', 'text': 'Press F and J at the same time to continue.', 'y': 0.75 },
         ]);
 
-        const _end_exp = new Slides.EndExperiment([
-            { 'class': 'text', 'text': 'End of Experiment. Thank you for your help.', 'y': 0.25 },
-            { 'class': 'text', 'text': 'You were correct on ~this.data.accuracy~% of all test trials.', 'y': 0.48 },
-            { 'class': 'text', 'text': 'You responded on time on ~this.data.hits~% of all test trials.', 'y': 0.52 },
-            { 'class': 'text', 'text': 'Press F and J at the same time to end the experiment.', 'y': 0.75 },
-        ]);
-
         // block arguments
 
-        const FR_BLOCK = {
+        const BLOCK = {
             'blockwise': {},
-            'trialwise': FR_TRIALWISE,
-            'additional': FR_ADDITIONAL,
-            'conditional': FR_CONDITIONAL,
-            'attention': FR_ATTENTION,
+            'trialwise': TRIALWISE,
+            'additional': ADDITIONAL,
+            'conditional': CONDITIONAL,
+            'attention': ATTENTION,
             'trial_reps': 2,
             'start_slide': null,
-            'end_slide': _end_block,
+            'end_slide': END_BLOCK,
             'add_countdown': true,
             'name': "FR"
         };
 
-        const RS_BLOCK = {
-            'trialwise': RS_TRIALWISE,
-            'additional': RS_ADDITIONAL,
-            'conditional': RS_CONDITIONAL,
-            'attention': RS_ATTENTION,
-            'trial_reps': 2,
-            'start_slide': null,
-            'end_slide': _end_block,
-            'add_countdown': true,
-            'name': "RS"
-        };
-
         // timeline
 
-		// tomJS.appendToTimeline(_fullscreen);
-        // tomJS.appendToTimeline(_credit_card);
-        tomJS.appendToTimeline(_keyboard);
+        tomJS.timeline.push(KEYBOARD);
 
-        tomJS.appendCounterbalancedBlocks({'A': FR_BLOCK, 'B': RS_BLOCK, 'blocks': 6});
-
-        tomJS.appendToTimeline(_end_exp);
+        tomJS.timeline.push_block(BLOCK);
 
         tomJS.start();
 
