@@ -1,6 +1,6 @@
 
 
-__version__ = '10.09.26 09:38';
+__version__ = '10.09.26 13:49';
 
 
 class Experiment {
@@ -64,7 +64,7 @@ class Experiment {
 
 	error (message) {
 		this.complete = true;
-		this.visual.fill_rect(0, 0, this.visual.screen_size, this.visual.screen_size, "red");
+		this.visual.fillRect(0, 0, this.visual.screen_size, this.visual.screen_size, "red");
 		this.visual.write('ERROR: '+message);
 	}
 	
@@ -84,14 +84,14 @@ class Experiment {
 		this.timeline.push(state);
 	}
 
-	push_block (args={}) {
+	pushBlock (args={}) {
         const _block = new Block(args);
 		this.push(_block);
 	}
 
-	push_blocks (args={}) {
+	pushBlocks (args={}) {
         var blockwise = args.blockwise ?? {};
-        let _b_cells = ObjectTools.length(blockwise);
+        let _b_cells = ObjectTools.getLength(blockwise);
 		for (let b of Object(blockwise).keys()) {
 			if (!(this.dataframe.headings.includes(b))) 
 				this.dataframe.headings.push(b);
@@ -101,20 +101,20 @@ class Experiment {
             _blockwise = ArrayTools.shuffle(_blockwise);
             for (let i = 0; i < _b_cells; i++) {
                 args.additional = Object.assign({}, _blockwise[i % _b_cells], additional);
-                this.push_block(args);
+                this.pushBlock(args);
 			};
 		};
     }
 
-	push_counterbalanded_blocks (args = {}) {
+	pushCounterbalancedBlocks (args = {}) {
         for (let i = 0; i < args.blocks; i++) {
-            if (i % 2 == this.demographics.G) this.push_block(args.A)
-            else this.push_block(args.B);
+            if (i % 2 == this.demographics.G) this.pushBlock(args.A)
+            else this.pushBlock(args.B);
         };
     }
 
-	push_front (state) {
-		this.timeline.push_front(state);
+	pushFront (state) {
+		this.timeline.pushFront(state);
 	}
 	
 	queue (callable, args={}) {
@@ -173,19 +173,19 @@ class State {
 		this.timeline = new Timeline();
 	}
 
-	enter() {
+	enter () {
 		this.complete = false;
 		this.start = tomJS.now;
 		tomJS.keyboard.flush();
 	}
 
-	exit() {
+	exit () {
 		if (this.complete) return;
 		this.complete = true;
 		this.end = tomJS.now;
 	}
 
-	update() {
+	update () {
 		if (this.complete) return;
 		if (this.timeline) this.complete = this.timeline.complete;
 	}
@@ -214,18 +214,18 @@ class Block extends State {
 
 	// super
 
-	enter() {
+	enter () {
 		super.enter();
 		this.timeline.enter();
 	}
 
-	exit() {
+	exit () {
 		super.exit();
 		tomJS.block += 1;
         tomJS.trial = 0;
 	}
 
-	update() {
+	update () {
 		super.update();
 		this.complete = this.timeline.complete;
 		if (this.complete) return
@@ -234,14 +234,14 @@ class Block extends State {
 
 	// functions
 
-    attentionChecks(args, checks) {
+    attentionChecks (args, checks) {
         for (let i = 0; i < checks.length; i++) {
             var arg = {...checks[i], ...{'attention_check':true}};
             args.push(arg);
         };
     }
 
-	checkConditions(args, conditions) {
+	checkConditions (args, conditions) {
 		for (let c = 0; c < conditions.length; c++) {
 			for (let a of Object.keys(args)) {
 				this.checkIf(args[a], conditions[c]);
@@ -249,7 +249,7 @@ class Block extends State {
 		};
 	}
 
-	checkIf(arg, statement) {
+	checkIf (arg, statement) {
 		const split = statement.replace("(", "").replace(")", "").split(" ");
 		const l = "" + split[1];
 		const o = "" + split[2];
@@ -262,7 +262,7 @@ class Block extends State {
 		arg[x] = y;
 	}
 
-	generateTimeline() {
+	generateTimeline () {
 		let _timeline = new Timeline();
 
 		// make a list of trials based on design cells
@@ -303,7 +303,7 @@ class Block extends State {
 		this.timeline = _timeline;
 	}
 
-	parseText(text) {
+	parseText (text) {
 		let _t = "" + text;
 		if (_t.includes('~')) {
 			let _split = _t.split('~');
@@ -355,32 +355,32 @@ class Timeline {
 		this.length += 1;
 	}
 
-	push_block (args={}) {
+	pushBlock (args={}) {
         const _block = new Block(args);
 		this.push(_block);
 	}
 
-	push_blocks (args={}) {
+	pushBlocks (args={}) {
         var blockwise = args.blockwise ?? {};
-        let _b_cells = ObjectTools.length(blockwise);
+        let _b_cells = ObjectTools.getLength(blockwise);
         for (let b = 0; b < block_reps; b++) {
             let _blockwise = ObjectTools.allCombinations(blockwise);
             _blockwise = ArrayTools.shuffle(_blockwise);
             for (let i = 0; i < _b_cells; i++) {
                 args.additional = Object.assign({}, _blockwise[i % _b_cells], additional);
-                this.push_block(args);
+                this.pushBlock(args);
 			};
 		};
     }
 
-	push_counterbalanded_blocks (args = {}) {
+	pushCounterbalancedBlocks (args = {}) {
         for (let i = 0; i < args.blocks; i++) {
-            if (i % 2 == this.demographics.G) this.push_block(args.A)
-            else this.push_block(args.B);
+            if (i % 2 == this.demographics.G) this.pushBlock(args.A)
+            else this.pushBlock(args.B);
         };
     }
 
-	push_front (state) {
+	pushFront (state) {
 		this.timeline.unshift(state);
 		this.length += 1;
 	}
@@ -483,8 +483,8 @@ const Data = ((module) => {
 		}
 
 		calculateComplex() {
-			this.hits = clamp(this.correct + this.incorrect, 0, 100);
-			this.miss = clamp(100 - this.hits, 0, 100);
+			this.hits = MathTools.clamp(this.correct + this.incorrect, 0, 100);
+			this.miss = MathTools.clamp(100 - this.hits, 0, 100);
 		}
 
 		calculatePercentages(data) {			
@@ -520,27 +520,10 @@ const Data = ((module) => {
 			this.outcome = null;
 			this.score = null;
 			this.start = null;
-			this.fixation_on = null;
-			this.fixation_duration = null;
-			this.fixation_size = null;
-			this.fixation_colour = null;
-			this.fixation_off = null;
-			this.stimulus_on = null;
-			this.stimulus_duration = null;
-			this.stimulus_fast = null;
-			this.stimulus_slow = null;
-			this.stimulus_off = null;
 			this.target = null;
 			this.response = null;
 			this.response_key = null;
 			this.response_given = null;
-			this.feedback_on = null;
-			this.feedback_duration = null;
-			this.feedback_text = null;
-			this.feedback_colour = null;
-			this.feedback_size = null;
-			this.feedback_off = null;
-			this.iti_duration = null;
 			this.end = null;
 			this.fullscreen = null;
 		}
@@ -723,13 +706,13 @@ const Components = ((module) => {
 			this.dir = '';
 			this.timestamp = 0;
 			this.keys = {};
-			this.on_press = this.on_press.bind(this);
-			this.on_release = this.on_release.bind(this);
-			document.addEventListener('keydown', this.on_press, true);
-			document.addEventListener('keyup', this.on_release, true);
+			this.onPress = this.onPress.bind(this);
+			this.onRelease = this.onRelease.bind(this);
+			document.addEventListener('keydown', this.onPress, true);
+			document.addEventListener('keyup', this.onRelease, true);
 		}
 
-		all_pressed (targets) {
+		allPressed (targets) {
 			// loop over all keys and check if all targets are pressed
 			for (let target of targets) {
 				if (!target in this.keys | !this.keys[target]) return false;
@@ -738,17 +721,17 @@ const Components = ((module) => {
 			return true;
 		}
 
-		any_pressed (targets) {
+		anyPressed (targets) {
 			if (targets == null) return null;
 			// loop over all keys and check if any targets are pressed
 			for (let target of targets) {
-				if (this.keys.includes(target) & this.keys[target]) return true;
+				if (target in this.keys & this.keys[target]) return true;
 			};
 			// if we reach the end of the for loop then no target keys are pressed
 			return false;
 		}
 
-		counterbalance_inputs() {
+		counterbalanceInputs() {
 			const mod = tomJS.demographics.G;
 			const A = (mod == 0) ? this.key_a : this.key_b;
 			const B = (A == this.key_a) ? this.key_b : this.key_a;
@@ -763,7 +746,7 @@ const Components = ((module) => {
 			this.dir = '';
     	}
 
-		on_press (event) {
+		onPress (event) {
 			let key = event.key;
 			if (!key in this.keys) this.keys[key] = null;
 			this.key = key;
@@ -772,7 +755,7 @@ const Components = ((module) => {
 			if (this.inputs.includes(key)) this.dir = this.responses[key];
 		}
 
-		on_release (event) {
+		onRelease (event) {
 			let key = event.key;
 			this.keys[key] = false;
 		}
@@ -808,9 +791,9 @@ const Components = ((module) => {
 			const screen_size = Math.min(this.height, this.width);
 			this.screen_size = screen_size;
 			this.stimulus_size = Math.round(this.screen_size * 0.5);
-			this.create_canvas();
-			this.set_canvas_size(this.screen_size);
-			this.set_font();
+			this.createCanvas();
+			this.setCanvasSize(this.screen_size);
+			this.setFont();
 			document.body.style.fontFamily      = this.fontFamily;
 			document.body.style.fontSize        = this.fontSize;
 			document.body.style.color           = this.colour;
@@ -821,7 +804,7 @@ const Components = ((module) => {
 			this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
 		}
 
-		create_canvas () {
+		createCanvas () {
 			this.canvas = document.createElement('canvas');		
 			this.canvas.id = "canvas";
 			this.canvas.width = "95vmin";
@@ -844,25 +827,25 @@ const Components = ((module) => {
 			this.context.image(img, _x, _y, _size, _size);
 		}
 
-		fill_rect (x, y, width, height, colour="black") {
+		fillRect (x, y, width, height, colour="black") {
 			this.context.fillStyle = colour;
 			this.context.fillRect(x, y, width, height);
 		}
 
-		set_canvas_size (size) {
+		setCanvasSize (size) {
 			this.canvas.width  = size;
 			this.canvas.height = size;
 			this.canvas.style.left = (this.width - this.screen_size + 16) / 2 + "px";
 		}
 
-		set_font (fontFamily="Times New Roman", t=0.05, h1=0.07, h0=0.10) {
+		setFont (fontFamily="Times New Roman", t=0.05, h1=0.07, h0=0.10) {
 			this.fontFamily = fontFamily;
 			this.h0         = (this.stimulus_size * h0) + "px";
 			this.h1         = (this.stimulus_size * h1) + "px";
 			this.fontSize   = (this.stimulus_size * t)  + "px";
 		}
 
-		stroke_rect (x, y, width, height, colour="white", lineWidth=1) {
+		strokeRect (x, y, width, height, colour="white", lineWidth=1) {
 			this.context.strokeStyle = colour;
 			this.context.lineWidth = lineWidth;
 			const _x = this.screen_size * x - (width * 0.5);
@@ -933,7 +916,7 @@ const Slides = ((module) => {
 		}
 
 		checkUserInput() {
-			if (tomJS.keyboard.all_pressed(tomJS.keyboard.inputs)) 
+			if (tomJS.keyboard.allPressed(tomJS.keyboard.inputs)) 
 				this.complete = true;
 		}
 
@@ -1040,10 +1023,10 @@ const Slides = ((module) => {
 
 	module.Countdown = class Countdown extends module.Slide {
 
-		constructor(lifetime = 3.0, args = {}, content = []) {
+		constructor(lifetime = 3000, args = {}, content = []) {
 			super(content, args);
 			this.lifetime = lifetime;
-			this.fontSize = choose(args.fontSize, 0.10);
+			this.fontSize = ArrayTools.choose(args.fontSize, 0.10);
 		}
 
 		// super
@@ -1120,8 +1103,8 @@ const Slides = ((module) => {
 			tomJS.visual.width = window.innerWidth - 16;
 			const screen_size = Math.min(tomJS.visual.height, tomJS.visual.width);
 			tomJS.visual.screen_size = screen_size;
-			tomJS.visual.set_canvas_size(screen_size);
-			tomJS.visual.set_font();
+			tomJS.visual.setCanvasSize(screen_size);
+			tomJS.visual.setFont();
 		}
 
 		createCreditCard() {
@@ -1212,7 +1195,7 @@ const Slides = ((module) => {
 		onUpDownClick(s, x) {
 			// this. is the button
 			const n = Math.round(s.slider.value) + x;
-			const m = clamp(n, s.min, s.max);
+			const m = MathTools.clamp(n, s.min, s.max);
 			s.slider.value = m;
 			s.setCreditCardScale();
 		}
@@ -1462,7 +1445,7 @@ const Stimuli = ((module) => {
 
 	module.Stimulus = class Stimulus extends State {
 
-		constructor(trial, args={}) {
+		constructor (trial, args={}) {
 			super();
 			this.trial = trial;
 			this.timeline = null;
@@ -1470,26 +1453,26 @@ const Stimuli = ((module) => {
 
 		// override
 
-		enter() {
+		enter () {
 			this.initialize();
 		}
 
 		// functions
 
-		draw() {
+		draw () {
 			// does nothing
 		}
 
-		initialize() {
+		initialize () {
             // does nothing
 		}
 
-		set(key, value) {
+		set (key, value) {
 			if (!(Object.keys(this.trial.data).includes(key))) return null;
 			this.data[key] = value;
 		}
 
-        update() {
+        update () {
             tomJS.visual.clear();
         }
 
@@ -1497,7 +1480,7 @@ const Stimuli = ((module) => {
 
 	module.Gabor = class Gabor extends module.Stimulus {
 
-		constructor(trial, args={}) {
+		constructor (trial, args={}) {
 			super(trial, args);
 			this.trial.data.gabor_contrast = args.gabor_contrast ?? 1.00; // %
 			this.trial.data.gabor_opacity = args.gabor_opacity ?? 1.0;  // as percentage
@@ -1509,30 +1492,30 @@ const Stimuli = ((module) => {
             this.trial.data.gabor_hash = this.hash(); // id for unique form of this data
 		}
 
-		draw() {
+		draw () {
             const _s = this.trial.data.gabor_size;
             if (!(this.trial.data.gabor_hash in tomJS.stimuli.gabor)) tomJS.error("False hash passed.");
             const _i = tomJS.stimuli.gabor[this.trial.data.gabor_hash];
 			const img = tomJS.visual.context.createImageData(_s, _s);
-			assignImageData(_i, img.data);
+			ArrayTools.assignImageData(_i, img.data);
 			let pos_x = tomJS.visual.screen_size * this.trial.data.gabor_x - (_s * 0.5);
 			let pos_y = tomJS.visual.screen_size * this.trial.data.gabor_y - (_s * 0.5);
 			tomJS.visual.context.putImageData(img, pos_x, pos_y);
 		}
 
-        enter() {
+        enter () {
             this.trial.data.stimulus_on = tomJS.now;
             this.trial.data.stimulus_off = tomJS.now + this.trial.data.stimulus_duration;
             if (!('gabor' in tomJS.stimuli)) tomJS.stimuli.gabor = {};
             if (!(this.trial.data.gabor_hash in tomJS.stimuli.gabor)) this.prepareImageData();
         }
 
-        exit() {
+        exit () {
             this.trial.data.stimulus_off = tomJS.now;
         }
         
         /** quasi-hash function to find this gabors global image data */
-        hash() {            
+        hash () {            
             let _c = (""+this.trial.data.gabor_contrast*100).padStart(3,"0");
             let _a = (""+this.trial.data.gabor_opacity*100).padStart(3,"0");
             let _o = "" + this.trial.data.gabor_ori;
@@ -1544,7 +1527,7 @@ const Stimuli = ((module) => {
             return Number((_c+_a+_o+_s+_z+_x+_y));
         }
 
-        prepareImageData() {
+        prepareImageData () {
 			const s = this.trial.data.gabor_size;
 			const con = this.trial.data.gabor_contrast;
 			const ori = this.trial.data.gabor_ori;
@@ -1556,7 +1539,7 @@ const Stimuli = ((module) => {
 			const theta = (ori * Math.PI) / 180;
 			const cosT = Math.cos(theta), sinT = Math.sin(theta);
 			const k = 2 * Math.PI * sf / s;
-			const amp = lum * clamp(con, 0, 1);
+			const amp = lum * MathTools.clamp(con, 0, 1);
 			let image_data = [];
 			for (let _y = 0; _y < s; _y++) {
 				const dy = _y - cy
@@ -1567,7 +1550,7 @@ const Stimuli = ((module) => {
 					const gauss = Math.exp(-(xPrime * xPrime + yPrime * yPrime) / (2 * sigma * sigma));
 					const carrier = Math.cos(k * xPrime + phs);
 					const L = lum + amp * carrier;
-					const v = clamp(L, 0, 255) | 0;
+					const v = MathTools.clamp(L, 0, 255) | 0;
 					image_data.push(v);							// R
 					image_data.push(v);							// G
 					image_data.push(v);							// B
@@ -1578,7 +1561,7 @@ const Stimuli = ((module) => {
             tomJS.stimuli.gabor[this.trial.data.gabor_hash] = new Uint8ClampedArray(image_data);
 		}
 
-        responseGiven() {
+        responseGiven () {
 			this.trial.recordResponse();
 			this.trial.calculateRT();
 			this.trial.determineAccuracy();
@@ -1587,15 +1570,15 @@ const Stimuli = ((module) => {
 			this.complete = true;
 		}
 
-		timedOut() {
+		timedOut () {
 			this.trial.determineOutcome();
 			this.complete = true;
 		}
 
-        update() {
+        update () {
 			if (this.complete) return;
             if (tomJS.now > this.trial.data.stimulus_off) this.timedOut();
-			if (tomJS.keyboard.any_pressed(['f','j'])) this.responseGiven();
+			if (tomJS.keyboard.anyPressed(['f','j'])) this.responseGiven();
 			this.draw();
         }
 
@@ -1642,7 +1625,7 @@ const Stimuli = ((module) => {
 			const offset_x = w * 0.5;
 			const x = (side === "A") ? pos_x - offset_x - distance : pos_x - offset_x + distance;
 			const c = (side === this.data.target) ? this.data.tl_color_L : this.data.tl_color_R;
-			tomJS.fill_rect(x, y, w, h, c);
+			tomJS.fillRect(x, y, w, h, c);
 		}
 
 	}
@@ -1670,7 +1653,7 @@ const Stimuli = ((module) => {
 			const _g = this.data.grid_pixels;
 			super.draw();
 			const _img = tomJS.visual.context.createImageData(_g, _g);
-			assignImageData(this.image_data, _img.data);
+			ArrayTools.assignImageData(this.image_data, _img.data);
 			let _pos_x = tomJS.visual.screen_size * this.data.pp_x - Math.round(_g * 0.5);
 			let _pos_y = tomJS.visual.screen_size * this.data.pp_y - Math.round(_g * 0.5);
 			tomJS.visual.context.putImageData(_img, _pos_x, _pos_y);
@@ -1746,7 +1729,7 @@ const Stimuli = ((module) => {
 			const x = (tomJS.visual.screen_size * this.trial.data.bar_x) - (w * 0.5);
 			const y = (tomJS.visual.screen_size * this.trial.data.bar_y) - (h * 0.5);
 			const c = this.trial.data.bar_border_colour;
-			tomJS.fill_rect(x, y, w, h, c);
+			tomJS.fillRect(x, y, w, h, c);
 		}
 
 		drawBar() {
@@ -1755,7 +1738,7 @@ const Stimuli = ((module) => {
 			const x = (tomJS.visual.screen_size * this.trial.data.bar_x) - (tomJS.visual.stimulus_size * this.trial.data.bar_width * 0.5);
 			const y = (tomJS.visual.screen_size * this.trial.data.bar_y) - (h * 0.5);
 			const c = this.trial.data.bar_colour;
-			tomJS.fill_rect(x, y, w, h, c);
+			tomJS.fillRect(x, y, w, h, c);
 		}
 
 	}
@@ -1792,14 +1775,14 @@ const Stimuli = ((module) => {
 		drawBar() {
 			const w = tomJS.visual.stimulus_size * this.trial.data.note_width;
 			const h = tomJS.visual.stimulus_size * this.trial.data.note_height;
-			const p = clamp(this.trial.data.bar_percent, 0, 1) * 0.5;
+			const p = MathTools.clamp(this.trial.data.bar_percent, 0, 1) * 0.5;
 			const x = (tomJS.visual.screen_size * this.trial.data.bar_x) +
 				(tomJS.visual.stimulus_size * this.trial.data.bar_width * p) -
 				(tomJS.visual.stimulus_size * this.trial.data.bar_width * 0.5) -
 				(w * 0.5);
 			const y = (tomJS.visual.screen_size * this.trial.data.bar_y) - (h * 0.5);
 			const c = this.trial.data.bar_colour;
-			tomJS.fill_rect(x, y, w, h, c);
+			tomJS.fillRect(x, y, w, h, c);
 		}
 
 		// functions
@@ -1807,14 +1790,14 @@ const Stimuli = ((module) => {
 		drawRightBar() {
 			const w = tomJS.visual.stimulus_size * this.trial.data.note_width;
 			const h = tomJS.visual.stimulus_size * this.trial.data.note_height;
-			const p = 1 - clamp(this.trial.data.bar_percent, 0, 1) * 0.5;
+			const p = 1 - MathTools.clamp(this.trial.data.bar_percent, 0, 1) * 0.5;
 			const x = (tomJS.visual.screen_size * this.trial.data.bar_x) +
 				(tomJS.visual.stimulus_size * this.trial.data.bar_width * p) -
 				(tomJS.visual.stimulus_size * this.trial.data.bar_width * 0.5) -
 				(w * 0.5);
 			const y = (tomJS.visual.screen_size * this.trial.data.bar_y) - (h * 0.5);
 			const c = this.trial.data.bar_colour;
-			tomJS.fill_rect(x, y, w, h, c);
+			tomJS.fillRect(x, y, w, h, c);
 		}
 
 		drawWindow() {
@@ -1824,7 +1807,7 @@ const Stimuli = ((module) => {
 			const y = this.trial.data.bar_y;
 			const c = this.trial.data.window_colour;
 			const l = this.trial.data.window_linewidth;
-			tomJS.stroke_rect(x, y, w, h, c, l);
+			tomJS.strokeRect(x, y, w, h, c, l);
 		}
 
 	}
@@ -1966,7 +1949,7 @@ const Stimuli = ((module) => {
         update() {
 			if (this.complete) return;
             if (tomJS.now > this.trial.data.stimulus_off) this.timedOut();
-			if (tomJS.keyboard.any_pressed(['f','j'])) this.responseGiven();
+			if (tomJS.keyboard.anyPressed(['f','j'])) this.responseGiven();
 			this.draw();
         }
 
@@ -2130,12 +2113,12 @@ const Stimuli = ((module) => {
 		drawNote(which) {
 			const w = tomJS.visual.screen_size * this.trial.data.note_width;
 			const h = tomJS.visual.screen_size * this.trial.data.note_height;
-			const p = which == "L" ? clamp(this.trial.data.percent * 0.5, 0, 0.5) : 
-				1 - clamp(this.trial.data.percent * 0.5, 0, 0.5);
+			const p = which == "L" ? MathTools.clamp(this.trial.data.percent * 0.5, 0, 0.5) : 
+				1 - MathTools.clamp(this.trial.data.percent * 0.5, 0, 0.5);
 			const x = (w * 0.5) + (tomJS.visual.screen_size * p);
 			const y = (tomJS.visual.screen_size * 0.5) - (h * 0.5);
 			const c = this.trial.data.note_colour;
-			tomJS.fill_rect(x, y, w, h, c);
+			tomJS.fillRect(x, y, w, h, c);
 		}
 
 		drawWindow() {
@@ -2145,7 +2128,7 @@ const Stimuli = ((module) => {
 			const y = 0.5;
 			const c = this.trial.data.window_colour;
 			const l = this.trial.data.window_linewidth;
-			tomJS.stroke_rect(x, y, w, h, c, l);
+			tomJS.strokeRect(x, y, w, h, c, l);
 		}
 	
 	}
@@ -2176,12 +2159,12 @@ const Trials = ((module) => {
 			this.data.block = Number(args.block ?? tomJS.block);
 			this.data.trial = Number(args.trial ?? tomJS.trial);
 			this.data.index = Number(this.index);
-			this.data.fixation_duration = Number(choose(args.fixation_duration, 1000));
-			this.data.stimulus_duration = Number(choose(args.stimulus_duration, 3000));
-			this.data.stimulus_fast = Number(choose(args.stimulus_fast, 200));
-			this.data.stimulus_slow = Number(choose(args.stimulus_slow, 3000));			
-			this.data.feedback_duration = Number(choose(args.feedback_duration, 1000));
-			this.data.iti_duration = Number(choose(args.iti_duration, 1000));
+			this.data.fixation_duration = Number(ArrayTools.choose(args.fixation_duration, 1000));
+			this.data.stimulus_duration = Number(ArrayTools.choose(args.stimulus_duration, 3000));
+			this.data.stimulus_fast = Number(ArrayTools.choose(args.stimulus_fast, 200));
+			this.data.stimulus_slow = Number(ArrayTools.choose(args.stimulus_slow, 3000));			
+			this.data.feedback_duration = Number(ArrayTools.choose(args.feedback_duration, 1000));
+			this.data.iti_duration = Number(ArrayTools.choose(args.iti_duration, 1000));
 
 			// timeline
 			this.timeline = new Timeline();
@@ -2255,7 +2238,7 @@ const Trials = ((module) => {
 		calculateRT () {
 			const rg = this.data.response_given;
 			const on = this.data.stimulus_on;
-			this.data.rt = roundTo((rg - on), tomJS.rounding);
+			this.data.rt = MathTools.roundTo((rg - on), tomJS.rounding);
 		}
 
 		calculateScore () {
@@ -2357,13 +2340,13 @@ const Trials = ((module) => {
 
 			// signal
 			this.data.above_and_below = args.above_and_below ?? false;
-			this.data.signal_for = Number(choose(args.signal_for, 300));
-			this.data.signal_x = Number(choose(args.signal_x, 0.5));
-			this.data.signal_y = Number(choose(args.signal_y, 0.2));
+			this.data.signal_for = Number(ArrayTools.choose(args.signal_for, 300));
+			this.data.signal_x = Number(ArrayTools.choose(args.signal_x, 0.5));
+			this.data.signal_y = Number(ArrayTools.choose(args.signal_y, 0.2));
 
 			// warning
-			this.data.warning_at = Number(choose(args.warning_for, 200));
-			this.data.warning_for = Number(choose(args.warning_for, 200));
+			this.data.warning_at = Number(ArrayTools.choose(args.warning_for, 200));
+			this.data.warning_for = Number(ArrayTools.choose(args.warning_for, 200));
 
 			// calculated
 			this.data.stimulus_duration += this.data.condition + this.data.signal_for;
@@ -2409,7 +2392,7 @@ const Trials = ((module) => {
 			super.calculateRT();
 			const rg = this.data.response_given;
 			const rs = this.data.signal_on;
-			this.data.rtt = roundTo((rg - rs), tomJS.rounding);
+			this.data.rtt = MathTools.roundTo((rg - rs), tomJS.rounding);
 		}
 
 		enter() {
@@ -2471,13 +2454,13 @@ const Trials = ((module) => {
 			};
 
 			// warning
-			this.data.warning_at = Number(choose(args.warning_for, 0));
-			this.data.warning_for = Number(choose(args.warning_for, 0));
+			this.data.warning_at = Number(ArrayTools.choose(args.warning_for, 0));
+			this.data.warning_for = Number(ArrayTools.choose(args.warning_for, 0));
 
             // signal
-			this.data.signal_for = Number(choose(args.signal_for, 300));
-			this.data.signal_x = Number(choose(args.signal_x, 0.5));
-			this.data.signal_y = Number(choose(args.signal_y, 0.2));
+			this.data.signal_for = Number(ArrayTools.choose(args.signal_for, 300));
+			this.data.signal_x = Number(ArrayTools.choose(args.signal_x, 0.5));
+			this.data.signal_y = Number(ArrayTools.choose(args.signal_y, 0.2));
 			this.data.signal_colour = args.signal_colour ?? "DeepSkyBlue";
 			this.data.warning_colour = args.warning_colour ?? "#99ccff";
 			this.data.bar_colour = args.bar_colour ?? "White";
@@ -2527,7 +2510,7 @@ const Trials = ((module) => {
 			super.calculateRT();
 			const rg = this.data.response_given;
 			const rs = this.data.signal_on;
-			this.data.rtt = roundTo((rg - rs), tomJS.rounding);
+			this.data.rtt = MathTools.roundTo((rg - rs), tomJS.rounding);
 		}
 
 		enter() {
@@ -2581,7 +2564,7 @@ const Trials = ((module) => {
 			if (!('condition' in args)) tomJS.error('no condition (deadline) passed to feedback deadline trial');
 			super(args);
 			const _cue = new (args.cue ?? Stimuli.TextCue)(this, args);
-			this.timeline.push_front(_cue);
+			this.timeline.pushFront(_cue);
 			this.data.text_cue_duration = args.cue_duration ?? 1000;
 			this.data.text_cue_text = this.data.condition;
 			this.data.stimulus_slow = this.data.condition;
@@ -2600,7 +2583,7 @@ const Trials = ((module) => {
 
 const ArrayTools = ((module) => {
 	
-	module.assign_image_data = function assign_image_data(source, sink) {
+	module.assignImageData = function assignImageData(source, sink) {
 		if (source.length != sink.length) 
 			console.warn('ERROR: source and sink are not the same length.',
 			Math.sqrt(source.length), Math.sqrt(sink.length));
@@ -2678,7 +2661,7 @@ const ArrayTools = ((module) => {
 	}
 
 	/** Join any number of arrays without duplication. */
-	module.join_unique = function join_unique (...args) {
+	module.joinUnique = function joinUnique (...args) {
 		const out = args[0];
 		for (let i = 1; i < args.length; i++) {
 			args[i].forEach((arg) => {if (!(out.includes(arg))) {out.push(arg)}});
@@ -2727,7 +2710,7 @@ const ArrayTools = ((module) => {
 
 const HTMLTools = ((module) => {
 
-	module.Button = function Button(id, textContent, onClick, parent, args={}) {
+	module.button = function button(id, textContent, onClick, parent, args={}) {
 		const _btn = document.createElement('button');
 		_btn.id = id;
 		_btn.textContent = textContent;
@@ -2746,7 +2729,7 @@ const HTMLTools = ((module) => {
 		return _btn;
 	}
 
-	module.Container = function Container(id, parent) {
+	module.container = function container(id, parent) {
 		const _ctr = document.createElement('div');
 		_ctr.id = id;
 		_ctr.style.width = "85%";
@@ -2768,7 +2751,7 @@ const HTMLTools = ((module) => {
 		return _ctr;
 	}
 
-	module.Label = function Label(id, content, parent, args={}) {
+	module.label = function label(id, content, parent, args={}) {
 		const _lbl = document.createElement('label');
 		_lbl.id = id;
 		_lbl.textContent = content;
@@ -2785,7 +2768,7 @@ const HTMLTools = ((module) => {
 	}
 
 	/** Write text to the body of the html page. */
-	module.Write = function Write(text) {
+	module.write = function write(text) {
 		let p = document.createElement("p");
 		p.appendChild(document.createTextNode(text));
 		document.body.appendChild(p);
@@ -2811,7 +2794,7 @@ const MathTools = ((module)=>{
 	* Round a number to a certain number of decimal places.
 	* Returns the number, rounded to the specified number of decimal places.
 	*/
-	module.round_to = function round_to(number, places) {
+	module.roundTo = function roundTo(number, places) {
 		const _dp = Math.pow(10, places-1);
 		return Math.round(number * _dp) / _dp;
 	}
@@ -2836,7 +2819,7 @@ const MathTools = ((module)=>{
 		(mean, truncation, max) {
 		let randomNumber = Math.random();
 		let rolledNumber = Math.ceil(Math.log(1 - randomNumber) / (-(1 / mean))) + truncation;
-		let cleanedNumber = clamp(parseInt(rolledNumber), max, truncation);
+		let cleanedNumber = MathTools.clamp(parseInt(rolledNumber), max, truncation);
 		return cleanedNumber;
 	}
 
@@ -2869,7 +2852,7 @@ const ObjectTools = ((module) => {
 	}
 	
 	/** Return the sum of lengths of all contents of the object. */
-	module.length = function length(x) {
+	module.getLength = function getLength(x) {
 		let out = 1;
 		for (i in x) { out *= x[i].length };
 		return out;
@@ -2914,6 +2897,7 @@ const TextTools = ((module) => {
 
 
 // data =======================================================================
+
 
 colours = {
 	//			R    G    B    A
