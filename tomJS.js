@@ -1,6 +1,6 @@
 
 
-__version__ = '10.09.26 13:49';
+__version__ = '10.09.26 15:54';
 
 
 class Experiment {
@@ -52,7 +52,7 @@ class Experiment {
         const sessionData = new Data.BlockData();
 		sessionData.calculateData(this.data);
 		if (this.jatos)	{			
-			jatos.setStudySessionData(sessionData.to_string());
+			jatos.setStudySessionData(sessionData.toString());
 			jatos.startNextComponent();
 		}
 		else {			
@@ -429,7 +429,7 @@ const Data = ((module) => {
 			return Object.values(this);
 		}
 
-		to_csv (data_only=true) {
+		toCSV (data_only=true) {
 			const keys = this.keys();
 			const values = this.values();
 			let out = "";
@@ -443,7 +443,7 @@ const Data = ((module) => {
 			return out;
 		}
 
-		to_string (data_only=true) {
+		toString (data_only=true) {
 			const keys = this.keys();
 			const values = this.values();
 			let out = "";
@@ -497,6 +497,7 @@ const Data = ((module) => {
 		}
 
 		calculateData(data) {
+			console.log(data);
 			const d = ArrayTools.filter(data, 'start != null');
 			this.n = d.length;
 			this.checks = tomJS.attention.failed;
@@ -579,21 +580,22 @@ const Components = ((module) => {
 		}
 
 		submit () {
-			const csv = this.to_csv();
-			if (tomJS.jatos.online) jatos.submitResultData(csv);
+			const csv = this.toCSV();
+			if (tomJS.jatos.online) jatos.submitResultData(csv)
+			else console.log(csv);
 		}
 
-		to_csv () {
-			const data = this.data;
+		toCSV () {
+			const data = this._data;
 			const demo = tomJS.demographics;
 			const visu = tomJS.visual;
-			let csv = this.headings.to_string() + '\n';
-			for (let r of data) {
-				if (r.block > tomJS.block) continue;
-				const x = {...r, ...demo, ...visu};
-				let y = [];
-				for (let h of this.headings) y.push(x[h]);
-				csv += y.to_csv() + '\n';
+			let csv = this.headings.toString() + '\n';
+			for (let row of data) {
+				if (row.block > tomJS.block) continue;
+				const r = {...row, ...demo, ...visu};
+				for (let h of this.headings) csv += (h in r) ? r[h]+"," : ",";
+				csv = csv.slice(0, -1); // remove final comma
+				csv += '\n';
 			};
 			return csv;
 		}
@@ -776,7 +778,7 @@ const Components = ((module) => {
             const data = ''+tomJS.index+','+tomJS.lowest.currentState()+','+event.timeStamp+'\n';
             this.taps.push(data);
             if (tomJS.jatos.online & tomJS.dataframe.save)
-                jatos.uploadResultFile(this.taps.to_string(), 'tapData.csv');
+                jatos.uploadResultFile(this.taps.toString(), 'tapData.csv');
         };
 		
     }
@@ -1355,7 +1357,8 @@ const Slides = ((module) => {
 		// functions
 
 		gatherData() {
-			return ArrayTools.filter(tomJS.dataframe.data(), this.filter);
+			const data = tomJS.dataframe.data();
+			return ArrayTools.filter(data, this.filter);
 		}
 
 	}
@@ -2220,7 +2223,7 @@ const Trials = ((module) => {
 			if (this.attention_check & this.data.outcome != "Correct") 
 				tomJS.attention.log_failiure();
 			if (tomJS.debug.verbose)
-				console.log(this.data.to_string());
+				console.log(this.data.toString());
 		}
 
 		update () {
@@ -2238,7 +2241,7 @@ const Trials = ((module) => {
 		calculateRT () {
 			const rg = this.data.response_given;
 			const on = this.data.stimulus_on;
-			this.data.rt = MathTools.roundTo((rg - on), tomJS.rounding);
+			this.data.rt = Math.round(rg - on);
 		}
 
 		calculateScore () {
@@ -2392,7 +2395,7 @@ const Trials = ((module) => {
 			super.calculateRT();
 			const rg = this.data.response_given;
 			const rs = this.data.signal_on;
-			this.data.rtt = MathTools.roundTo((rg - rs), tomJS.rounding);
+			this.data.rtt = Math.round(rg - rs);
 		}
 
 		enter() {
