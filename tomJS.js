@@ -1,6 +1,6 @@
 
 
-__version__ = '09.09.26 16:22';
+__version__ = '10.09.26 09:38';
 
 
 class Experiment {
@@ -163,9 +163,6 @@ class Experiment {
 }
 
 
-// root classes ===============================================================
-
-
 class State {
 
 	constructor() {
@@ -194,130 +191,6 @@ class State {
 	}
 
 }
-
-
-/** tomJS timeline of tomJS states. */
-class Timeline {
-
-	constructor(timeline=[], args={}) {
-		this.complete = false;
-		this.length = timeline.length;
-		this.position = 0;
-		this.timeline = timeline;
-		this.delete   = args.delete ?? true;
-	}
-	
-	currentState () {
-		return this.timeline[this.position].constructor.name;
-	}
-
-	enter () {
-        this.timeline[this.position].enter();
-        tomJS.lowest = this;
-	}
-
-	exit () {
-		this.timeline[this.position].exit();
-	}
-	
-	finish () {
-		this.complete = true;
-	}
-
-	insert (state, position) {
-		const _before = this.timeline.slice(0, position);
-		const _after = this.timeline.slice(position);
-		const _timeline = _before.concat(state).concat(_after);
-		this.timeline = _timeline;
-		this.length += 1;
-	}
-
-	push (state) {
-		this.timeline.push(state);
-		this.length += 1;
-	}
-
-	push_block (args={}) {
-        const _block = new Block(args);
-		this.push(_block);
-	}
-
-	push_blocks (args={}) {
-        var blockwise = args.blockwise ?? {};
-        let _b_cells = ObjectTools.length(blockwise);
-        for (let b = 0; b < block_reps; b++) {
-            let _blockwise = ObjectTools.allCombinations(blockwise);
-            _blockwise = ArrayTools.shuffle(_blockwise);
-            for (let i = 0; i < _b_cells; i++) {
-                args.additional = Object.assign({}, _blockwise[i % _b_cells], additional);
-                this.push_block(args);
-			};
-		};
-    }
-
-	push_counterbalanded_blocks (args = {}) {
-        for (let i = 0; i < args.blocks; i++) {
-            if (i % 2 == this.demographics.G) this.push_block(args.A)
-            else this.push_block(args.B);
-        };
-    }
-
-	push_front (state) {
-		this.timeline.unshift(state);
-		this.length += 1;
-	}
-
-	replace (state, position) {
-		if (tomJS.debug.verbose) 
-			console.log("replacing ",this.timeline[position]," with ",state);
-		this.timeline[position] = state;
-	}
-
-	update () {
-		if (this.complete) return;
-		if (this.timeline[this.position].complete) this.nextState()
-		else this.timeline[this.position].update();
-	}
-
-	nextState () {
-        if (this.position + 1 == this.length) {
-            this.timeline[this.position].exit();
-			this.complete = true;
-		} else {			
-            this.timeline[this.position].exit();
-			if (this.delete) delete this.timeline[this.position];
-            this.position += 1;
-            this.timeline[this.position].enter();
-		};
-	}
-
-}
-
-
-// mutators ===================================================================
-
-
-class Mutator extends State {
-
-	/**
-	 * Inserted into timeline to perform runtime mutation, such as changing the upcoming block.
-	 * @param {CallableFunction} mutation - The mutation function to run upon entering this state.
-	 * @param {Object{}} args - An object of optional arguents to pass down the chain.
-	 */
-
-	constructor(mutation, args={}) {
-		super();
-		this.mutation = mutation;
-	}
-
-	enter() {
-		this.mutation();
-	}
-
-}
-
-
-// blocks =====================================================================
 
 
 class Block extends State {
@@ -437,6 +310,103 @@ class Block extends State {
 			_t = _split[0] + eval(_split[1]) + _split[2];
 		};
 		return _t;
+	}
+
+}
+
+
+class Timeline {
+
+	constructor(timeline=[], args={}) {
+		this.complete = false;
+		this.length = timeline.length;
+		this.position = 0;
+		this.timeline = timeline;
+		this.delete   = args.delete ?? true;
+	}
+	
+	currentState () {
+		return this.timeline[this.position].constructor.name;
+	}
+
+	enter () {
+        this.timeline[this.position].enter();
+        tomJS.lowest = this;
+	}
+
+	exit () {
+		this.timeline[this.position].exit();
+	}
+	
+	finish () {
+		this.complete = true;
+	}
+
+	insert (state, position) {
+		const _before = this.timeline.slice(0, position);
+		const _after = this.timeline.slice(position);
+		const _timeline = _before.concat(state).concat(_after);
+		this.timeline = _timeline;
+		this.length += 1;
+	}
+
+	push (state) {
+		this.timeline.push(state);
+		this.length += 1;
+	}
+
+	push_block (args={}) {
+        const _block = new Block(args);
+		this.push(_block);
+	}
+
+	push_blocks (args={}) {
+        var blockwise = args.blockwise ?? {};
+        let _b_cells = ObjectTools.length(blockwise);
+        for (let b = 0; b < block_reps; b++) {
+            let _blockwise = ObjectTools.allCombinations(blockwise);
+            _blockwise = ArrayTools.shuffle(_blockwise);
+            for (let i = 0; i < _b_cells; i++) {
+                args.additional = Object.assign({}, _blockwise[i % _b_cells], additional);
+                this.push_block(args);
+			};
+		};
+    }
+
+	push_counterbalanded_blocks (args = {}) {
+        for (let i = 0; i < args.blocks; i++) {
+            if (i % 2 == this.demographics.G) this.push_block(args.A)
+            else this.push_block(args.B);
+        };
+    }
+
+	push_front (state) {
+		this.timeline.unshift(state);
+		this.length += 1;
+	}
+
+	replace (state, position) {
+		if (tomJS.debug.verbose) 
+			console.log("replacing ",this.timeline[position]," with ",state);
+		this.timeline[position] = state;
+	}
+
+	update () {
+		if (this.complete) return;
+		if (this.timeline[this.position].complete) this.nextState()
+		else this.timeline[this.position].update();
+	}
+
+	nextState () {
+        if (this.position + 1 == this.length) {
+            this.timeline[this.position].exit();
+			this.complete = true;
+		} else {			
+            this.timeline[this.position].exit();
+			if (this.delete) delete this.timeline[this.position];
+            this.position += 1;
+            this.timeline[this.position].enter();
+		};
 	}
 
 }
@@ -2625,86 +2595,40 @@ const Trials = ((module) => {
 })({});
 
 
-// utils ======================================================================
-
-
-function assignImageData(source, sink) {
-	if (source.length != sink.length) 
-        console.warn('ERROR: source and sink are not the same length.',
-		Math.sqrt(source.length), Math.sqrt(sink.length));
-	for (let i = 0; i < sink.length; i += 4) {
-		sink[i+0] = source[i+0];	// R
-		sink[i+1] = source[i+1];	// G
-		sink[i+2] = source[i+2];	// B
-		sink[i+3] = source[i+3];	// A
-	};
-}
-
-
-/** Choose one of the options from the passed list at random, or the fallback instead. */
-function choose(x, fallback = null) {
-	if (typeof x == 'number') return x;
-	if (typeof x == 'string') return x;
-	if (typeof x == 'object') {
-		if (x.length == 1) return x[0];
-		else return x[Math.floor(Math.random() * x.length)];
-	}
-	return fallback;
-}
-
-
-/**
- * Clamp a number between two others.
- * Returns the number, but no less than min and no more than max.
- */
-function clamp(number, min, max) {
-	return Math.max(Math.min(number, max), min);
-};
-
-
-/**
- * Round a number to a certain number of decimal places.
- * Returns the number, rounded to the specified number of decimal places.
- */
-function roundTo(number, places) {
-	const _dp = Math.pow(10, places-1);
-	return Math.round(number * _dp) / _dp;
-}
-
-
-/** Draw a random sample from a normal distribution. */
-function sampleFromNormal(mean = 100, deviation) {
-	let u = v = 0;
-	while (u === 0) u = Math.random();
-	while (v === 0) v = Math.random();
-	let normalNumber = Math.sqrt(-deviation * Math.log(u)) * (deviation * Math.PI * v);
-	normalNumber = normalNumber / 10.0 + 0.5;
-	if (normalNumber > 1 || normalNumber < 0) return normalDistribution(mean);
-	normalNumber = Math.round(normalNumber * (mean * 2));
-	return normalNumber;
-}
-
-
-/** Draw a random sample from a truncated exponential dsitribution. */
-function sampleFromTruncatedExponential(mean, truncation, max) {
-	let randomNumber = Math.random();
-	let rolledNumber = Math.ceil(Math.log(1 - randomNumber) / (-(1 / mean))) + truncation;
-	let cleanedNumber = clamp(parseInt(rolledNumber), max, truncation);
-	return cleanedNumber;
-}
-
-
 // tools ======================================================================
 
 
 const ArrayTools = ((module) => {
 	
+	module.assign_image_data = function assign_image_data(source, sink) {
+		if (source.length != sink.length) 
+			console.warn('ERROR: source and sink are not the same length.',
+			Math.sqrt(source.length), Math.sqrt(sink.length));
+		for (let i = 0; i < sink.length; i += 4) {
+			sink[i+0] = source[i+0];	// R
+			sink[i+1] = source[i+1];	// G
+			sink[i+2] = source[i+2];	// B
+			sink[i+3] = source[i+3];	// A
+		};
+	}
+
 	/** Return the average of all numerical values in the array. */
 	module.average = function average(array) {
 		const _n = array.length;
 		return array.reduce((a,b)=>a+b,0)/_n;
 	}
 	
+	/** Choose one of the options from the passed list at random, or the fallback instead. */
+	module.choose = function choose(x, fallback = null) {
+		if (typeof x == 'number') return x;
+		if (typeof x == 'string') return x;
+		if (typeof x == 'object') {
+			if (x.length == 1) return x[0];
+			else return x[Math.floor(Math.random() * x.length)];
+		}
+		return fallback;
+	}
+
 	/** Collapse an array of arrays into a single array containing all child items. */
 	module.collapse = function collapse(array) {
 		let out = [];
@@ -2754,7 +2678,7 @@ const ArrayTools = ((module) => {
 	}
 
 	/** Join any number of arrays without duplication. */
-	module.joinUniques = function joinUniques(...args) {
+	module.join_unique = function join_unique (...args) {
 		const out = args[0];
 		for (let i = 1; i < args.length; i++) {
 			args[i].forEach((arg) => {if (!(out.includes(arg))) {out.push(arg)}});
@@ -2788,7 +2712,6 @@ const ArrayTools = ((module) => {
 		};
 		return _shuffled;
 	}
-
 	
 	/** Tape an object to the end of every object inside an array of objects. */
 	module.tape = function tape(array, object) {
@@ -2866,6 +2789,55 @@ const HTMLTools = ((module) => {
 		let p = document.createElement("p");
 		p.appendChild(document.createTextNode(text));
 		document.body.appendChild(p);
+	}
+
+	return module;
+
+})({});
+
+
+const MathTools = ((module)=>{
+	
+	/**
+	* Clamp a number between two others.
+	* Returns the number, but no less than min and no more than max.
+	*/
+	module.clamp = function clamp(number, min, max) {
+		return Math.max(Math.min(number, max), min);
+	};
+
+
+	/**
+	* Round a number to a certain number of decimal places.
+	* Returns the number, rounded to the specified number of decimal places.
+	*/
+	module.round_to = function round_to(number, places) {
+		const _dp = Math.pow(10, places-1);
+		return Math.round(number * _dp) / _dp;
+	}
+
+
+	/** Draw a random sample from a normal distribution. */
+	module.sampleFromNormal = function sampleFromNormal 
+		(mean = 100, deviation) {
+		let u = v = 0;
+		while (u === 0) u = Math.random();
+		while (v === 0) v = Math.random();
+		let normalNumber = Math.sqrt(-deviation * Math.log(u)) * (deviation * Math.PI * v);
+		normalNumber = normalNumber / 10.0 + 0.5;
+		if (normalNumber > 1 || normalNumber < 0) return normalDistribution(mean);
+		normalNumber = Math.round(normalNumber * (mean * 2));
+		return normalNumber;
+	}
+
+
+	/** Draw a random sample from a truncated exponential dsitribution. */
+	module.sampleFromTruncatedExponential = function sampleFromTruncatedExponential
+		(mean, truncation, max) {
+		let randomNumber = Math.random();
+		let rolledNumber = Math.ceil(Math.log(1 - randomNumber) / (-(1 / mean))) + truncation;
+		let cleanedNumber = clamp(parseInt(rolledNumber), max, truncation);
+		return cleanedNumber;
 	}
 
 	return module;
