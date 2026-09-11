@@ -1,6 +1,6 @@
 
 
-__version__ = '11.09.26 12:21';
+__version__ = '11.09.26 16:20';
 
 
 class Experiment {
@@ -44,11 +44,12 @@ class Experiment {
 		this.keyboard = new Keyboard();
 		
 		// jatos
-		if (window.jatos != undefined)  {
-			if (jatos.constructor != HTMLScriptElement) 
-				jatos.onConnected(() => { this.connect() });
-		};		
 		this.jatos = false;
+		if (window.jatos != undefined)  {
+			this.connectToJatos = this.connectToJatos.bind(this);
+			if (jatos.constructor != HTMLScriptElement) 
+				jatos.onConnected(() => { this.connectToJatos() });
+		};
 		this.fullfill_queue_on_jatos = args.fullfill_queue_on_jatos ?? true;
 
 		// demographics
@@ -142,10 +143,7 @@ class Experiment {
 		tomJS.demographics.participant = wrk ? url.PROLIFIC_PID : jts;
 		tomJS.demographics.n = Math.round(jts);
 		tomJS.demographics.G = jts % 2;
-		if (this.fullfill_queue_on_jatos) {
-			this.fullfillQueue();
-			if (this.debug.verbose) console.log(this.timeline.timeline);
-		};
+		if (this.fullfill_queue_on_jatos) this.fullfillQueue();
 		console.log('Connected to JATOS.');
 	}
 
@@ -794,7 +792,7 @@ const Slides = ((module) => {
 
 		// super
 
-		enter() {            
+		enter() {
 			super.enter();
 			this.can_proceed = false;
 			setTimeout(() => { this.can_proceed = true }, this.force_wait);
@@ -853,30 +851,7 @@ const Slides = ((module) => {
 					case 'progressbar':
 						this.data.bar_percent = 
                             (tomJS.now - this.data.bar_start) / this.data.bar_max;
-
-						if (this.data.bar_percent >= 1.5) this.data.bar_start = tomJS.now;
-                        
-						if (this.data.bar_percent <= 0) {
-							this.data.bar_colour    = "#00000000";
-							this.data.window_colour = this.data._window_colour;
-						}
-                        else if (this.data.bar_percent >= 1) {
-                            this.data.bar_colour    = "#00000000";
-							this.data.window_colour = this.data._window_colour;
-                        }
-						else if (this.data.bar_percent < this.data.signal_on) {
-							this.data.bar_colour    = this.data._bar_colour;
-							this.data.window_colour = this.data._window_colour;
-						}
-						else if (this.data.bar_percent < this.data.signal_off) {
-							this.data.bar_colour    = this.data._signal_colour;
-							this.data.window_colour = this.data._signal_colour;
-						}
-						else {
-							this.data.bar_colour    = this.data._bar_colour;
-							this.data.window_colour = this.data._window_colour;
-						};
-
+						if (this.data.bar_percent >= 1.5) this.data.bar_start = tomJS.now;                    
 						this['progressbar' + _c.tag ?? ''].draw();
 						break;
 				};
@@ -905,12 +880,6 @@ const Slides = ((module) => {
 					case 'progressbar':
 						this.data.bar_start     = this.start;
 						this.data.bar_max       = c.bar_max ?? 2000;
-						this.data._bar_colour    = c.bar_colour ?? "White";
-						this.data._signal_colour = c.signal_colour ?? "DeepSkyBlue";
-						this.data._window_colour = c.window_colour ?? "Silver";
-						this.data.signal_on	    = c.signal_on ?? 0.75
-						this.data.signal_off    = c.signal_off ?? 1.00;
-						this.data.window_width  = c.window_width ?? 0.20;
 						const _bar = new (c.signal ?? Stimuli.ProgressBar)(this, c);
 						this['progressbar' + c.tag ?? ''] = _bar;
 						break;
@@ -928,11 +897,9 @@ const Slides = ((module) => {
 			this.fontSize = choose(args.fontSize, 0.10);
 		}
 
-		// super
-
 		enter() {
-			this.fontSize = Math.ceil((this.fontSize) * tomJS.visual.stimulus_size) + "px";
 			super.enter();
+			this.fontSize = Math.ceil((this.fontSize) * tomJS.visual.stimulus_size) + "px";
 		}
 
 		update() {
@@ -1654,15 +1621,15 @@ const Stimuli = ((module) => {
 
 		constructor(trial, args = {}) {
 			super(trial, args);
-			this.trial.data.note_width = args.note_width ?? 0.01;
-			this.trial.data.note_height = args.note_height ?? 0.17;
+			this.trial.data.bar_width = args.bar_width ?? 0.01;
+			this.trial.data.bar_height = args.bar_height ?? 0.17;
 			this.trial.data.window_colour = args.window_colour ?? "LightGrey";
 			this.trial.data.window_width = args.window_width ?? 0.20;
 			this.trial.data.window_pos = args.window_pos ?? 0.50;
 			this.trial.data.window_linewidth = args.window_linewidth ?? 2;
 			if (this.trial.data.bar_scale != 1)
-				this.trial.data.note_height *= this.trial.data.bar_scale
-			    this.trial.data.note_width *= this.trial.data.bar_scale;
+				this.trial.data.bar_height *= this.trial.data.bar_scale
+			    this.trial.data.bar_width *= this.trial.data.bar_scale;
 		}
 
 		// super
@@ -1680,8 +1647,8 @@ const Stimuli = ((module) => {
 		// override
 
 		drawBar() {
-			const w = tomJS.visual.stimulus_size * this.trial.data.note_width;
-			const h = tomJS.visual.stimulus_size * this.trial.data.note_height;
+			const w = tomJS.visual.stimulus_size * this.trial.data.bar_width;
+			const h = tomJS.visual.stimulus_size * this.trial.data.bar_height;
 			const p = clamp(this.trial.data.bar_percent, 0, 1) * 0.5;
 			const x = (tomJS.visual.screen_size * this.trial.data.bar_x) +
 				(tomJS.visual.stimulus_size * this.trial.data.bar_width * p) -
@@ -1695,8 +1662,8 @@ const Stimuli = ((module) => {
 		// functions
 
 		drawRightBar() {
-			const w = tomJS.visual.stimulus_size * this.trial.data.note_width;
-			const h = tomJS.visual.stimulus_size * this.trial.data.note_height;
+			const w = tomJS.visual.stimulus_size * this.trial.data.bar_width;
+			const h = tomJS.visual.stimulus_size * this.trial.data.bar_height;
 			const p = 1 - clamp(this.trial.data.bar_percent, 0, 1) * 0.5;
 			const x = (tomJS.visual.screen_size * this.trial.data.bar_x) +
 				(tomJS.visual.stimulus_size * this.trial.data.bar_width * p) -
@@ -2015,6 +1982,68 @@ const Stimuli = ((module) => {
 			else this.draw();
         }
 
+	}
+
+	module.BratzkeBar = class BratzkeBar extends module.Stimulus {
+	
+		constructor(trial, args = {}) {
+			super(trial, args);
+			this.trial.data.bb_x 			 = args.bb_x ?? 0.5;
+			this.trial.data.bb_y 			 = args.bb_y ?? 0.5;
+			this.trial.data.bar_percent      = args.bar_percent ?? 0;
+			this.trial.data.bar_width        = args.bar_width ?? 0.01;
+			this.trial.data.bar_height       = args.bar_height ?? 0.30;
+			this.trial.data.bar_colour       = args.bar_colour ?? "white";
+			this.trial.data.bar_signal       = args.bar_signal ?? "#00000000"
+			this.trial.data.window_signal    = args.window_signal ?? "DodgerBlue"
+			this.trial.data.window_width 	 = args.window_width ?? 0.50;
+			this.trial.data.window_height 	 = args.window_height ?? 0.50;
+			this.trial.data.window_colour    = args.window_colour ?? "white";
+			this.trial.data.window_linewidth = args.window_linewidth ?? 5;
+		}
+
+		draw() {
+			super.draw();
+			this.drawNote("L");
+			this.drawNote("R");
+			this.drawWindow();
+		}
+
+		drawNote(which) {
+			const w = tomJS.visual.screen_size * this.trial.data.bar_width;
+			const h = tomJS.visual.screen_size * this.trial.data.bar_height;
+			const p = which == "L" ? clamp(this.trial.data.bar_percent * 0.5, 0, 0.5) : 
+				1 - clamp(this.trial.data.bar_percent * 0.5, 0, 0.5);
+			const x = (w * 0.5) + (tomJS.visual.screen_size * p);
+			const y = (tomJS.visual.screen_size * this.trial.data.bb_y) - (h * 0.5);
+			const c = this.getNoteColour();
+			tomJS.fillRect(x, y, w, h, c);
+		}
+
+		drawWindow() {
+			const w = tomJS.visual.screen_size * this.trial.data.window_width;
+			const h = tomJS.visual.screen_size * this.trial.data.window_height;
+			const x = this.trial.data.bb_x;
+			const y = this.trial.data.bb_y;
+			const c = this.getWindowColour();
+			const l = this.trial.data.window_linewidth;
+			tomJS.strokeRect(x, y, w, h, c, l);
+		}
+
+		getNoteColour() {
+			if (this.trial.data.bar_percent < 1) 
+				return this.trial.data.bar_colour
+			else 
+				return this.trial.data.bar_signal;
+		}
+
+		getWindowColour() {
+			if (this.trial.data.bar_percent < 1) 
+				return this.trial.data.window_colour
+			else 
+				return this.trial.data.window_signal;
+		}
+	
 	}
 
 	return module;
