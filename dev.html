@@ -3,7 +3,7 @@
 <html>
 <body>
     <script src="jatos.js" id="jatos"></script>
-    <script src="tomJS.js" id="tomJS"></script>
+    <script src="tomJS_dev.js" id="tomJS"></script>
     <script>
         
         const args = {
@@ -16,15 +16,16 @@
         // constants
 
         const TRIALWISE = {
-		    'condition': [500, 1500],
+		'fixation_duration': [500, 1500],
             'gabor_ori': [2, 358]
         };
 
         const ADDITIONAL = {     
+            'condition': 'FR',
             'gabor_contrast': 0.03,
             'stimulus': Stimuli.Gabor,
             'iti_duration': [650, 750, 850],
-            'trial_type': Trials.CuedDeadline
+            'trial_type': Trials.Trial
         };
 
         const CONDITIONAL = [
@@ -32,7 +33,32 @@
             'if (gabor_ori < 180) target = B',
         ];
 
-        const ATTENTION = [];
+        const ATTENTION = [
+            {
+                'condition': 'FR',
+                'feedback_texts': {
+                    'Correct': 'Pass',
+                    'Incorrect': 'Fail', 'Fast': 'Fail', 'Slow': 'Fail', 'Censored': 'Fail'
+                },
+                'gabor_contrast': 1.00,
+                'gabor_ori': 5,
+                'stimulus': Stimuli.Gabor,
+                'target': 'B',
+                'trial_type': Trials.Trial
+            },
+            {
+                'condition': 'FR',
+                'feedback_texts': {
+                    'Correct': 'Pass',
+                    'Incorrect': 'Fail', 'Fast': 'Fail', 'Slow': 'Fail', 'Censored': 'Fail'
+                },
+                'gabor_contrast': 1.00,
+                'gabor_ori': 355,
+                'stimulus': Stimuli.Gabor,
+                'target': 'A',
+                'trial_type': Trials.Trial
+            }
+        ];
 
         // slides
 
@@ -70,9 +96,9 @@
 
         // timeline
 
-        tomJS.appendToTimeline(KEYBOARD);
+        tomJS.timeline.push(KEYBOARD);
 
-        tomJS.appendBlock(BLOCK);
+        tomJS.timeline.pushBlock(BLOCK);
 
         tomJS.start();
 

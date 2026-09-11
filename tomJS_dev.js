@@ -1,6 +1,6 @@
 
 
-__version__ = '11.09.26 12:21';
+__version__ = '10.09.26 15:54';
 
 
 class Experiment {
@@ -9,60 +9,18 @@ class Experiment {
 		
 		console.log('booting tomJS version ' + __version__);
 
-		// debug
-		this.debug = {};
-		this.debug.gridlines  = args.gridlines  ?? false;
-		this.debug.fullscreen = args.fullscreen ?? true;
-		this.debug.verbose    = args.verbose    ?? false;
-        this.debug.overlay    = args.overlay    ?? false;
-
-		// visual
-		this.visual = {};
-		this.visual.backgroundColor = args.backgroundColor ?? "black";
-		this.visual.color = args.color ?? "white";				
-		this.visual.height = window.innerHeight - 16;
-		this.visual.width  = window.innerWidth - 16;
-		const screen_size = Math.min(this.visual.height, this.visual.width);
-		this.visual.screen_size = screen_size;
-		this.visual.stimulus_size = Math.round(this.visual.screen_size * 0.5);
-		this.createCanvas();
-		this.setCanvasSize(this.visual.screen_size);
-		this.setFont();
-
-		// apply visual settings to document
-		document.body.style.fontFamily      = this.visual.fontFamily;
-		document.body.style.fontSize        = this.visual.fontSize;
-		document.body.style.color           = this.visual.color;
-		document.body.style.backgroundColor = this.visual.backgroundColor;
-		
-		// controls
-		this.controls = {};
-		this.controls.inputs = args.inputs ?? ['f', 'j'];
-		this.controls.responses = args.responses ?? { 'f': 'A', 'j': 'B' };
-		this.controls.inputs = Object.keys(this.controls.responses);
-		this.controls.options = Object.values(this.controls.responses);
-		this.keyboard = new Keyboard();
-		
-		// jatos
-		if (window.jatos != undefined)  {
-			if (jatos.constructor != HTMLScriptElement) 
-				jatos.onConnected(() => { this.connect() });
-		};		
-		this.jatos = false;
-		this.fullfill_queue_on_jatos = args.fullfill_queue_on_jatos ?? true;
-
-		// demographics
-		this.demographics = {};
-		this.demographics.participant = Math.round(Math.random()*999999);
-		this.demographics.age = null;
-		this.demographics.gender = null;
-		this.demographics.hand = null;
-		this.demographics.n = Math.round(Math.random() * 2);
-		this.demographics.G = this.demographics.n % 2;
+		this.attention = args.attention ?? new Components.Attention(args);
+		this.dataframe = args.dataframe ?? new Components.Dataframe(args);
+		this.debug = args.debug ?? new Components.Debug(args);
+		this.demographics = args.demographics ?? new Components.Demographics(args);
+		this.jatos = args.jatos ?? new Components.JATOS(args);
+		this.keyboard = args.keyboard ?? new Components.Keyboard(args);
+		this.visual = args.visual ?? new Components.Visual(args);
 
 		// timeline
 		this.built    = window.performance.now();
         this.now      = window.performance.now();
+        this.running  = true;
 		this.complete = false;
         this.timeline = new Timeline();
         this.block    = 0;
@@ -70,148 +28,25 @@ class Experiment {
         this.trial    = 0;
         this.trials   = 0;
 		this.index    = 0;
-		this.started  = null;
+		this.created  = null;
         this.lowest   = null;
 		this._queue   = [];
 
         // global stimuli storage
         this.stimuli = {};
 
-		// data
-		this.headings = ['participant','age','gender','hand'];
-		this.data = [];
-		this.save = args.save ?? true;
-
-		// attention checks
-		this.attention = {};
-		this.attention.failed = 0; // current fail count
-		this.attention.limit  = args.attention_limit ?? 3; // failed trail limit
-		this.attention.check_until = args.attention_check_until ?? 0.4; // percent
-
 		// other
 		this.rounding = args.rounding ?? 5;
 
+		// signals
+		this.block_ended = new CustomEvent("block_ended");
+		this.started = new CustomEvent("started");
+		this.updated = new CustomEvent("updated");
+
 	}
 
-	// functions
-	
-	appendToTimeline(new_state) {
-		this.timeline.push(new_state);
-	}
-
-    appendBlock(args = {}) {
-        const _block = new Block(args);
-		this.appendToTimeline(_block);
-	}
-
-    appendBlocks(args = {}) {
-        var blockwise = args.blockwise ?? {};
-        let _b_cells = ObjectTools.length(blockwise);
-        for (let b = 0; b < block_reps; b++) {
-            let _blockwise = ObjectTools.allCombinations(blockwise);
-            _blockwise = ArrayTools.shuffle(_blockwise);
-            for (let i = 0; i < _b_cells; i++) {
-                args.additional = Object.assign({}, _blockwise[i % _b_cells], additional);
-                this.appendBlock(args);
-			};
-		};
-    }
-
-    //** Append blocks of type A and B sequentially depending on the users G. */
-    appendCounterbalancedBlocks(args = {}) {
-        for (let i = 0; i < args.blocks; i++) {
-            if (i % 2 == this.demographics.G) this.appendBlock(args.A)
-            else this.appendBlock(args.B);
-        };
-    }
-
-	attentionCheckFailed() {
-		this.attention.failed++;
-		if (this.attention.failed >= this.attention.limit
-			& this.block <= (Math.floor(this.blocks*this.attention.check_until))-1)
-			this.requestReturn();
-		if (this.debug.verbose) console.log(this.attention);
-	}
-
-	connectToJatos() {
-		// this. is the window
-		tomJS.jatos = true;
-		const url = jatos.urlQueryParameters ?? {};
-		const wrk = 'PROLIFIC_PID' in url;
-		const jts = jatos.studyResultId;
-		tomJS.demographics.participant = wrk ? url.PROLIFIC_PID : jts;
-		tomJS.demographics.n = Math.round(jts);
-		tomJS.demographics.G = jts % 2;
-		if (this.fullfill_queue_on_jatos) {
-			this.fullfillQueue();
-			if (this.debug.verbose) console.log(this.timeline.timeline);
-		};
-		console.log('Connected to JATOS.');
-	}
-
-	createCanvas() {
-		this.visual.canvas = document.createElement('canvas');		
-		this.visual.canvas.id = "canvas";
-		this.visual.canvas.width = "95vmin";
-		this.visual.canvas.height = "95vmin";
-		this.visual.canvas.style.position = "absolute"; 
-		this.visual.canvas.style.backgroundColor = this.visual.backgroundColor;
-		this.visual.canvas.style.color = this.visual.colour;
-		this.visual.canvas.style.cursor = "none";
-		document.body.appendChild(this.visual.canvas);
-		this.visual.context = this.visual.canvas.getContext("2d");
-	}
-
-	counterbalanceAB() {
-		const mod = this.demographics.G;
-		const A = (mod == 0) ? this.controls.key_a : this.controls.key_b;
-		const B = (A == this.controls.key_a) ? this.controls.key_b : this.controls.key_a;
-		this.controls.key_a = A;
-        this.controls.key_b = B;
-		this.controls.key_a_upper = A.toUpperCase();
-		this.controls.key_b_upper = B.toUpperCase();
-	}
-	
-	drawDebugOverlay() {
-		// size boxes
-		this.strokeRect(0.5, 0.5, this.visual.screen_size, this.visual.screen_size, "grey", 1);
-        this.strokeRect(0.5, 0.5, this.visual.stimulus_size, this.visual.stimulus_size, "red", 1);
-		// text
-		this.writeToCanvas(this.index, {'x':0.1, 'y': 0.03});
-		this.writeToCanvas(this.keyboard.key, {'x':0.1, 'y': 0.06});
-		this.writeToCanvas(this.keyboard.dir, {'x':0.1, 'y': 0.09});
-		this.writeToCanvas(document.fullscreenElement!=null, {'x':0.1, 'y': 0.12});
-	}
-
-	drawGridLines() {
-		// horizontal
-		for (let i = 0; i < 5; i++) {
-			let w = this.visual.screen_size;
-			let h = this.visual.screen_size * 0.001;
-			let x = (this.visual.screen_size * 0.5) - (w * 0.5);
-			let y = (this.visual.screen_size * 0.5 * (i/2)) - (h * 0.5);
-			this.fillRect(x, y, w, h, this.visual.colour);
-		};
-		// vertical
-		for (let i = 0; i < 5; i++) {
-			let w = this.visual.screen_size * 0.001;
-			let h = this.visual.screen_size;
-			let x = (this.visual.screen_size * 0.5 * (i/2)) - (w * 0.5);
-			let y = (this.visual.screen_size * 0.5) - (h * 0.5);
-			this.fillRect(x, y, w, h, this.visual.colour);
-		};
-	}
-
-	drawImage (path, args={}) {
-		const img = new Image();
-		img.src = path;
-		const _size = tomJS.visual.stimulus_size * (args.size ?? 0.5);
-		const _x = tomJS.visual.screen_size * (args.x ?? 0.5) - (_size * 0.5);
-		const _y = tomJS.visual.screen_size * (args.y ?? 0.5) - (_size * 0.5);
-		tomJS.visual.context.drawImage(img, _x, _y, _size, _size);
-	}
-
-	endExperiment() {
+	endExperiment () {
+		this.running  = false;
 		this.complete = true;
 		if (document.fullscreenElement!=null) document.exitFullscreen();
         const sessionData = new Data.BlockData();
@@ -221,35 +56,19 @@ class Experiment {
 			jatos.startNextComponent();
 		}
 		else {			
-			this.resetCanvas();
-			this.writeToCanvas('You can close the window when you are ready :)');
+			this.visual.clear();
+			this.visual.write('You can close the window when you are ready :)');
             console.log(sessionData);
 		};
 	}
 
-	error(message) {
+	error (message) {
 		this.complete = true;
-		this.fillRect(0, 0, this.visual.screen_size, this.visual.screen_size, "red");
-		this.writeToCanvas('ERROR: '+message);
+		this.visual.fillRect(0, 0, this.visual.screen_size, this.visual.screen_size, "red");
+		this.visual.write('ERROR: '+message);
 	}
-
-	/** Draw a filled rectangle. x and y degine the position of the top-left pixel. */
-	fillRect(x, y, width, height, colour="white") {
-		this.visual.context.fillStyle = colour;
-		this.visual.context.fillRect(x, y, width, height);
-	}
-
-	flushKeys() {
-		this.keyboard.key = '';
-		this.keyboard.dir = '';
-    }
-
-    forceCounterbalanceGroup(group) {
-        if (group != 0 | group != 1) tomJS.error("Forcing invalid counterbalance group.");
-        this.demographics.G = group;
-    }
 	
-	fullfillQueue() {
+	fullfillQueue () {
 		for (let q of this._queue) {
 			var callable = q[0];
 			var args = q[1];
@@ -257,29 +76,57 @@ class Experiment {
 		};
 	}
 	
-	onFullscreenChange(event) {
+	onFullscreenChange (event) {
 		console.log(event);
 	}
+
+	push (state) {
+		this.timeline.push(state);
+	}
+
+	pushBlock (args={}) {
+        const _block = new Block(args);
+		this.push(_block);
+	}
+
+	pushBlocks (args={}) {
+        var blockwise = args.blockwise ?? {};
+        let _b_cells = ObjectTools.getLength(blockwise);
+		for (let b of Object(blockwise).keys()) {
+			if (!(this.dataframe.headings.includes(b))) 
+				this.dataframe.headings.push(b);
+		};
+        for (let b = 0; b < block_reps; b++) {
+            let _blockwise = ObjectTools.allCombinations(blockwise);
+            _blockwise = ArrayTools.shuffle(_blockwise);
+            for (let i = 0; i < _b_cells; i++) {
+                args.additional = Object.assign({}, _blockwise[i % _b_cells], additional);
+                this.pushBlock(args);
+			};
+		};
+    }
+
+	pushCounterbalancedBlocks (args = {}) {
+        for (let i = 0; i < args.blocks; i++) {
+            if (i % 2 == this.demographics.G) this.pushBlock(args.A)
+            else this.pushBlock(args.B);
+        };
+    }
+
+	pushFront (state) {
+		this.timeline.pushFront(state);
+	}
 	
-	queue(callable, args={}) {
+	queue (callable, args={}) {
 		this._queue.push([callable, args]);
 	}
 
-	replaceEndBlockWithEndExperiment(end_slide) {		
-		const i = this.timeline.length - 1;
-		const j = this.timeline.timeline[i].timeline.length - 1;
-		this.timeline.timeline[i].timeline.timeline[j] = end_slide;
-	}
-	
-	resetCanvas () {
-		this.fillRect(0, 0, this.visual.screen_size, this.visual.screen_size, this.visual.backgroundColor);
-	}
-
-	requestReturn() {
+	requestReturn () {
+		this.running  = false;
 		this.complete = true;
 		if (document.fullscreenElement!=null) document.exitFullscreen();
-		this.resetCanvas();
-        this.writeToCanvas('You have failed too many attention checks, please return your submission.');
+		this.visual.clear();
+        this.write('You have failed too many attention checks, please return your submission.');
         const csv = "FAILED ATTENTION CHECKS \n \n" + this.writeCSV();
         if (this.jatos) jatos.submitResultData(csv);
 	}
@@ -287,102 +134,33 @@ class Experiment {
 	run = () => {
 		if (this.complete) return;
 		this.now = Math.round(window.performance.now());
-		this.resetCanvas();
+		this.visual.clear();
 		this.update();
-        if (this.debug.gridlines) this.drawGridLines();
-        if (this.debug.overlay) this.drawDebugOverlay();
 		requestAnimationFrame(this.run);
-	}
-
-	saveData() {
-		const csv = this.writeCSV();
-		if (this.jatos) jatos.submitResultData(csv);
-	}
-
-	setCanvasSize(size) {
-		this.visual.canvas.width  = size;
-		this.visual.canvas.height = size;
-		this.visual.canvas.style.left = (this.visual.width - this.visual.screen_size + 16) / 2 + "px";
-	}
-
-	setFont(fontFamily="Times New Roman", t=0.05, h1=0.07, h0=0.10) {
-		this.visual.fontFamily = fontFamily;
-		this.visual.h0       = (this.visual.stimulus_size * h0) + "px";
-		this.visual.h1       = (this.visual.stimulus_size * h1) + "px";
-		this.visual.fontSize = (this.visual.stimulus_size * t)  + "px";
 	}
 
 	start () {
+		this.running = true;
 		this.complete = false;
-		this.started = window.performance.now();
-		this.resetCanvas();
+		this.created = window.performance.now();
+		this.visual.clear();
 		this.timeline.enter();
 		requestAnimationFrame(this.run);
+		document.dispatchEvent(this.started);
 	}
 
-	/** Draw a hollow rectangle. */
-	strokeRect(x, y, width, height, colour = "white", lineWidth = 1) {
-		this.visual.context.strokeStyle = colour;
-        this.visual.context.lineWidth = lineWidth;
-        const _x = tomJS.visual.screen_size * x - (width * 0.5);
-        const _y = tomJS.visual.screen_size * y - (height * 0.5);
-		this.visual.context.strokeRect(_x, _y, width, height);
-	}
-
-	getTimeline() {
+	getTimeline () {
 		return this.timeline.timeline;
 	}
 	
 	update () {		
 		this.complete = this.timeline.complete;
 		if (this.complete) this.endExperiment();
-		else this.timeline.update();        
-	}
-
-	writeCSV() {
-		const data = this.data;
-		const demo = this.demographics;
-		const visu = this.visual;
-		let csv = this.headings.toString() + '\n';
-        for (let r of data) {
-            if (r.block > tomJS.block) continue;
-			const x = {...r, ...demo, ...visu};
-			let y = [];
-			for (let h of this.headings) y.push(x[h]);
-			csv += y.toString() + '\n';
-		};        
-		return csv;
-	}
-
-	/** Write text to the canvas with a relative position (0.5 being center). 
-	 * align: html alignment. How should text align itself to the canvas?
-	 * colour: html color. What colour to render the text in.
-	 * fontSize: int. What pt size should the text render with?
-	 * upper: bool (false). Should text be rendered in all uppercase?
-	 * x: portion (0.5): Where should the text render horizontally, from 0 (left) to 1 (right)?
-	 * y: portion (0.5): Where should the text render vertically, from 0 (top) to 1 (bottom)?
-	 */
-	writeToCanvas (text, args={}) {		
-		const _upper = args.upper ?? false;
-		const _text = _upper ? text.toUpperCase() : text;
-		tomJS.visual.context.fillStyle = args.colour ?? tomJS.visual.color;
-		tomJS.visual.context.textAlign = args.align  ?? "center";
-		const _pt = args.fontSize ?? tomJS.visual.fontSize;
-		const _tf = args.fontFamily ?? tomJS.visual.fontFamily;
-		const _font = _pt + " " + _tf;
-		tomJS.visual.context.font = _font;
-		const _x = args.x ?? 0.5;
-		const _y = args.y ?? 0.5;
-		const _pos_x = tomJS.visual.screen_size * _x;
-		const _pos_y = tomJS.visual.screen_size * _y + (0.33 * (""+_pt).split('p')[0]);
-		const _width = tomJS.visual.screen_size ?? 1;
-		tomJS.visual.context.fillText(_text, _pos_x, _pos_y, _width);
+		else this.timeline.update();
+		document.dispatchEvent(this.updated);
 	}
 
 }
-
-
-// root classes ===============================================================
 
 
 class State {
@@ -395,121 +173,24 @@ class State {
 		this.timeline = new Timeline();
 	}
 
-	enter() {
+	enter () {
 		this.complete = false;
 		this.start = tomJS.now;
-		tomJS.flushKeys();
+		tomJS.keyboard.flush();
 	}
 
-	exit() {
+	exit () {
 		if (this.complete) return;
 		this.complete = true;
 		this.end = tomJS.now;
 	}
 
-	update() {
+	update () {
 		if (this.complete) return;
 		if (this.timeline) this.complete = this.timeline.complete;
 	}
 
 }
-
-
-/** tomJS timeline of tomJS states. */
-class Timeline {
-
-	constructor(timeline=[], args={}) {
-		this.complete = false;
-		this.length = timeline.length;
-		this.position = 0;
-		this.timeline = timeline;
-		this.delete   = args.delete ?? true;
-	}
-	
-	currentState() {
-		return this.timeline[this.position].constructor.name;
-	}
-
-	enter() {
-        this.timeline[this.position].enter();
-        tomJS.lowest = this;
-	}
-
-	exit() {
-		this.timeline[this.position].exit();
-	}
-	
-	finish() {
-		this.complete = true;
-	}
-
-	insert(state, position) {
-		const _before = this.timeline.slice(0, position);
-		const _after = this.timeline.slice(position);
-		const _timeline = _before.concat(state).concat(_after);
-		this.timeline = _timeline;
-		this.length += 1;
-	}
-
-	push(state) {
-		this.timeline.push(state);
-		this.length += 1;
-	}
-
-	pushFront(state) {
-		this.timeline.unshift(state);
-		this.length += 1;
-	}
-
-	returnLength() {
-		return this.timeline.length;
-	}
-
-	update() {
-		if (this.complete) return;
-		if (this.timeline[this.position].complete) this.nextState()
-		else this.timeline[this.position].update();
-	}
-
-	nextState () {
-        if (this.position + 1 == this.length) {
-            this.timeline[this.position].exit();
-			this.complete = true;
-		} else {			
-            this.timeline[this.position].exit();
-			if (this.delete) delete this.timeline[this.position];
-            this.position += 1;
-            this.timeline[this.position].enter();
-		};
-	}
-
-}
-
-
-// mutators ===================================================================
-
-
-class Mutator extends State {
-
-	/**
-	 * Inserted into timeline to perform runtime mutation, such as changing the upcoming block.
-	 * @param {CallableFunction} mutation - The mutation function to run upon entering this state.
-	 * @param {Object{}} args - An object of optional arguents to pass down the chain.
-	 */
-
-	constructor(mutation, args={}) {
-		super();
-		this.mutation = mutation;
-	}
-
-	enter() {
-		this.mutation();
-	}
-
-}
-
-
-// blocks =====================================================================
 
 
 class Block extends State {
@@ -533,18 +214,18 @@ class Block extends State {
 
 	// super
 
-	enter() {
+	enter () {
 		super.enter();
 		this.timeline.enter();
 	}
 
-	exit() {
+	exit () {
 		super.exit();
 		tomJS.block += 1;
         tomJS.trial = 0;
 	}
 
-	update() {
+	update () {
 		super.update();
 		this.complete = this.timeline.complete;
 		if (this.complete) return
@@ -553,14 +234,14 @@ class Block extends State {
 
 	// functions
 
-    attentionChecks(args, checks) {
+    attentionChecks (args, checks) {
         for (let i = 0; i < checks.length; i++) {
             var arg = {...checks[i], ...{'attention_check':true}};
             args.push(arg);
         };
     }
 
-	checkConditions(args, conditions) {
+	checkConditions (args, conditions) {
 		for (let c = 0; c < conditions.length; c++) {
 			for (let a of Object.keys(args)) {
 				this.checkIf(args[a], conditions[c]);
@@ -568,7 +249,7 @@ class Block extends State {
 		};
 	}
 
-	checkIf(arg, statement) {
+	checkIf (arg, statement) {
 		const split = statement.replace("(", "").replace(")", "").split(" ");
 		const l = "" + split[1];
 		const o = "" + split[2];
@@ -581,7 +262,7 @@ class Block extends State {
 		arg[x] = y;
 	}
 
-	generateTimeline() {
+	generateTimeline () {
 		let _timeline = new Timeline();
 
 		// make a list of trials based on design cells
@@ -595,6 +276,12 @@ class Block extends State {
 		// add opening slides
         if (this.start_slide != null) _timeline.push(this.start_slide);
         if (this.add_countdown) { _timeline.push(new Slides.Countdown(3000)) };
+
+		// add headings
+		for (let t of Object.keys(this.trialwise)) {
+			if (!(tomJS.dataframe.headings.includes(t))) 
+				tomJS.dataframe.headings.push(t);
+		};
 
 		// add trials
 		for (let t = 0; t < _arguments.length; t++) {
@@ -616,13 +303,110 @@ class Block extends State {
 		this.timeline = _timeline;
 	}
 
-	parseText(text) {
+	parseText (text) {
 		let _t = "" + text;
 		if (_t.includes('~')) {
 			let _split = _t.split('~');
 			_t = _split[0] + eval(_split[1]) + _split[2];
 		};
 		return _t;
+	}
+
+}
+
+
+class Timeline {
+
+	constructor(timeline=[], args={}) {
+		this.complete = false;
+		this.length = timeline.length;
+		this.position = 0;
+		this.timeline = timeline;
+		this.delete   = args.delete ?? true;
+	}
+	
+	currentState () {
+		return this.timeline[this.position].constructor.name;
+	}
+
+	enter () {
+        this.timeline[this.position].enter();
+        tomJS.lowest = this;
+	}
+
+	exit () {
+		this.timeline[this.position].exit();
+	}
+	
+	finish () {
+		this.complete = true;
+	}
+
+	insert (state, position) {
+		const _before = this.timeline.slice(0, position);
+		const _after = this.timeline.slice(position);
+		const _timeline = _before.concat(state).concat(_after);
+		this.timeline = _timeline;
+		this.length += 1;
+	}
+
+	push (state) {
+		this.timeline.push(state);
+		this.length += 1;
+	}
+
+	pushBlock (args={}) {
+        const _block = new Block(args);
+		this.push(_block);
+	}
+
+	pushBlocks (args={}) {
+        var blockwise = args.blockwise ?? {};
+        let _b_cells = ObjectTools.getLength(blockwise);
+        for (let b = 0; b < block_reps; b++) {
+            let _blockwise = ObjectTools.allCombinations(blockwise);
+            _blockwise = ArrayTools.shuffle(_blockwise);
+            for (let i = 0; i < _b_cells; i++) {
+                args.additional = Object.assign({}, _blockwise[i % _b_cells], additional);
+                this.pushBlock(args);
+			};
+		};
+    }
+
+	pushCounterbalancedBlocks (args = {}) {
+        for (let i = 0; i < args.blocks; i++) {
+            if (i % 2 == this.demographics.G) this.pushBlock(args.A)
+            else this.pushBlock(args.B);
+        };
+    }
+
+	pushFront (state) {
+		this.timeline.unshift(state);
+		this.length += 1;
+	}
+
+	replace (state, position) {
+		if (tomJS.debug.verbose) 
+			console.log("replacing ",this.timeline[position]," with ",state);
+		this.timeline[position] = state;
+	}
+
+	update () {
+		if (this.complete) return;
+		if (this.timeline[this.position].complete) this.nextState()
+		else this.timeline[this.position].update();
+	}
+
+	nextState () {
+        if (this.position + 1 == this.length) {
+            this.timeline[this.position].exit();
+			this.complete = true;
+		} else {			
+            this.timeline[this.position].exit();
+			if (this.delete) delete this.timeline[this.position];
+            this.position += 1;
+            this.timeline[this.position].enter();
+		};
 	}
 
 }
@@ -637,19 +421,35 @@ const Data = ((module) => {
 
 		constructor() {}
 
-		keys() {
+		keys () {
 			return Object.keys(this);
 		}
 
-		values() {
+		values () {
 			return Object.values(this);
 		}
 
-		toString() {
+		toCSV (data_only=true) {
 			const keys = this.keys();
 			const values = this.values();
 			let out = "";
 			for (let a = 0; a < keys.length; a++) {
+				if (data_only & !(tomJS.dataframe.headings.includes(keys[a]))) 
+					continue;
+				out += values[a] + ", ";
+			};
+			out = out.slice(0, -2); // drop last comma and space
+			out += "\n";
+			return out;
+		}
+
+		toString (data_only=true) {
+			const keys = this.keys();
+			const values = this.values();
+			let out = "";
+			for (let a = 0; a < keys.length; a++) {
+				if (data_only & !(tomJS.dataframe.headings.includes(keys[a]))) 
+					continue;
 				out += keys[a] + ": " + values[a] + ", ";
 			};
 			out = out.slice(0, -2); // drop last comma and space
@@ -662,7 +462,7 @@ const Data = ((module) => {
 
 		constructor() {
 			super();
-			this.accuracy = null;
+			this.pc = null;
 			this.rt = null;
 			this.score = null;
 			this.correct = null;
@@ -678,13 +478,13 @@ const Data = ((module) => {
 
 		calculateAverages(data) {
 			this.rt = Math.round(ArrayTools.average(ArrayTools.extract(data, 'rt')));
-			this.accuracy = Math.round(ArrayTools.average(ArrayTools.extract(data, 'accuracy')) * 100);
+			this.pc = Math.round(ArrayTools.average(ArrayTools.extract(data, 'accuracy')) * 100);
 			this.score = Math.round(ArrayTools.average(ArrayTools.extract(data, 'score')));
 		}
 
 		calculateComplex() {
-			this.hits = clamp(this.correct + this.incorrect, 0, 100);
-			this.miss = clamp(100 - this.hits, 0, 100);
+			this.hits = MathTools.clamp(this.correct + this.incorrect, 0, 100);
+			this.miss = MathTools.clamp(100 - this.hits, 0, 100);
 		}
 
 		calculatePercentages(data) {			
@@ -697,6 +497,7 @@ const Data = ((module) => {
 		}
 
 		calculateData(data) {
+			console.log(data);
 			const d = ArrayTools.filter(data, 'start != null');
 			this.n = d.length;
 			this.checks = tomJS.attention.failed;
@@ -720,27 +521,10 @@ const Data = ((module) => {
 			this.outcome = null;
 			this.score = null;
 			this.start = null;
-			this.fixation_on = null;
-			this.fixation_duration = null;
-			this.fixation_size = null;
-			this.fixation_colour = null;
-			this.fixation_off = null;
-			this.stimulus_on = null;
-			this.stimulus_duration = null;
-			this.stimulus_fast = null;
-			this.stimulus_slow = null;
-			this.stimulus_off = null;
 			this.target = null;
 			this.response = null;
 			this.response_key = null;
 			this.response_given = null;
-			this.feedback_on = null;
-			this.feedback_duration = null;
-			this.feedback_text = null;
-			this.feedback_colour = null;
-			this.feedback_size = null;
-			this.feedback_off = null;
-			this.iti_duration = null;
 			this.end = null;
 			this.fullscreen = null;
 		}
@@ -752,7 +536,233 @@ const Data = ((module) => {
 })({});
 
 
-const Nodes = ((module) => {
+const Components = ((module) => {
+
+	module.Attention = class Attention {
+
+		constructor (args) {
+			this.limit  = args.attention_limit ?? 3; // failed trail limit
+			this.check_until = args.attention_check_until ?? 0.4; // percent
+			this.failed = 0; // current fail count
+		}
+
+		log_failiure () {
+			this.failed++;
+			const lim = (Math.floor(this.blocks*this.check_until))-1;
+			if (this.failed >= this.limit & tomJS.block <= lim)
+				tomJS.requestReturn();
+			if (this.debug.verbose) console.log(this);
+		}
+
+	}
+
+	module.Dataframe = class Dataframe {
+
+		constructor (args) {
+			const h = args.headings ?? ['participant','block','trial','accuracy','rt'];
+			this.headings = h.concat(args.extra_headings ?? []);
+			this.save = args.save ?? true;
+			this._data = [];
+			this.submit = this.submit.bind(this);
+			document.addEventListener("block_ended", this.submit, false);
+		}
+
+		data () {
+			return this._data;
+		}
+
+		get (index) {
+			return this._data[index];
+		}
+
+		push (data) {
+			this._data.push(data);
+		}
+
+		submit () {
+			const csv = this.toCSV();
+			if (tomJS.jatos.online) jatos.submitResultData(csv)
+			else console.log(csv);
+		}
+
+		toCSV () {
+			const data = this._data;
+			const demo = tomJS.demographics;
+			const visu = tomJS.visual;
+			let csv = this.headings.toString() + '\n';
+			for (let row of data) {
+				if (row.block > tomJS.block) continue;
+				const r = {...row, ...demo, ...visu};
+				for (let h of this.headings) csv += (h in r) ? r[h]+"," : ",";
+				csv = csv.slice(0, -1); // remove final comma
+				csv += '\n';
+			};
+			return csv;
+		}
+
+	}
+
+	module.Debug = class Debug {
+
+		constructor (args={}) {
+			this.verbose = args.verbose       ?? false;
+        	this.overlay = args.debug_overlay ?? false;
+
+			this._queue = [];
+
+			if (this.overlay) {
+				// canvas
+				this.canvas = document.createElement('canvas');		
+				this.canvas.id = "debug_canvas";
+				this.canvas.width = window.innerWidth -32;
+				this.canvas.height = window.innerHeight - 32; 
+				this.canvas.style.position = "absolute";
+				this.canvas.style.zIndex = 2;
+				document.body.appendChild(this.canvas);
+				this.context = this.canvas.getContext("2d");
+				this.context.fillStyle = "green";
+				this.context.font = "15px Arial";
+
+				// listeners
+				this.on_updated = this.on_updated.bind(this);
+				document.addEventListener('updated', this.on_updated, false);
+			};
+
+		}
+
+		draw_overlay () {
+			for (let i = 0; i < this._queue.length; i++) {
+				const text = "" + this._queue[i];
+				const x = 5;
+				const y = 20 + (i * 20);
+				this.context.fillText(text, x, y);
+			};
+			this._queue = [tomJS.timeline.position, tomJS.now, tomJS.jatos.connected];
+		}
+
+		push (content) {
+			if (this.overlay == false) return;
+			this._queue.push(content);
+		}
+
+		on_updated () {
+			this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+			if (this.overlay) this.draw_overlay();
+		}
+
+	}
+
+	module.Demographics = class Demographics {
+
+		constructor (args) {
+			this.participant = args.participant ?? Math.round(Math.random()*999999);
+			this.age = args.age ?? null;
+			this.gender = args.gender ?? null;
+			this.hand = args.hand ?? null;
+			this.n = Math.round(Math.random() * 2);
+			this.G = this.n % 2;
+		}
+
+		force_group (group) {
+			if (group != 0 | group != 1) tomJS.error("Forcing invalid counterbalance group.");
+			this.G = group;
+		}
+
+	}
+
+	module.JATOS = class JATOS {
+
+		constructor (args) {
+			this.fullfill_queue_on_connect ?? args.fullfill_queue_on_connect ?? true;
+			this.connected = false;
+			this.connect = this.connect.bind(this);
+			if (window.jatos === undefined) return;
+			if (jatos.constructor != HTMLScriptElement) 
+				jatos.onConnected(() => { this.connect() });
+		}
+
+		connect () {
+			this.connected = true;
+			const url = jatos.urlQueryParameters ?? {};
+			const wrk = 'PROLIFIC_PID' in url;
+			const jts = jatos.studyResultId;
+			tomJS.demographics.participant = wrk ? url.PROLIFIC_PID : jts;
+			tomJS.demographics.n = Math.round(jts);
+			tomJS.demographics.G = jts % 2;
+			if (this.fullfill_queue_on_connect) {
+				this.fullfillQueue();
+				if (this.debug.verbose) console.log(this.timeline.timeline);
+			};
+			console.log('Connected to JATOS.');
+		}
+
+	}
+
+	module.Keyboard = class Keyboard {
+
+		constructor (args={}) {
+			this.responses = args.responses ?? { 'f': 'A', 'j': 'B' };
+			this.inputs = Object.keys(this.responses);
+			this.options = Object.values(this.responses);
+			this.key = '';
+			this.dir = '';
+			this.timestamp = 0;
+			this.keys = {};
+			this.onPress = this.onPress.bind(this);
+			this.onRelease = this.onRelease.bind(this);
+			document.addEventListener('keydown', this.onPress, true);
+			document.addEventListener('keyup', this.onRelease, true);
+		}
+
+		allPressed (targets) {
+			// loop over all keys and check if all targets are pressed
+			for (let target of targets) {
+				if (!target in this.keys | !this.keys[target]) return false;
+			};
+			// if we reach the end of the for loop then all target keys are pressed
+			return true;
+		}
+
+		anyPressed (targets) {
+			if (targets == null) return null;
+			// loop over all keys and check if any targets are pressed
+			for (let target of targets) {
+				if (target in this.keys & this.keys[target]) return true;
+			};
+			// if we reach the end of the for loop then no target keys are pressed
+			return false;
+		}
+
+		counterbalanceInputs() {
+			const mod = tomJS.demographics.G;
+			const A = (mod == 0) ? this.key_a : this.key_b;
+			const B = (A == this.key_a) ? this.key_b : this.key_a;
+			this.key_a = A;
+			this.key_b = B;
+			this.key_a_upper = A.toUpperCase();
+			this.key_b_upper = B.toUpperCase();
+		}
+
+		flush () {
+			this.key = '';
+			this.dir = '';
+    	}
+
+		onPress (event) {
+			let key = event.key;
+			if (!key in this.keys) this.keys[key] = null;
+			this.key = key;
+			this.timestamp = event.timeStamp;
+			this.keys[key] = true;
+			if (this.inputs.includes(key)) this.dir = this.responses[key];
+		}
+
+		onRelease (event) {
+			let key = event.key;
+			this.keys[key] = false;
+		}
+
+	}
 
     module.TapCollector = class TapCollector {
 
@@ -767,11 +777,102 @@ const Nodes = ((module) => {
 		    if (event.code != this.target) return;
             const data = ''+tomJS.index+','+tomJS.lowest.currentState()+','+event.timeStamp+'\n';
             this.taps.push(data);
-            if (tomJS.jatos & tomJS.save)
+            if (tomJS.jatos.online & tomJS.dataframe.save)
                 jatos.uploadResultFile(this.taps.toString(), 'tapData.csv');
         };
 		
-    };
+    }
+
+	module.Visual = class Visual {
+
+		constructor (args) {
+			this.backgroundColor = args.backgroundColor ?? "black";
+			this.colour = args.colour ?? "white";				
+			this.height = window.innerHeight - 16;
+			this.width  = window.innerWidth - 16;
+			const screen_size = Math.min(this.height, this.width);
+			this.screen_size = screen_size;
+			this.stimulus_size = Math.round(this.screen_size * 0.5);
+			this.createCanvas();
+			this.setCanvasSize(this.screen_size);
+			this.setFont();
+			document.body.style.fontFamily      = this.fontFamily;
+			document.body.style.fontSize        = this.fontSize;
+			document.body.style.color           = this.colour;
+			document.body.style.backgroundColor = this.backgroundColor;
+		}
+
+		clear () {
+			this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+		}
+
+		createCanvas () {
+			this.canvas = document.createElement('canvas');		
+			this.canvas.id = "canvas";
+			this.canvas.width = "95vmin";
+			this.canvas.height = "95vmin";
+			this.canvas.style.position = "absolute"; 
+			this.canvas.style.backgroundColor = this.backgroundColor;
+			this.canvas.style.color = this.colour;
+			this.canvas.style.cursor = "none";
+			this.canvas.style.zIndex = 0;
+			document.body.appendChild(this.canvas);
+			this.context = this.canvas.getContext("2d");
+		}
+
+		image (path, args={}) {
+			const img = new Image();
+			img.src = path;
+			const _size = this.stimulus_size * (args.size ?? 0.5);
+			const _x = this.screen_size * (args.x ?? 0.5) - (_size * 0.5);
+			const _y = this.screen_size * (args.y ?? 0.5) - (_size * 0.5);
+			this.context.image(img, _x, _y, _size, _size);
+		}
+
+		fillRect (x, y, width, height, colour="black") {
+			this.context.fillStyle = colour;
+			this.context.fillRect(x, y, width, height);
+		}
+
+		setCanvasSize (size) {
+			this.canvas.width  = size;
+			this.canvas.height = size;
+			this.canvas.style.left = (this.width - this.screen_size + 16) / 2 + "px";
+		}
+
+		setFont (fontFamily="Times New Roman", t=0.05, h1=0.07, h0=0.10) {
+			this.fontFamily = fontFamily;
+			this.h0         = (this.stimulus_size * h0) + "px";
+			this.h1         = (this.stimulus_size * h1) + "px";
+			this.fontSize   = (this.stimulus_size * t)  + "px";
+		}
+
+		strokeRect (x, y, width, height, colour="white", lineWidth=1) {
+			this.context.strokeStyle = colour;
+			this.context.lineWidth = lineWidth;
+			const _x = this.screen_size * x - (width * 0.5);
+			const _y = this.screen_size * y - (height * 0.5);
+			this.context.strokeSect(_x, _y, width, height);
+		}
+
+		write (text, args={}) {
+			const _upper = args.upper ?? false;
+			const _text = _upper ? text.toUpperCase() : text;
+			this.context.fillStyle = args.colour ?? this.colour;
+			this.context.textAlign = args.align  ?? "center";
+			const _pt = args.fontSize ?? this.fontSize;
+			const _tf = args.fontFamily ?? this.fontFamily;
+			const _font = _pt + " " + _tf;
+			this.context.font = _font;
+			const _x = args.x ?? 0.5;
+			const _y = args.y ?? 0.5;
+			const _pos_x = this.screen_size * _x;
+			const _pos_y = this.screen_size * _y + (0.33 * (""+_pt).split('p')[0]);
+			const _width = this.screen_size ?? 1;
+			this.context.fillText(_text, _pos_x, _pos_y, _width);
+		}
+
+	}
 
     return module;
 
@@ -817,7 +918,8 @@ const Slides = ((module) => {
 		}
 
 		checkUserInput() {
-			if (tomJS.keyboard.allKeysPressed(tomJS.controls.inputs)) this.complete = true;
+			if (tomJS.keyboard.allPressed(tomJS.keyboard.inputs)) 
+				this.complete = true;
 		}
 
 		drawContent() {            
@@ -832,7 +934,7 @@ const Slides = ((module) => {
 						break;
 					case 'image':
 						const _path = this.parseText(_c.path);
-						tomJS.drawImage(_path, _c);
+						tomJS.image(_path, _c);
 						break;
 					case 'pixelpatch':
 						if (tomJS.dir == 'A') this.pp_A.draw()
@@ -843,7 +945,7 @@ const Slides = ((module) => {
 						break;
 					case 'text':
 						const _text = this.parseText(_c.text);
-						tomJS.writeToCanvas(_text, _c);
+						tomJS.visual.write(_text, _c);
 						break;
 					case 'twolines':
 						const _tl_args = { ..._c, ...{ 'target': this.parseText(_c.target) } };
@@ -854,7 +956,8 @@ const Slides = ((module) => {
 						this.data.bar_percent = 
                             (tomJS.now - this.data.bar_start) / this.data.bar_max;
 
-						if (this.data.bar_percent >= 1.5) this.data.bar_start = tomJS.now;
+						if (this.data.bar_percent >= 1.5) 
+							this.data.bar_start = tomJS.now;
                         
 						if (this.data.bar_percent <= 0) {
 							this.data.bar_colour    = "#00000000";
@@ -922,10 +1025,10 @@ const Slides = ((module) => {
 
 	module.Countdown = class Countdown extends module.Slide {
 
-		constructor(lifetime=3000, args = {}, content = []) {
+		constructor(lifetime = 3000, args = {}, content = []) {
 			super(content, args);
 			this.lifetime = lifetime;
-			this.fontSize = choose(args.fontSize, 0.10);
+			this.fontSize = ArrayTools.choose(args.fontSize, 0.10);
 		}
 
 		// super
@@ -937,7 +1040,7 @@ const Slides = ((module) => {
 
 		update() {
 			let time = Math.ceil((this.start + this.lifetime - tomJS.now) / 1000);
-			tomJS.writeToCanvas(Math.max(1, time), { 'fontSize': this.fontSize });
+			tomJS.visual.write(Math.max(1, time), { 'fontSize': this.fontSize });
 			if (tomJS.now >= this.start + this.lifetime) this.complete = true;
 			super.update();
 		}
@@ -1002,8 +1105,8 @@ const Slides = ((module) => {
 			tomJS.visual.width = window.innerWidth - 16;
 			const screen_size = Math.min(tomJS.visual.height, tomJS.visual.width);
 			tomJS.visual.screen_size = screen_size;
-			tomJS.setCanvasSize(screen_size);
-			tomJS.setFont();
+			tomJS.visual.setCanvasSize(screen_size);
+			tomJS.visual.setFont();
 		}
 
 		createCreditCard() {
@@ -1094,7 +1197,7 @@ const Slides = ((module) => {
 		onUpDownClick(s, x) {
 			// this. is the button
 			const n = Math.round(s.slider.value) + x;
-			const m = clamp(n, s.min, s.max);
+			const m = MathTools.clamp(n, s.min, s.max);
 			s.slider.value = m;
 			s.setCreditCardScale();
 		}
@@ -1242,13 +1345,20 @@ const Slides = ((module) => {
 		enter() {
 			super.enter();
 			this.data.calculateData(this.gatherData());
-			if (tomJS.save) tomJS.saveData();
+			document.dispatchEvent(tomJS.block_ended);
+		}
+
+		update () {
+			super.update();
+			tomJS.debug.push("pc: " + this.data.pc);
+			tomJS.debug.push("rt: " + this.data.rt);
 		}
 
 		// functions
 
 		gatherData() {
-			return ArrayTools.filter(tomJS.data, this.filter);
+			const data = tomJS.dataframe.data();
+			return ArrayTools.filter(data, this.filter);
 		}
 
 	}
@@ -1263,7 +1373,7 @@ const Slides = ((module) => {
 		// override
 
 		gatherData() {
-			return tomJS.data;
+			return tomJS.dataframe.data();
 		}
 
 	}
@@ -1338,7 +1448,7 @@ const Stimuli = ((module) => {
 
 	module.Stimulus = class Stimulus extends State {
 
-		constructor(trial, args={}) {
+		constructor (trial, args={}) {
 			super();
 			this.trial = trial;
 			this.timeline = null;
@@ -1346,34 +1456,34 @@ const Stimuli = ((module) => {
 
 		// override
 
-		enter() {
+		enter () {
 			this.initialize();
 		}
 
 		// functions
 
-		draw() {
+		draw () {
 			// does nothing
 		}
 
-		initialize() {
+		initialize () {
             // does nothing
 		}
 
-		set(key, value) {
+		set (key, value) {
 			if (!(Object.keys(this.trial.data).includes(key))) return null;
 			this.data[key] = value;
 		}
 
-        update() {
-            tomJS.resetCanvas();
+        update () {
+            tomJS.visual.clear();
         }
 
 	}
 
 	module.Gabor = class Gabor extends module.Stimulus {
 
-		constructor(trial, args={}) {
+		constructor (trial, args={}) {
 			super(trial, args);
 			this.trial.data.gabor_contrast = args.gabor_contrast ?? 1.00; // %
 			this.trial.data.gabor_opacity = args.gabor_opacity ?? 1.0;  // as percentage
@@ -1382,39 +1492,33 @@ const Stimuli = ((module) => {
             this.trial.data.gabor_size = Math.round(tomJS.visual.stimulus_size * (args.gabor_size ?? 1.0));
 			this.trial.data.gabor_x = args.gabor_x ?? 0.5;	// in screen units
 			this.trial.data.gabor_y = args.gabor_y ?? 0.5;	// in screen units
-            this.trial.data.gabor_hash = this.hash();
-			this.trial.data.stimulus_duration = Number(choose(args.stimulus_duration, 3000));
-			this.trial.data.stimulus_fast = Number(args.stimulus_fast ?? 200);
-			this.trial.data.stimulus_slow = Number(args.stimulus_slow ?? 3000);
-			this.trial.data.stimulus_on = null;
-			this.trial.data.stimulus_off = null;
+            this.trial.data.gabor_hash = this.hash(); // id for unique form of this data
 		}
 
-		draw() {
+		draw () {
             const _s = this.trial.data.gabor_size;
             if (!(this.trial.data.gabor_hash in tomJS.stimuli.gabor)) tomJS.error("False hash passed.");
             const _i = tomJS.stimuli.gabor[this.trial.data.gabor_hash];
 			const img = tomJS.visual.context.createImageData(_s, _s);
-			assignImageData(_i, img.data);
+			ArrayTools.assignImageData(_i, img.data);
 			let pos_x = tomJS.visual.screen_size * this.trial.data.gabor_x - (_s * 0.5);
 			let pos_y = tomJS.visual.screen_size * this.trial.data.gabor_y - (_s * 0.5);
 			tomJS.visual.context.putImageData(img, pos_x, pos_y);
 		}
 
-        enter() {
+        enter () {
             this.trial.data.stimulus_on = tomJS.now;
             this.trial.data.stimulus_off = tomJS.now + this.trial.data.stimulus_duration;
             if (!('gabor' in tomJS.stimuli)) tomJS.stimuli.gabor = {};
             if (!(this.trial.data.gabor_hash in tomJS.stimuli.gabor)) this.prepareImageData();
         }
 
-        exit() {
+        exit () {
             this.trial.data.stimulus_off = tomJS.now;
-			this.trial.data.stimulus_duration = tomJS.now - this.trial.data.stimulus_on;
         }
         
         /** quasi-hash function to find this gabors global image data */
-        hash() {            
+        hash () {            
             let _c = (""+this.trial.data.gabor_contrast*100).padStart(3,"0");
             let _a = (""+this.trial.data.gabor_opacity*100).padStart(3,"0");
             let _o = "" + this.trial.data.gabor_ori;
@@ -1426,7 +1530,7 @@ const Stimuli = ((module) => {
             return Number((_c+_a+_o+_s+_z+_x+_y));
         }
 
-        prepareImageData() {
+        prepareImageData () {
 			const s = this.trial.data.gabor_size;
 			const con = this.trial.data.gabor_contrast;
 			const ori = this.trial.data.gabor_ori;
@@ -1438,7 +1542,7 @@ const Stimuli = ((module) => {
 			const theta = (ori * Math.PI) / 180;
 			const cosT = Math.cos(theta), sinT = Math.sin(theta);
 			const k = 2 * Math.PI * sf / s;
-			const amp = lum * clamp(con, 0, 1);
+			const amp = lum * MathTools.clamp(con, 0, 1);
 			let image_data = [];
 			for (let _y = 0; _y < s; _y++) {
 				const dy = _y - cy
@@ -1449,7 +1553,7 @@ const Stimuli = ((module) => {
 					const gauss = Math.exp(-(xPrime * xPrime + yPrime * yPrime) / (2 * sigma * sigma));
 					const carrier = Math.cos(k * xPrime + phs);
 					const L = lum + amp * carrier;
-					const v = clamp(L, 0, 255) | 0;
+					const v = MathTools.clamp(L, 0, 255) | 0;
 					image_data.push(v);							// R
 					image_data.push(v);							// G
 					image_data.push(v);							// B
@@ -1460,7 +1564,7 @@ const Stimuli = ((module) => {
             tomJS.stimuli.gabor[this.trial.data.gabor_hash] = new Uint8ClampedArray(image_data);
 		}
 
-        responseGiven() {
+        responseGiven () {
 			this.trial.recordResponse();
 			this.trial.calculateRT();
 			this.trial.determineAccuracy();
@@ -1469,15 +1573,15 @@ const Stimuli = ((module) => {
 			this.complete = true;
 		}
 
-		timedOut() {
+		timedOut () {
 			this.trial.determineOutcome();
 			this.complete = true;
 		}
 
-        update() {
+        update () {
 			if (this.complete) return;
             if (tomJS.now > this.trial.data.stimulus_off) this.timedOut();
-			if (tomJS.keyboard.anyKeysPressed(['f','j'])) this.responseGiven();
+			if (tomJS.keyboard.anyPressed(['f','j'])) this.responseGiven();
 			this.draw();
         }
 
@@ -1499,17 +1603,13 @@ const Stimuli = ((module) => {
 			this.data.tl_x = args.tl_x ?? 0.5;		// percent of canvas
 			this.data.tl_y = args.tl_y ?? 0.5;		// percent of canvas
 			this.data.tl_keep_fix = args.tl_keep_fix ?? true;
-			this.trial.data.tl_duration = Number(choose(args.tl_duration, 1000));
-			this.duration = this.trial.data.stimulus_duration;
-			this.trial.data.tl_on = null;
-			this.trial.data.tl_off = null;
 		}
 
 		// super
 
 		draw() {
 			super.draw();
-			if (this.data.tl_keep_fix) tomJS.writeToCanvas('+');
+			if (this.data.tl_keep_fix) tomJS.visual.write('+');
 			this.drawOneLine('A');
 			this.drawOneLine('B');
 		}
@@ -1548,10 +1648,6 @@ const Stimuli = ((module) => {
 			this.data.pp_y = args.pp_y ?? 0.5;	// in screen units
 			this.calculateImageSize();
 			this.prepareImageData();
-			this.trial.data.pp_duration = Number(choose(args.pp_duration, 1000));
-			this.duration = this.trial.data.stimulus_duration;
-			this.trial.data.pp_on = null;
-			this.trial.data.pp_off = null;
 		}
 
 		// super	
@@ -1560,7 +1656,7 @@ const Stimuli = ((module) => {
 			const _g = this.data.grid_pixels;
 			super.draw();
 			const _img = tomJS.visual.context.createImageData(_g, _g);
-			assignImageData(this.image_data, _img.data);
+			ArrayTools.assignImageData(this.image_data, _img.data);
 			let _pos_x = tomJS.visual.screen_size * this.data.pp_x - Math.round(_g * 0.5);
 			let _pos_y = tomJS.visual.screen_size * this.data.pp_y - Math.round(_g * 0.5);
 			tomJS.visual.context.putImageData(_img, _pos_x, _pos_y);
@@ -1682,7 +1778,7 @@ const Stimuli = ((module) => {
 		drawBar() {
 			const w = tomJS.visual.stimulus_size * this.trial.data.note_width;
 			const h = tomJS.visual.stimulus_size * this.trial.data.note_height;
-			const p = clamp(this.trial.data.bar_percent, 0, 1) * 0.5;
+			const p = MathTools.clamp(this.trial.data.bar_percent, 0, 1) * 0.5;
 			const x = (tomJS.visual.screen_size * this.trial.data.bar_x) +
 				(tomJS.visual.stimulus_size * this.trial.data.bar_width * p) -
 				(tomJS.visual.stimulus_size * this.trial.data.bar_width * 0.5) -
@@ -1697,7 +1793,7 @@ const Stimuli = ((module) => {
 		drawRightBar() {
 			const w = tomJS.visual.stimulus_size * this.trial.data.note_width;
 			const h = tomJS.visual.stimulus_size * this.trial.data.note_height;
-			const p = 1 - clamp(this.trial.data.bar_percent, 0, 1) * 0.5;
+			const p = 1 - MathTools.clamp(this.trial.data.bar_percent, 0, 1) * 0.5;
 			const x = (tomJS.visual.screen_size * this.trial.data.bar_x) +
 				(tomJS.visual.stimulus_size * this.trial.data.bar_width * p) -
 				(tomJS.visual.stimulus_size * this.trial.data.bar_width * 0.5) -
@@ -1738,9 +1834,6 @@ const Stimuli = ((module) => {
 			this.data.cells = this.data.table_content.length;
 			this.data.rows = this.data.table_cells / this.data.table_cols;
 			this.matrix = this.generateMatrix();
-			this.trial.data.table_duration = Number(choose(args.table_duration, 1000));
-			this.trial.data.table_on = null;
-			this.trial.data.table_off = null;
 		}
 
 		// super
@@ -1800,7 +1893,7 @@ const Stimuli = ((module) => {
 			const x = (this.data.x * (1 - this.data.cell_w)) + (this.data.cell_w * col * 0.5);
 			const y = (this.data.y * (1 - this.data.cell_h)) + (this.data.cell_h * row * 0.5);
 			const args = { 'x': x, 'y': y };
-			tomJS.writeToCanvas(content, args);
+			tomJS.visual.write(content, args);
 		}
 
 	}
@@ -1821,9 +1914,6 @@ const Stimuli = ((module) => {
                 'x': this.trial.data.text_x,
                 'y': this.trial.data.text_y
             };
-			this.trial.data.stimulus_duration = Number(choose(args.stimulus_duration, 3000));
-			this.trial.data.stimulus_on = null;
-			this.trial.data.stimulus_off = null;
 		}
 
 		// functions
@@ -1833,7 +1923,7 @@ const Stimuli = ((module) => {
 		}
 
         draw() {
-			tomJS.writeToCanvas(this.trial.data.text_text, this.drawArgs);
+			tomJS.visual.write(this.trial.data.text_text, this.drawArgs);
 		}
 
         enter() {
@@ -1843,7 +1933,6 @@ const Stimuli = ((module) => {
 
         exit() {
             this.trial.data.stimulus_off = tomJS.now;
-			this.trial.data.stimulus_duration = tomJS.now - this.trial.data.stimulus_on;
         }
 
         responseGiven() {
@@ -1863,7 +1952,7 @@ const Stimuli = ((module) => {
         update() {
 			if (this.complete) return;
             if (tomJS.now > this.trial.data.stimulus_off) this.timedOut();
-			if (tomJS.keyboard.anyKeysPressed(['f','j'])) this.responseGiven();
+			if (tomJS.keyboard.anyPressed(['f','j'])) this.responseGiven();
 			this.draw();
         }
 
@@ -1880,13 +1969,10 @@ const Stimuli = ((module) => {
                 'color': this.trial.data.feedback_colour,
                 'fontSize': this.trial.data.feedback_size
             };
-			this.trial.data.feedback_duration = Number(choose(args.feedback_duration, 1000));
-			this.trial.data.feedback_on = null;
-			this.trial.data.feedback_off = null;
 		}
 
 		draw() {
-			tomJS.writeToCanvas(this.trial.data.feedback_text, this.drawArgs);
+			tomJS.visual.write(this.trial.data.feedback_text, this.drawArgs);
 		}
 
 		enter() {
@@ -1899,7 +1985,6 @@ const Stimuli = ((module) => {
 
         exit() {
             this.trial.data.feedback_off = tomJS.now;
-			this.trial.data.feedback_duration = tomJS.now - this.trial.data.feedback_on;
         }
 
         update() {
@@ -1925,13 +2010,10 @@ const Stimuli = ((module) => {
                 'x': this.trial.data.fixation_x,
                 'y': this.trial.data.fixation_y
             };
-			this.trial.data.fixation_duration = Number(choose(args.fixation_duration, 1000));
-			this.trial.data.fixation_on = null;
-			this.trial.data.fixation_off = null;
 		}
 
         draw() {
-			tomJS.writeToCanvas(this.trial.data.fixation_text, this.drawArgs);
+			tomJS.visual.write(this.trial.data.fixation_text, this.drawArgs);
 		}
 
         enter() {
@@ -1940,8 +2022,7 @@ const Stimuli = ((module) => {
         }
 
         exit() {
-            this.trial.data.fixation_off = tomJS.now;
-			this.trial.data.fixation_duration = tomJS.now - this.trial.data.fixation_on;
+            this.trial.data.fixaton_off = tomJS.now;
         }
 
         update() {
@@ -1956,9 +2037,6 @@ const Stimuli = ((module) => {
 
         constructor(trial, args = {}) {
             super(trial, args);
-			this.trial.data.iti_duration = Number(choose(args.iti_duration, 1000));
-			this.trial.data.iti_on = null;
-			this.trial.data.iti_off = null;
         }
 
         enter() {
@@ -1968,13 +2046,12 @@ const Stimuli = ((module) => {
 
         exit() {
             this.trial.data.iti_off = tomJS.now;
-			this.trial.data.iti_duration = tomJS.now - this.trial.data.iti_on;
         }
 
         update() {
 			if (this.complete) return;
             if (tomJS.now > this.trial.data.iti_off) this.complete = true;
-			else tomJS.resetCanvas();
+			else tomJS.visual.clear();
         }
 
     }
@@ -1983,20 +2060,17 @@ const Stimuli = ((module) => {
 
 		constructor(trial, args = {}) {
 			super(trial, args);
-			this.trial.data.text_cue_text = "" + trial.data.condition;
+			this.trial.data.text_cue_text = args.text_cue_text ?? "+";
 			this.trial.data.text_cue_size = Math.round((args.text_cue_size ?? 0.10) * tomJS.visual.stimulus_size) + "px";
             this.trial.data.text_cue_colour = args.text_cue_colour ?? "white";
             this.drawArgs = {
                 'color': this.trial.data.text_cue_colour,
                 'fontSize': this.trial.data.text_cue_size
             };
-			this.trial.data.text_cue_duration = Number(choose(args.text_cue_duration, 1000));
-			this.trial.data.text_cue_on = null;
-			this.trial.data.text_cue_off = null;
 		}
 
 		draw() {
-			tomJS.writeToCanvas(this.trial.data.text_cue_text, this.drawArgs);
+			tomJS.visual.write(this.trial.data.text_cue_text, this.drawArgs);
 		}
 
 		enter() {
@@ -2006,7 +2080,7 @@ const Stimuli = ((module) => {
 
         exit() {
             this.trial.data.text_cue_off = tomJS.now;
-			this.trial.data.text_cue_duration = tomJS.now - this.trial.data.text_cue_on;
+			this.trial.data.text_cue_real_duration = tomJS.now - this.trial.data.text_cue_on;
         }
 
         update() {
@@ -2015,6 +2089,51 @@ const Stimuli = ((module) => {
 			else this.draw();
         }
 
+	}
+
+	module.BratzkeBars = class BratzkeBars extends module.Stimulus {
+	
+		constructor(trial, args = {}) {
+			super(trial, args);
+			this.trial.data.note_width = args.note_width ?? 0.01;
+			this.trial.data.note_height = args.note_height ?? 0.30;
+			this.trial.data.note_colour = args.note_colour ?? "white";
+			this.trial.data.window_width = args.window_width ?? 0.50;
+			this.trial.data.window_height = args.window_height ?? 0.50;
+			this.trial.data.window_colouur = args.window_colour ?? "white";
+			this.trial.data.window_linewidth = args.window_liinewidth ?? 2;
+		}
+
+		draw() {
+			super.draw();
+			this.drawNote("L");
+			this.drawNote("R");
+			this.drawWindow();
+		}
+
+		// functions
+
+		drawNote(which) {
+			const w = tomJS.visual.screen_size * this.trial.data.note_width;
+			const h = tomJS.visual.screen_size * this.trial.data.note_height;
+			const p = which == "L" ? MathTools.clamp(this.trial.data.percent * 0.5, 0, 0.5) : 
+				1 - MathTools.clamp(this.trial.data.percent * 0.5, 0, 0.5);
+			const x = (w * 0.5) + (tomJS.visual.screen_size * p);
+			const y = (tomJS.visual.screen_size * 0.5) - (h * 0.5);
+			const c = this.trial.data.note_colour;
+			tomJS.fillRect(x, y, w, h, c);
+		}
+
+		drawWindow() {
+			const w = tomJS.visual.screen_size * this.trial.data.window_width;
+			const h = tomJS.visual.screen_size * this.trial.data.window_height;
+			const x = 0.5;
+			const y = 0.5;
+			const c = this.trial.data.window_colour;
+			const l = this.trial.data.window_linewidth;
+			tomJS.strokeRect(x, y, w, h, c, l);
+		}
+	
 	}
 
 	return module;
@@ -2033,8 +2152,8 @@ const Trials = ((module) => {
 			this.index = args.index ?? 0;
 
 			// data
-			tomJS.data.push(new Data.TrialData());
-			this.data = tomJS.data[this.index];                      
+			tomJS.dataframe.push(new Data.TrialData());
+			this.data = tomJS.dataframe.get(this.index);
 
             if (!('target' in args)) tomJS.error('No target passed to trial.');
             this.data.target = args.target;
@@ -2043,24 +2162,27 @@ const Trials = ((module) => {
 			this.data.block = Number(args.block ?? tomJS.block);
 			this.data.trial = Number(args.trial ?? tomJS.trial);
 			this.data.index = Number(this.index);
+			this.data.fixation_duration = Number(ArrayTools.choose(args.fixation_duration, 1000));
+			this.data.stimulus_duration = Number(ArrayTools.choose(args.stimulus_duration, 3000));
+			this.data.stimulus_fast = Number(ArrayTools.choose(args.stimulus_fast, 200));
+			this.data.stimulus_slow = Number(ArrayTools.choose(args.stimulus_slow, 3000));			
+			this.data.feedback_duration = Number(ArrayTools.choose(args.feedback_duration, 1000));
+			this.data.iti_duration = Number(ArrayTools.choose(args.iti_duration, 1000));
 
 			// timeline
 			this.timeline = new Timeline();
 
-            this.fixation = new (args.fixation ?? Stimuli.Fixation)(this, args);
-			this.timeline.push(this.fixation);
+            const _fixation = new (args.fixation ?? Stimuli.Fixation)(this, args);
+			this.timeline.push(_fixation);
 
-            this.stimulus = new (args.stimulus ?? Stimuli.Gabor)(this, args);
-            this.timeline.push(this.stimulus);
+            const _stimulus = new (args.stimulus ?? Stimuli.Gabor)(this, args);
+            this.timeline.push(_stimulus);
 
-            this.feedback = new (args.feedback ?? Stimuli.Feedback)(this, args);
-			this.timeline.push(this.feedback);
+            const _feedback = new (args.feedback ?? Stimuli.Feedback)(this, args);
+			this.timeline.push(_feedback);
 
-            this.iti = new (args.iti ?? Stimuli.ITI)(this, args);
-			this.timeline.push(this.iti);
-
-			// append data headings to global data heading storage
-			if (!(tomJS.headings.includes('block'))) tomJS.headings = ArrayTools.joinUniques(tomJS.headings, this.data.keys());
+            const _iti = new (args.iti ?? Stimuli.ITI)(this, args);
+			this.timeline.push(_iti);
 
 			// feedback information
 			this.feedback_colors = args.feedback_colors ?? {
@@ -2082,55 +2204,57 @@ const Trials = ((module) => {
 			// mark if is attention check
 			this.attention_check = args.attention_check ?? false;
 
-			// ensure too slow response does not override stimulus duration, unless desired
-			if ('stimulus_duration' in args && ! 'stimulus_slow' in args)
-				this.data.stimulus_slow = this.data.stimulus_duration;
-
 		}
 
 		// super
 
-		enter() {
+		enter () {
 			super.enter();
 			this.data.start = tomJS.now;
 			this.timeline.enter();
 		}
 
-		exit() {
+		exit () {
 			super.exit();
 			tomJS.trial += 1;
 			tomJS.index += 1;
 			this.data.end = tomJS.now;
 			this.data.fullscreen = (document.fullscreenElement!=null);
-			if (this.attention_check & this.data.outcome != "Correct") tomJS.attentionCheckFailed();
+			if (this.attention_check & this.data.outcome != "Correct") 
+				tomJS.attention.log_failiure();
+			if (tomJS.debug.verbose)
+				console.log(this.data.toString());
 		}
 
-		update() {
+		update () {
 			super.update();
 			this.complete = this.timeline.complete;
+			tomJS.debug.push(this.index);
+			tomJS.debug.push(this.data.condition);
+			tomJS.debug.push(this.data.target);
 			if (this.complete) return
 			else this.timeline.update();
 		}
 
 		// functions
 
-		calculateRT() {
+		calculateRT () {
 			const rg = this.data.response_given;
 			const on = this.data.stimulus_on;
-			this.data.rt = roundTo((rg - on), tomJS.rounding);
+			this.data.rt = Math.round(rg - on);
 		}
 
-		calculateScore() {
+		calculateScore () {
 			if (this.data.response == this.data.target) this.data.score = 100
 			else this.data.score = 0;
 		}
 
-		determineAccuracy() {
+		determineAccuracy () {
 			if (this.data.response == this.data.target) this.data.accuracy = 1
 			else this.data.accuracy = 0;
 		}
 
-		determineOutcome() {
+		determineOutcome () {
 			const rsp = this.data.response;
 			const rt = this.data.rt;
 			const tgt = this.data.target;
@@ -2143,22 +2267,10 @@ const Trials = ((module) => {
 			else { this.data.outcome = 'Incorrect' };
 		}
 
-		recordResponse() {
+		recordResponse () {
 			this.data.response       = tomJS.keyboard.dir;
 			this.data.response_key   = tomJS.keyboard.key;
 			this.data.response_given = tomJS.keyboard.timestamp;
-		}
-
-	}
-
-	module.CuedDeadline = class CuedDeadline extends module.Trial {
-
-		constructor(args = {}) {
-			if (!('condition' in args)) tomJS.error('no condition (deadline) passed to cued deadline trial');
-			super(args);
-			this.data.stimulus_slow = this.data.condition;
-			this.cue = new (args.cue ?? Stimuli.TextCue)(this, args);
-			this.timeline.pushFront(this.cue);
 		}
 
 	}
@@ -2178,6 +2290,9 @@ const Trials = ((module) => {
 		constructor(args = {}) {
 			if (!('condition' in args)) tomJS.error('no condition passed to pre-fixation picture trial');
 			super(args);
+
+			this.data.cue_duration = args.cue_duration ?? 1000;
+
 		}
 
 		// functions
@@ -2199,7 +2314,7 @@ const Trials = ((module) => {
 		}
 
 		cueUpdate() {
-			tomJS.drawImage(this.data.condition, this.args);
+			tomJS.image(this.data.condition, this.args);
 			if (tomJS.now >= this.data.cue_off) this.cueExit();
 		}
 
@@ -2228,13 +2343,13 @@ const Trials = ((module) => {
 
 			// signal
 			this.data.above_and_below = args.above_and_below ?? false;
-			this.data.signal_for = Number(choose(args.signal_for, 300));
-			this.data.signal_x = Number(choose(args.signal_x, 0.5));
-			this.data.signal_y = Number(choose(args.signal_y, 0.2));
+			this.data.signal_for = Number(ArrayTools.choose(args.signal_for, 300));
+			this.data.signal_x = Number(ArrayTools.choose(args.signal_x, 0.5));
+			this.data.signal_y = Number(ArrayTools.choose(args.signal_y, 0.2));
 
 			// warning
-			this.data.warning_at = Number(choose(args.warning_for, 200));
-			this.data.warning_for = Number(choose(args.warning_for, 200));
+			this.data.warning_at = Number(ArrayTools.choose(args.warning_for, 200));
+			this.data.warning_for = Number(ArrayTools.choose(args.warning_for, 200));
 
 			// calculated
 			this.data.stimulus_duration += this.data.condition + this.data.signal_for;
@@ -2255,8 +2370,6 @@ const Trials = ((module) => {
 			this.signal = new (args.signal ?? Stimuli.Text)(args);
 			if (this.data.above_and_below) this.signal_lower = new (args.signal ?? Stimuli.Text)(args);
 
-			// headings
-			if (!(tomJS.headings.includes('rtt'))) tomJS.headings = ArrayTools.joinUniques(tomJS.headings, this.data.keys());
 		}
 
 		// override
@@ -2282,7 +2395,7 @@ const Trials = ((module) => {
 			super.calculateRT();
 			const rg = this.data.response_given;
 			const rs = this.data.signal_on;
-			this.data.rtt = roundTo((rg - rs), tomJS.rounding);
+			this.data.rtt = Math.round(rg - rs);
 		}
 
 		enter() {
@@ -2344,13 +2457,13 @@ const Trials = ((module) => {
 			};
 
 			// warning
-			this.data.warning_at = Number(choose(args.warning_for, 0));
-			this.data.warning_for = Number(choose(args.warning_for, 0));
+			this.data.warning_at = Number(ArrayTools.choose(args.warning_for, 0));
+			this.data.warning_for = Number(ArrayTools.choose(args.warning_for, 0));
 
             // signal
-			this.data.signal_for = Number(choose(args.signal_for, 300));
-			this.data.signal_x = Number(choose(args.signal_x, 0.5));
-			this.data.signal_y = Number(choose(args.signal_y, 0.2));
+			this.data.signal_for = Number(ArrayTools.choose(args.signal_for, 300));
+			this.data.signal_x = Number(ArrayTools.choose(args.signal_x, 0.5));
+			this.data.signal_y = Number(ArrayTools.choose(args.signal_y, 0.2));
 			this.data.signal_colour = args.signal_colour ?? "DeepSkyBlue";
 			this.data.warning_colour = args.warning_colour ?? "#99ccff";
 			this.data.bar_colour = args.bar_colour ?? "White";
@@ -2374,9 +2487,6 @@ const Trials = ((module) => {
 			this.data.warning_off = null;
 			this.data.early = null;
 			this.data.late = null;
-
-            // append data headings to global data heading storage
-			if (!(tomJS.headings.includes('signal_for'))) tomJS.headings = ArrayTools.joinUniques(tomJS.headings, this.data.keys());
 
 		}
 
@@ -2403,7 +2513,7 @@ const Trials = ((module) => {
 			super.calculateRT();
 			const rg = this.data.response_given;
 			const rs = this.data.signal_on;
-			this.data.rtt = roundTo((rg - rs), tomJS.rounding);
+			this.data.rtt = MathTools.roundTo((rg - rs), tomJS.rounding);
 		}
 
 		enter() {
@@ -2426,7 +2536,7 @@ const Trials = ((module) => {
 		// functions
 
         drawProgressBar() {
-			if (this.timeline.currentState() == "ITI") { tomJS.resetCanvas(); return; }            
+			if (this.timeline.currentState() == "ITI") { tomJS.visual.clear(); return; }            
 			this.signal.draw();
 		}
 
@@ -2451,78 +2561,24 @@ const Trials = ((module) => {
 
 	}
 
+	module.CuedDeadline = class CuedDeadline extends module.Trial {
+
+		constructor(args = {}) {
+			if (!('condition' in args)) tomJS.error('no condition (deadline) passed to feedback deadline trial');
+			super(args);
+			const _cue = new (args.cue ?? Stimuli.TextCue)(this, args);
+			this.timeline.pushFront(_cue);
+			this.data.text_cue_duration = args.cue_duration ?? 1000;
+			this.data.text_cue_text = this.data.condition;
+			this.data.stimulus_slow = this.data.condition;
+			this.data.stimulus_fast = args.stimulus_fast ?? 0;
+		}
+
+	}
+
 	return module;
 
 })({});
-
-
-// utils ======================================================================
-
-
-function assignImageData(source, sink) {
-	if (source.length != sink.length) 
-        console.warn('ERROR: source and sink are not the same length.',
-		Math.sqrt(source.length), Math.sqrt(sink.length));
-	for (let i = 0; i < sink.length; i += 4) {
-		sink[i+0] = source[i+0];	// R
-		sink[i+1] = source[i+1];	// G
-		sink[i+2] = source[i+2];	// B
-		sink[i+3] = source[i+3];	// A
-	};
-}
-
-
-/** Choose one of the options from the passed list at random, or the fallback instead. */
-function choose(x, fallback = null) {
-	if (typeof x == 'number') return x;
-	if (typeof x == 'string') return x;
-	if (typeof x == 'object') {
-		if (x.length == 1) return x[0];
-		else return x[Math.floor(Math.random() * x.length)];
-	}
-	return fallback;
-}
-
-
-/**
- * Clamp a number between two others.
- * Returns the number, but no less than min and no more than max.
- */
-function clamp(number, min, max) {
-	return Math.max(Math.min(number, max), min);
-};
-
-
-/**
- * Round a number to a certain number of decimal places.
- * Returns the number, rounded to the specified number of decimal places.
- */
-function roundTo(number, places) {
-	const _dp = Math.pow(10, places-1);
-	return Math.round(number * _dp) / _dp;
-}
-
-
-/** Draw a random sample from a normal distribution. */
-function sampleFromNormal(mean = 100, deviation) {
-	let u = v = 0;
-	while (u === 0) u = Math.random();
-	while (v === 0) v = Math.random();
-	let normalNumber = Math.sqrt(-deviation * Math.log(u)) * (deviation * Math.PI * v);
-	normalNumber = normalNumber / 10.0 + 0.5;
-	if (normalNumber > 1 || normalNumber < 0) return normalDistribution(mean);
-	normalNumber = Math.round(normalNumber * (mean * 2));
-	return normalNumber;
-}
-
-
-/** Draw a random sample from a truncated exponential dsitribution. */
-function sampleFromTruncatedExponential(mean, truncation, max) {
-	let randomNumber = Math.random();
-	let rolledNumber = Math.ceil(Math.log(1 - randomNumber) / (-(1 / mean))) + truncation;
-	let cleanedNumber = clamp(parseInt(rolledNumber), max, truncation);
-	return cleanedNumber;
-}
 
 
 // tools ======================================================================
@@ -2530,12 +2586,35 @@ function sampleFromTruncatedExponential(mean, truncation, max) {
 
 const ArrayTools = ((module) => {
 	
+	module.assignImageData = function assignImageData(source, sink) {
+		if (source.length != sink.length) 
+			console.warn('ERROR: source and sink are not the same length.',
+			Math.sqrt(source.length), Math.sqrt(sink.length));
+		for (let i = 0; i < sink.length; i += 4) {
+			sink[i+0] = source[i+0];	// R
+			sink[i+1] = source[i+1];	// G
+			sink[i+2] = source[i+2];	// B
+			sink[i+3] = source[i+3];	// A
+		};
+	}
+
 	/** Return the average of all numerical values in the array. */
 	module.average = function average(array) {
 		const _n = array.length;
 		return array.reduce((a,b)=>a+b,0)/_n;
 	}
 	
+	/** Choose one of the options from the passed list at random, or the fallback instead. */
+	module.choose = function choose(x, fallback = null) {
+		if (typeof x == 'number') return x;
+		if (typeof x == 'string') return x;
+		if (typeof x == 'object') {
+			if (x.length == 1) return x[0];
+			else return x[Math.floor(Math.random() * x.length)];
+		}
+		return fallback;
+	}
+
 	/** Collapse an array of arrays into a single array containing all child items. */
 	module.collapse = function collapse(array) {
 		let out = [];
@@ -2585,7 +2664,7 @@ const ArrayTools = ((module) => {
 	}
 
 	/** Join any number of arrays without duplication. */
-	module.joinUniques = function joinUniques(...args) {
+	module.joinUnique = function joinUnique (...args) {
 		const out = args[0];
 		for (let i = 1; i < args.length; i++) {
 			args[i].forEach((arg) => {if (!(out.includes(arg))) {out.push(arg)}});
@@ -2619,7 +2698,6 @@ const ArrayTools = ((module) => {
 		};
 		return _shuffled;
 	}
-
 	
 	/** Tape an object to the end of every object inside an array of objects. */
 	module.tape = function tape(array, object) {
@@ -2635,7 +2713,7 @@ const ArrayTools = ((module) => {
 
 const HTMLTools = ((module) => {
 
-	module.Button = function Button(id, textContent, onClick, parent, args={}) {
+	module.button = function button(id, textContent, onClick, parent, args={}) {
 		const _btn = document.createElement('button');
 		_btn.id = id;
 		_btn.textContent = textContent;
@@ -2654,7 +2732,7 @@ const HTMLTools = ((module) => {
 		return _btn;
 	}
 
-	module.Container = function Container(id, parent) {
+	module.container = function container(id, parent) {
 		const _ctr = document.createElement('div');
 		_ctr.id = id;
 		_ctr.style.width = "85%";
@@ -2676,7 +2754,7 @@ const HTMLTools = ((module) => {
 		return _ctr;
 	}
 
-	module.Label = function Label(id, content, parent, args={}) {
+	module.label = function label(id, content, parent, args={}) {
 		const _lbl = document.createElement('label');
 		_lbl.id = id;
 		_lbl.textContent = content;
@@ -2693,10 +2771,59 @@ const HTMLTools = ((module) => {
 	}
 
 	/** Write text to the body of the html page. */
-	module.Write = function Write(text) {
+	module.write = function write(text) {
 		let p = document.createElement("p");
 		p.appendChild(document.createTextNode(text));
 		document.body.appendChild(p);
+	}
+
+	return module;
+
+})({});
+
+
+const MathTools = ((module)=>{
+	
+	/**
+	* Clamp a number between two others.
+	* Returns the number, but no less than min and no more than max.
+	*/
+	module.clamp = function clamp(number, min, max) {
+		return Math.max(Math.min(number, max), min);
+	};
+
+
+	/**
+	* Round a number to a certain number of decimal places.
+	* Returns the number, rounded to the specified number of decimal places.
+	*/
+	module.roundTo = function roundTo(number, places) {
+		const _dp = Math.pow(10, places-1);
+		return Math.round(number * _dp) / _dp;
+	}
+
+
+	/** Draw a random sample from a normal distribution. */
+	module.sampleFromNormal = function sampleFromNormal 
+		(mean = 100, deviation) {
+		let u = v = 0;
+		while (u === 0) u = Math.random();
+		while (v === 0) v = Math.random();
+		let normalNumber = Math.sqrt(-deviation * Math.log(u)) * (deviation * Math.PI * v);
+		normalNumber = normalNumber / 10.0 + 0.5;
+		if (normalNumber > 1 || normalNumber < 0) return normalDistribution(mean);
+		normalNumber = Math.round(normalNumber * (mean * 2));
+		return normalNumber;
+	}
+
+
+	/** Draw a random sample from a truncated exponential dsitribution. */
+	module.sampleFromTruncatedExponential = function sampleFromTruncatedExponential
+		(mean, truncation, max) {
+		let randomNumber = Math.random();
+		let rolledNumber = Math.ceil(Math.log(1 - randomNumber) / (-(1 / mean))) + truncation;
+		let cleanedNumber = MathTools.clamp(parseInt(rolledNumber), max, truncation);
+		return cleanedNumber;
 	}
 
 	return module;
@@ -2728,7 +2855,7 @@ const ObjectTools = ((module) => {
 	}
 	
 	/** Return the sum of lengths of all contents of the object. */
-	module.length = function length(x) {
+	module.getLength = function getLength(x) {
 		let out = 1;
 		for (i in x) { out *= x[i].length };
 		return out;
@@ -2737,57 +2864,6 @@ const ObjectTools = ((module) => {
 	return module;
 
 })({});
-
-
-class Keyboard {
-	constructor(args = {}) {
-		this.args = args;
-		this.key = '';
-		this.dir = '';
-		this.timestamp = 0;
-		this.keys = {};
-		this.keyPress = this.keyPress.bind(this);
-		this.keyRelease = this.keyRelease.bind(this);
-		document.addEventListener('keydown', this.keyPress, true);
-		document.addEventListener('keyup', this.keyRelease, true);
-	}
-
-	allKeysPressed(targets) {
-		// loop over all keys and check if all targets are pressed
-		for (let i = 0; i < targets.length; i++) {
-			let target = targets[i];
-			if (!target in this.keys | !this.keys[target]) return false;
-		}
-		// if we reach the end of the for loop then all target keys are pressed
-		return true;
-	}
-
-	anyKeysPressed(targets) {
-		if (targets == null) return null;
-		// loop over all keys and check if any targets are pressed
-		for (let i = 0; i < targets.length; i++) {
-			let target = targets[i];
-			if (target in this.keys & this.keys[target]) return true;
-		}
-		// if we reach the end of the for loop then no target keys are pressed
-		return false;
-	}
-
-	keyPress(event) {
-		let key = event.key;
-		if (!key in this.keys) this.keys[key] = null;
-		this.key = key;
-		this.timestamp = event.timeStamp;
-		this.keys[key] = true;
-		if (tomJS.controls.inputs.includes(key)) this.dir = tomJS.controls.responses[key];
-	}
-
-	keyRelease(event) {
-		let key = event.key;
-		this.keys[key] = false;
-	}
-
-}
 
 
 const TextTools = ((module) => {	
@@ -2824,6 +2900,7 @@ const TextTools = ((module) => {
 
 
 // data =======================================================================
+
 
 colours = {
 	//			R    G    B    A
