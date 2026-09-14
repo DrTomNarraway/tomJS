@@ -1,6 +1,6 @@
 
 
-__version__ = '11.09.26 16:20';
+__version__ = '14.09.26 11:40';
 
 
 class Experiment {
@@ -1950,7 +1950,7 @@ const Stimuli = ((module) => {
 
 		constructor(trial, args = {}) {
 			super(trial, args);
-			this.trial.data.text_cue_text = "" + trial.data.condition;
+			this.trial.data.text_cue_text = "" + (trial.data.condition)/1000;
 			this.trial.data.text_cue_size = Math.round((args.text_cue_size ?? 0.10) * tomJS.visual.stimulus_size) + "px";
             this.trial.data.text_cue_colour = args.text_cue_colour ?? "white";
             this.drawArgs = {
@@ -1995,7 +1995,7 @@ const Stimuli = ((module) => {
 			this.trial.data.bar_height       = args.bar_height ?? 0.30;
 			this.trial.data.bar_colour       = args.bar_colour ?? "white";
 			this.trial.data.bar_signal       = args.bar_signal ?? "#00000000"
-			this.trial.data.window_signal    = args.window_signal ?? "DodgerBlue"
+			this.trial.data.window_signal    = args.window_signal ?? "#00BFFF"
 			this.trial.data.window_width 	 = args.window_width ?? 0.50;
 			this.trial.data.window_height 	 = args.window_height ?? 0.50;
 			this.trial.data.window_colour    = args.window_colour ?? "white";
@@ -2185,19 +2185,39 @@ const Trials = ((module) => {
 		constructor(args = {}) {
 			if (!('condition' in args)) tomJS.error('no condition (deadline) passed to cued deadline trial');
 			super(args);
+			this.show_deadline = args.show_deadline ?? false;
+			this.x = args.deadline_x ?? 0.5;
+			this.y = args.deadline_y ?? 0.5;
+			this.w = args.deadline_width ?? 0.5;
+			this.h = args.deadline_height ?? 0.5;
+			this.c = args.deadline_colour ?? "#FF8200";
+			this.l = args.deadline_lineWidth ?? 5;
+			this.data.stimulus_fast = args.stimulus_fast ?? 0; // override default fast from 200 to 0.
 			this.data.stimulus_slow = this.data.condition;
 			this.cue = new (args.cue ?? Stimuli.TextCue)(this, args);
 			this.timeline.pushFront(this.cue);
+			this.draw_deadline = false;
 		}
 
-	}
+		update () {
+			super.update();
+			this.updateDeadline();
+			if (this.show_deadline) this.drawDeadline();
+		}
 
-	module.FeedbackDeadline = class FeedbackDeadline extends module.Trial {
+		drawDeadline () {
+			if (this.draw_deadline == false) return;
+			if (this.timeline.currentState() == "ITI") return;
+			const w = tomJS.visual.stimulus_size * this.w;
+			const h = tomJS.visual.stimulus_size * this.h;
+			tomJS.strokeRect(this.x, this.y, w, h, this.c, this.l);
+		}
 
-		constructor(args = {}) {
-			if (!('condition' in args)) tomJS.error('no condition (deadline) passed to feedback deadline trial');
-			super(args);
-			this.data.stimulus_slow = this.data.condition;
+		updateDeadline() {
+			if (this.timeline.currentState() == "TextCue") return;
+			if (this.timeline.currentState() == "Fixation") return;
+			if (this.timeline.currentState() == "Feedback") return;
+			this.draw_deadline = tomJS.now > (this.data.stimulus_on + this.data.condition);
 		}
 
 	}
@@ -2380,10 +2400,10 @@ const Trials = ((module) => {
 			this.data.signal_for = Number(choose(args.signal_for, 300));
 			this.data.signal_x = Number(choose(args.signal_x, 0.5));
 			this.data.signal_y = Number(choose(args.signal_y, 0.2));
-			this.data.signal_colour = args.signal_colour ?? "DeepSkyBlue";
+			this.data.signal_colour = args.signal_colour ?? "#00BFFF";
 			this.data.warning_colour = args.warning_colour ?? "#99ccff";
-			this.data.bar_colour = args.bar_colour ?? "White";
-			this.data.border_colour = args.border_colour ?? "Grey";
+			this.data.bar_colour = args.bar_colour ?? "white";
+			this.data.border_colour = args.border_colour ?? "grey";
 			this.data.empty_colour = args.empty_colour ?? "#00000000";
 
             // calculated
