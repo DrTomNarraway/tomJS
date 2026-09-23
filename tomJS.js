@@ -1,6 +1,6 @@
 
 
-__version__ = '14.09.26 11:40';
+__version__ = '23.09.26 15:28';
 
 
 class Experiment {
@@ -15,18 +15,17 @@ class Experiment {
 		this.debug.fullscreen = args.fullscreen ?? true;
 		this.debug.verbose    = args.verbose    ?? false;
         this.debug.overlay    = args.overlay    ?? false;
+		this.debug.log = [];
 
 		// visual
 		this.visual = {};
 		this.visual.backgroundColor = args.backgroundColor ?? "black";
-		this.visual.color = args.color ?? "white";				
-		this.visual.height = window.innerHeight - 16;
-		this.visual.width  = window.innerWidth - 16;
-		const screen_size = Math.min(this.visual.height, this.visual.width);
-		this.visual.screen_size = screen_size;
-		this.visual.stimulus_size = Math.round(this.visual.screen_size * 0.5);
+		this.visual.color = args.color ?? "white";
+		this.visual.stimulus_size = this.calculateStimulusSize();
+		this.onFullscreenChanged = this.onFullscreenChanged.bind(this);
+		document.addEventListener("fullscreenchange", this.onFullscreenChanged);
+		document.addEventListener("resize", this.onFullscreenChanged);
 		this.createCanvas();
-		this.setCanvasSize(this.visual.screen_size);
 		this.setFont();
 
 		// apply visual settings to document
@@ -54,7 +53,7 @@ class Experiment {
 
 		// demographics
 		this.demographics = {};
-		this.demographics.participant = Math.round(Math.random()*999999);
+		this.demographics.id = Math.round(Math.random()*999999);
 		this.demographics.age = null;
 		this.demographics.gender = null;
 		this.demographics.hand = null;
@@ -79,7 +78,7 @@ class Experiment {
         this.stimuli = {};
 
 		// data
-		this.headings = ['participant','age','gender','hand'];
+		this.headings = ['id','age','gender','hand'];
 		this.data = [];
 		this.save = args.save ?? true;
 
@@ -134,13 +133,24 @@ class Experiment {
 		if (this.debug.verbose) console.log(this.attention);
 	}
 
+	calculateStimulusSize() {
+		const credit_card = document.createElement('div');
+		credit_card.id = "CreditCard";
+		credit_card.style.width = "85mm";
+		credit_card.style.height = "85mm";
+		document.body.appendChild(credit_card);
+		const stimulus_size = Math.round(credit_card.clientWidth);
+		credit_card.remove();
+		return stimulus_size;
+	}
+
 	connectToJatos() {
 		// this. is the window
 		tomJS.jatos = true;
 		const url = jatos.urlQueryParameters ?? {};
 		const wrk = 'PROLIFIC_PID' in url;
 		const jts = jatos.studyResultId;
-		tomJS.demographics.participant = wrk ? url.PROLIFIC_PID : jts;
+		tomJS.demographics.id = wrk ? url.PROLIFIC_PID : jts;
 		tomJS.demographics.n = Math.round(jts);
 		tomJS.demographics.G = jts % 2;
 		if (this.fullfill_queue_on_jatos) this.fullfillQueue();
@@ -148,15 +158,21 @@ class Experiment {
 	}
 
 	createCanvas() {
-		this.visual.canvas = document.createElement('canvas');		
-		this.visual.canvas.id = "canvas";
-		this.visual.canvas.width = "95vmin";
-		this.visual.canvas.height = "95vmin";
-		this.visual.canvas.style.position = "absolute"; 
-		this.visual.canvas.style.backgroundColor = this.visual.backgroundColor;
-		this.visual.canvas.style.color = this.visual.colour;
-		this.visual.canvas.style.cursor = "none";
-		document.body.appendChild(this.visual.canvas);
+		this.visual.height = window.innerHeight - 16;
+		this.visual.width  = window.innerWidth - 16;
+		this.visual.screen_size = Math.round(Math.min(this.visual.height, this.visual.width));
+		const canvas = document.createElement('canvas');
+		canvas.id = "canvas";
+		canvas.width = this.visual.screen_size;
+		canvas.height = this.visual.screen_size;
+		canvas.style.left = (canvas.width - this.visual.screen_size + 16) / 2;
+		canvas.style.left = (this.visual.width - this.visual.screen_size + 16) / 2 + "px";
+		canvas.style.position = "absolute"; 
+		canvas.style.backgroundColor = this.visual.backgroundColor;
+		canvas.style.color = this.visual.colour;
+		canvas.style.cursor = "none";
+		document.body.appendChild(canvas);
+		this.visual.canvas = canvas;
 		this.visual.context = this.visual.canvas.getContext("2d");
 	}
 
@@ -171,14 +187,10 @@ class Experiment {
 	}
 	
 	drawDebugOverlay() {
-		// size boxes
-		this.strokeRect(0.5, 0.5, this.visual.screen_size, this.visual.screen_size, "grey", 1);
-        this.strokeRect(0.5, 0.5, this.visual.stimulus_size, this.visual.stimulus_size, "red", 1);
-		// text
-		this.writeToCanvas(this.index, {'x':0.1, 'y': 0.03});
-		this.writeToCanvas(this.keyboard.key, {'x':0.1, 'y': 0.06});
-		this.writeToCanvas(this.keyboard.dir, {'x':0.1, 'y': 0.09});
-		this.writeToCanvas(document.fullscreenElement!=null, {'x':0.1, 'y': 0.12});
+		this.strokeRect(0.5, 0.5, this.visual.screen_size-1, this.visual.screen_size-1, "green", 1);
+        this.strokeRect(0.5, 0.5, this.visual.stimulus_size, this.visual.stimulus_size, "green", 1);
+		this.fillRect(0, this.visual.screen_size * 0.5, this.visual.stimulus_size * 0.5, 1, "lightgreen");
+		this.fillRect(this.visual.screen_size-this.visual.stimulus_size*0.5, this.visual.screen_size * 0.5, this.visual.stimulus_size * 0.5, 1, "lightgreen");
 	}
 
 	drawGridLines() {
@@ -237,6 +249,13 @@ class Experiment {
 		this.visual.context.fillRect(x, y, width, height);
 	}
 
+	fillRectPos(x, y, width, height, colour = "white") {
+		this.visual.context.fillStyle = colour;
+        const _x = tomJS.visual.screen_size * x - (width * 0.5);
+        const _y = tomJS.visual.screen_size * y - (height * 0.5);
+		this.visual.context.fillRect(_x, _y, width, height);
+	}
+
 	flushKeys() {
 		this.keyboard.key = '';
 		this.keyboard.dir = '';
@@ -255,8 +274,17 @@ class Experiment {
 		};
 	}
 	
-	onFullscreenChange(event) {
-		console.log(event);
+	onFullscreenChanged() {
+		setTimeout(() => {
+			this.visual.fullscreen_element = document.fullscreenElement;
+			this.visual.height = window.innerHeight - 16;
+			this.visual.width  = window.innerWidth - 16;
+			this.visual.screen_size = Math.round(Math.min(this.visual.height, this.visual.width));
+			this.visual.canvas.width = this.visual.screen_size;
+			this.visual.canvas.height = this.visual.screen_size;
+			this.visual.canvas.style.left = (this.visual.width - this.visual.screen_size + 16) / 2 + "px";
+			this.setFont();
+		}, 50);
 	}
 	
 	queue(callable, args={}) {
@@ -276,10 +304,19 @@ class Experiment {
 	requestReturn() {
 		this.complete = true;
 		if (document.fullscreenElement!=null) document.exitFullscreen();
-		this.resetCanvas();
-        this.writeToCanvas('You have failed too many attention checks, please return your submission.');
-        const csv = "FAILED ATTENTION CHECKS \n \n" + this.writeCSV();
-        if (this.jatos) jatos.submitResultData(csv);
+		this.saveData();
+        const sessionData = new Data.BlockData();
+		sessionData.calculateData(this.data);
+		sessionData.id = this.demographics.id;
+		if (this.jatos)	{
+			jatos.setStudySessionData(sessionData.toString());
+			jatos.startComponentByPos(4);
+		}
+		else {			
+			this.resetCanvas();
+			this.writeToCanvas('You have failed too many attention checks.');
+            console.log(sessionData);
+		};
 	}
 
 	run = () => {
@@ -297,17 +334,11 @@ class Experiment {
 		if (this.jatos) jatos.submitResultData(csv);
 	}
 
-	setCanvasSize(size) {
-		this.visual.canvas.width  = size;
-		this.visual.canvas.height = size;
-		this.visual.canvas.style.left = (this.visual.width - this.visual.screen_size + 16) / 2 + "px";
-	}
-
-	setFont(fontFamily="Times New Roman", t=0.05, h1=0.07, h0=0.10) {
+	setFont(fontFamily="Times New Roman", t=0.02, h1=0.03, h0=0.05) {
 		this.visual.fontFamily = fontFamily;
-		this.visual.h0       = (this.visual.stimulus_size * h0) + "px";
-		this.visual.h1       = (this.visual.stimulus_size * h1) + "px";
-		this.visual.fontSize = (this.visual.stimulus_size * t)  + "px";
+		this.visual.h0       = Math.round(this.visual.screen_size * h0) + "px";
+		this.visual.h1       = Math.round(this.visual.screen_size * h1) + "px";
+		this.visual.fontSize = Math.round(this.visual.screen_size * t)  + "px";
 	}
 
 	start () {
@@ -331,7 +362,7 @@ class Experiment {
 		return this.timeline.timeline;
 	}
 	
-	update () {		
+	update () {
 		this.complete = this.timeline.complete;
 		if (this.complete) this.endExperiment();
 		else this.timeline.update();        
@@ -381,6 +412,34 @@ class Experiment {
 
 
 // root classes ===============================================================
+
+class Sound {
+
+	constructor(url) {
+		this.audio = new Audio(url);
+		this.on_play = this.on_play.bind(this);
+		this.on_end = this.on_end.bind(this);
+		this.audio.onplay = this.on_play;
+		this.audio.onended = this.on_end;
+		this.started = null;
+		this.ended = null;
+		this.duration = null;
+	}
+
+	play() {
+		this.audio.play();
+	}
+
+	on_play() {
+		this.started = tomJS.now;
+	}
+
+	on_end() {
+		this.ended = tomJS.now;
+		this.duration = this.ended - this.started;
+	}
+
+}
 
 
 class State {
@@ -660,7 +719,7 @@ const Data = ((module) => {
 
 		constructor() {
 			super();
-			this.accuracy = null;
+			this.pc = null;
 			this.rt = null;
 			this.score = null;
 			this.correct = null;
@@ -676,7 +735,7 @@ const Data = ((module) => {
 
 		calculateAverages(data) {
 			this.rt = Math.round(ArrayTools.average(ArrayTools.extract(data, 'rt')));
-			this.accuracy = Math.round(ArrayTools.average(ArrayTools.extract(data, 'accuracy')) * 100);
+			this.pc = Math.round(ArrayTools.average(ArrayTools.extract(data, 'accuracy')) * 100);
 			this.score = Math.round(ArrayTools.average(ArrayTools.extract(data, 'score')));
 		}
 
@@ -818,7 +877,7 @@ const Slides = ((module) => {
 			if (tomJS.keyboard.allKeysPressed(tomJS.controls.inputs)) this.complete = true;
 		}
 
-		drawContent() {            
+		drawContent() {
 			for (const _c of this.content) {
                 if (!(this.checkConditions(_c))) continue;
 				switch (_c.class) {
@@ -849,10 +908,16 @@ const Slides = ((module) => {
 						_tl.draw();
 						break;
 					case 'progressbar':
-						this.data.bar_percent = 
-                            (tomJS.now - this.data.bar_start) / this.data.bar_max;
-						if (this.data.bar_percent >= 1.5) this.data.bar_start = tomJS.now;                    
-						this['progressbar' + _c.tag ?? ''].draw();
+						if (tomJS.now >= this.data.signal_off + 1000) {
+							this.data.fixation_on = tomJS.now;
+							this.data.signal_on = tomJS.now + this.data.signal_after;
+							this.data.signal_off = this.data.signal_on + this.data.signal_for;
+							_c.signal.signal_is = "before";
+						};
+						_c.signal.update();
+						if (tomJS.now >= this.data.signal_off) _c.signal.signalOff()
+						else if (tomJS.now >= this.data.signal_on) _c.signal.signalOn();
+						_c.signal.draw();
 						break;
 				};
 			};
@@ -878,10 +943,14 @@ const Slides = ((module) => {
                         c.B.prepareImageData();
 						break;
 					case 'progressbar':
-						this.data.bar_start     = this.start;
-						this.data.bar_max       = c.bar_max ?? 2000;
+						this.data.fixation_on = tomJS.now;
+						this.data.signal_after = c.signal_after ?? 2000;
+						this.data.signal_for = c.signal_for ?? 300;
+						this.data.signal_on = tomJS.now + this.data.signal_after;
+						this.data.signal_off = this.data.signal_on + this.data.signal_for;
+						this.data.bar_duration = this.data.signal_after + this.data.signal_for;
 						const _bar = new (c.signal ?? Stimuli.ProgressBar)(this, c);
-						this['progressbar' + c.tag ?? ''] = _bar;
+						c['signal'] = _bar;
 						break;
 				};
 			};
@@ -969,7 +1038,6 @@ const Slides = ((module) => {
 			tomJS.visual.width = window.innerWidth - 16;
 			const screen_size = Math.min(tomJS.visual.height, tomJS.visual.width);
 			tomJS.visual.screen_size = screen_size;
-			tomJS.setCanvasSize(screen_size);
 			tomJS.setFont();
 		}
 
@@ -1238,7 +1306,7 @@ const Slides = ((module) => {
 	module.Fullscreen = class Fullscreen extends module.Slide {
 		
 		constructor(args = {}) {
-			super([], args);			
+			super([], args);
 		}
 		
 		createContainer() {
@@ -1264,12 +1332,12 @@ const Slides = ((module) => {
 		enter() {
 			super.enter();
 			this.createContainer();
+			this.fullscreenPressed = this.fullscreenPressed.bind(this);
 			this.fsb = HTMLTools.Button(
 				"fullscreenButton", 
 				"Enter Fullscreen", 
-				this.fullscreenPressed, 
+				this.fullscreenPressed,
 				this.container);
-			this.fsb.state = this;
 		}
 		
 		exit() {
@@ -1278,20 +1346,8 @@ const Slides = ((module) => {
 		}
 		
 		fullscreenPressed() {
-			// this. is the button
 			document.documentElement.requestFullscreen();
-			this.e = HTMLTools.Button(
-				"exitButton", 
-				"Continue", 
-				this.state.exitPressed, 
-				this.state.container);
-			this.e.state = this.state;
-			this.remove();
-		}
-		
-		exitPressed() {
-			// this. is the button
-			this.state.complete = true;
+			this.complete = true;
 		}
 		
 	}
@@ -1781,13 +1837,7 @@ const Stimuli = ((module) => {
 			this.trial.data.text_y = args.text_y ?? 0.5;
 			this.trial.data.text_colour = args.text_colour ?? "white";
 			this.trial.data.text_upper = args.text_upper ?? false;
-            this.trial.data.text_size = Math.round((args.text_size ?? 0.10) * tomJS.visual.stimulus_size) + "px";
-            this.drawArgs = {
-                'color': this.trial.data.text_colour,
-                'fontSize': this.trial.data.text_size,
-                'x': this.trial.data.text_x,
-                'y': this.trial.data.text_y
-            };
+            this.trial.data.text_size = args.text_size ?? 0.10;            
 			this.trial.data.stimulus_duration = Number(choose(args.stimulus_duration, 3000));
 			this.trial.data.stimulus_on = null;
 			this.trial.data.stimulus_off = null;
@@ -1800,7 +1850,13 @@ const Stimuli = ((module) => {
 		}
 
         draw() {
-			tomJS.writeToCanvas(this.trial.data.text_text, this.drawArgs);
+			const drawArgs = {
+                'color': this.trial.data.text_colour,
+                'fontSize': this.calculateFontSize(this.trial.data.text_size),
+                'x': this.trial.data.text_x,
+                'y': this.trial.data.text_y
+            };
+			tomJS.writeToCanvas(this.trial.data.text_text, drawArgs);
 		}
 
         enter() {
@@ -1990,39 +2046,57 @@ const Stimuli = ((module) => {
 			super(trial, args);
 			this.trial.data.bb_x 			 = args.bb_x ?? 0.5;
 			this.trial.data.bb_y 			 = args.bb_y ?? 0.5;
-			this.trial.data.bar_percent      = args.bar_percent ?? 0;
 			this.trial.data.bar_width        = args.bar_width ?? 0.01;
-			this.trial.data.bar_height       = args.bar_height ?? 0.30;
+			this.trial.data.bar_height       = args.bar_height ?? 0.75;
 			this.trial.data.bar_colour       = args.bar_colour ?? "white";
-			this.trial.data.bar_signal       = args.bar_signal ?? "#00000000"
-			this.trial.data.window_signal    = args.window_signal ?? "#00BFFF"
-			this.trial.data.window_width 	 = args.window_width ?? 0.50;
-			this.trial.data.window_height 	 = args.window_height ?? 0.50;
+			this.trial.data.bar_signal       = args.bar_signal ?? "#00000000";
+			this.trial.data.bar_miss         = args.bar_miss ?? "#00000000";
+			this.trial.data.window_width 	 = args.window_width ?? 1.0;
+			this.trial.data.window_height 	 = args.window_height ?? 1.0;
 			this.trial.data.window_colour    = args.window_colour ?? "white";
+			this.trial.data.window_signal    = args.window_signal ?? "#00BFFF";
+			this.trial.data.window_miss      = args.window_miss ?? "white";
 			this.trial.data.window_linewidth = args.window_linewidth ?? 5;
+			this.bar_colour = this.trial.data.bar_colour;
+			this.window_colour = this.trial.data.window_colour;
+			this.p = 0;
+			this.signal_is = "before";
 		}
 
 		draw() {
 			super.draw();
-			this.drawNote("L");
-			this.drawNote("R");
+			this.drawL();
+			this.drawR();
 			this.drawWindow();
 		}
 
-		drawNote(which) {
-			const w = tomJS.visual.screen_size * this.trial.data.bar_width;
-			const h = tomJS.visual.screen_size * this.trial.data.bar_height;
-			const p = which == "L" ? clamp(this.trial.data.bar_percent * 0.5, 0, 0.5) : 
-				1 - clamp(this.trial.data.bar_percent * 0.5, 0, 0.5);
-			const x = (w * 0.5) + (tomJS.visual.screen_size * p);
+		drawL() {
+			const w = tomJS.visual.stimulus_size * this.trial.data.bar_width;
+			const h = tomJS.visual.stimulus_size * this.trial.data.bar_height;
+			const p = this.p;
+			const scrn = tomJS.visual.screen_size * 0.5;
+			const wndw = tomJS.visual.stimulus_size * this.trial.data.window_width * 0.5;
+			const x = ((scrn - wndw) * p) - (w * 0.5);
+			const y = (tomJS.visual.screen_size * this.trial.data.bb_y) - (h * 0.5);
+			const c = this.getNoteColour();
+			tomJS.fillRect(x, y, w, h, c);
+		}
+
+		drawR() {
+			const w = tomJS.visual.stimulus_size * this.trial.data.bar_width;
+			const h = tomJS.visual.stimulus_size * this.trial.data.bar_height;
+			const p = this.p;
+			const scrn = tomJS.visual.screen_size;
+			const wndw = tomJS.visual.stimulus_size * this.trial.data.window_width;
+			const x = (scrn - ((scrn - wndw) * 0.5 * p)) - (w * 0.5);
 			const y = (tomJS.visual.screen_size * this.trial.data.bb_y) - (h * 0.5);
 			const c = this.getNoteColour();
 			tomJS.fillRect(x, y, w, h, c);
 		}
 
 		drawWindow() {
-			const w = tomJS.visual.screen_size * this.trial.data.window_width;
-			const h = tomJS.visual.screen_size * this.trial.data.window_height;
+			const w = tomJS.visual.stimulus_size * this.trial.data.window_width;
+			const h = tomJS.visual.stimulus_size * this.trial.data.window_height;
 			const x = this.trial.data.bb_x;
 			const y = this.trial.data.bb_y;
 			const c = this.getWindowColour();
@@ -2031,17 +2105,40 @@ const Stimuli = ((module) => {
 		}
 
 		getNoteColour() {
-			if (this.trial.data.bar_percent < 1) 
-				return this.trial.data.bar_colour
-			else 
-				return this.trial.data.bar_signal;
+			switch(this.signal_is) {
+				case "before": return this.trial.data.bar_colour;
+				case "on": return this.trial.data.bar_signal;
+				case "off": return this.trial.data.bar_miss;
+			};
 		}
 
 		getWindowColour() {
-			if (this.trial.data.bar_percent < 1) 
-				return this.trial.data.window_colour
-			else 
-				return this.trial.data.window_signal;
+			switch(this.signal_is) {
+				case "before": return this.trial.data.window_colour;
+				case "on": return this.trial.data.window_signal;
+				case "off": return this.trial.data.window_miss;
+			};
+		}
+
+		signalOff() {
+			if (this.signal_is == "off") return;
+			this.signal_is = "off";
+			this.trial.data.signal_off = tomJS.now;
+			this.trial.data.signal_duration = tomJS.now - this.trial.data.signal_on;
+			this.bar_colour = this.trial.data.bar_miss;
+			this.window_colour = this.trial.data.window_miss;
+		}
+
+		signalOn() {
+			if (this.signal_is == "on") return;
+			this.signal_is = "on";
+			this.trial.data.signal_on = tomJS.now;
+			this.bar_colour = this.trial.data.bar_signal;
+			this.window_colour = this.trial.data.window_signal;
+		}
+
+		update() {
+			this.p = (tomJS.now - this.trial.data.fixation_on) / this.trial.data.signal_after;
 		}
 	
 	}
@@ -2146,7 +2243,7 @@ const Trials = ((module) => {
 		calculateRT() {
 			const rg = this.data.response_given;
 			const on = this.data.stimulus_on;
-			this.data.rt = roundTo((rg - on), tomJS.rounding);
+			this.data.rt = Math.round(rg - on);
 		}
 
 		calculateScore() {
@@ -2175,7 +2272,7 @@ const Trials = ((module) => {
 		recordResponse() {
 			this.data.response       = tomJS.keyboard.dir;
 			this.data.response_key   = tomJS.keyboard.key;
-			this.data.response_given = tomJS.keyboard.timestamp;
+			this.data.response_given = Math.round(tomJS.keyboard.timestamp);
 		}
 
 	}
@@ -2331,7 +2428,7 @@ const Trials = ((module) => {
 			super.calculateRT();
 			const rg = this.data.response_given;
 			const rs = this.data.signal_on;
-			this.data.rtt = roundTo((rg - rs), tomJS.rounding);
+			this.data.rtt = Math.round(rg - rs);
 		}
 
 		enter() {
@@ -2381,8 +2478,8 @@ const Trials = ((module) => {
             this.data.condition = args.condition;
 
 			// override
-			this.data.stimulus_fast = Number(args.stimulus_fast ?? 15);
-			this.data.stimulus_slow = Number(args.stimulus_slow ?? 15);
+			this.data.stimulus_fast = Number(args.stimulus_fast ?? 0);
+			this.data.stimulus_slow = Number(args.stimulus_slow ?? 0);
 
 			this.feedback_texts = args.feedback_texts ?? {
 				'Correct': 'Hit',
@@ -2392,25 +2489,16 @@ const Trials = ((module) => {
 				'Censored': 'Miss'
 			};
 
-			// warning
-			this.data.warning_at = Number(choose(args.warning_for, 0));
-			this.data.warning_for = Number(choose(args.warning_for, 0));
-
             // signal
+			this.data.signal_after = Number(choose(args.signal_after, 2000));
 			this.data.signal_for = Number(choose(args.signal_for, 300));
-			this.data.signal_x = Number(choose(args.signal_x, 0.5));
-			this.data.signal_y = Number(choose(args.signal_y, 0.2));
-			this.data.signal_colour = args.signal_colour ?? "#00BFFF";
-			this.data.warning_colour = args.warning_colour ?? "#99ccff";
-			this.data.bar_colour = args.bar_colour ?? "white";
-			this.data.border_colour = args.border_colour ?? "grey";
-			this.data.empty_colour = args.empty_colour ?? "#00000000";
+			
+			this.data.fixation_duration = this.data.signal_after - this.data.condition;
+			if (this.data.fixation_duration < 0) tomJS.error("negative fixation duration");
 
             // calculated
 			this.data.stimulus_duration += this.data.condition + this.data.signal_for;
-			this.data.bar_duration = this.data.fixation_duration
-                + this.data.condition
-                + this.data.signal_for;
+			this.data.bar_duration = this.data.signal_after + this.data.signal_for;
 
 			// signal(s)
 			this.signal = new (args.signal ?? Stimuli.ProgressBar)(this, args);
@@ -2419,8 +2507,6 @@ const Trials = ((module) => {
 			this.data.rtt = null;
 			this.data.signal_on = null;
 			this.data.signal_off = null;
-			this.data.warning_on = null;
-			this.data.warning_off = null;
 			this.data.early = null;
 			this.data.late = null;
 
@@ -2429,9 +2515,15 @@ const Trials = ((module) => {
 
 		}
 
-        // override
+        calculateRT() {
+			super.calculateRT();
+			const rg = this.data.response_given;
+			const rs = this.data.signal_on;
+			this.data.rtt = Math.round((rg - rs), tomJS.rounding);
+		}
 
-        determineOutcome() {
+		determineOutcome() {
+			// override
 			const rsp = this.data.response;
 			const rsg = this.data.response_given;
 			const erl = this.data.early;
@@ -2446,56 +2538,120 @@ const Trials = ((module) => {
 			this.data.outcome = _outcome;
 		}
 
-		// super
-
-        calculateRT() {
-			super.calculateRT();
-			const rg = this.data.response_given;
-			const rs = this.data.signal_on;
-			this.data.rtt = roundTo((rg - rs), tomJS.rounding);
-		}
-
-		enter() {
-			super.enter();
-            this.data.signal_on = this.data.start + this.data.fixation_duration + this.data.condition;
-			this.data.signal_off = this.data.signal_on + this.data.signal_for;
-			this.data.warning_on = this.data.signal_on - this.data.warning_at;
-			this.data.warning_off = this.data.warning_on + this.data.warning_for;
-			this.data.early = this.data.signal_on - this.data.stimulus_fast;
-			this.data.late = this.data.signal_off + this.data.stimulus_slow;
-			this.signal.initialize(this.data);
-		}
-
-		update() {
-			super.update();
-			this.updateProgressBar();
-			this.drawProgressBar();
-		}
-
-		// functions
-
-        drawProgressBar() {
+		drawProgressBar() {
 			if (this.timeline.currentState() == "ITI") { tomJS.resetCanvas(); return; }            
 			this.signal.draw();
 		}
 
-		getBarPercent() {
-			return (tomJS.now - this.data.fixation_on) / this.data.bar_duration;
+		enter() {
+			super.enter();
+            this.data.signal_on = this.data.start + this.data.signal_after;
+			this.data.signal_off = this.data.signal_on + this.data.signal_for;
+			this.data.early = this.data.signal_on - this.data.stimulus_fast;
+			this.data.late = this.data.signal_off + this.data.stimulus_slow;
 		}
 
-		getBarColour() {
-			if (tomJS.now < this.data.warning_on) return this.data.bar_colour
-			else if (tomJS.now < this.data.signal_on) return this.data.warning_colour
-			else if (tomJS.now < this.data.signal_off) return this.data.signal_colour
-			else return this.data.empty_colour;
+		update() {
+			super.update();
+			this.drawProgressBar();
+			this.updateProgressBar();
 		}
 
 		updateProgressBar() {
-			if (this.timeline.currentState() == "Feedback" |
-				this.timeline.currentState() == "ITI") return;			
-			this.data.bar_colour = this.getBarColour();
-			this.data.bar_percent = this.getBarPercent();
-			this.data.window_colour = this.getBarColour();
+			if (this.timeline.currentState() == "ITI") return
+			else if (this.timeline.currentState() == "Feedback") return
+			this.signal.update();
+			if (tomJS.now >= this.data.signal_off) this.signal.signalOff()
+			else if (tomJS.now >= this.data.signal_on) this.signal.signalOn();
+		}
+
+	}
+
+	module.TickTock = class TickTock extends module.Trial {
+
+		constructor(args={}) {
+
+			super(args);
+			if (!('signal_tone' in args))
+				tomJS.error('no signal tone passed to tick tock trial');
+
+			this.warning_tone = args.warning_tone ?? null;
+			this.signal_tone = args.signal_tone;
+
+			// override
+			this.data.stimulus_fast = Number(args.stimulus_fast ?? 50);
+			this.data.stimulus_slow = Number(args.stimulus_slow ?? 100);
+
+			this.feedback_texts = args.feedback_texts ?? {
+				'Correct': 'Hit',
+				'Incorrect': 'Hit',
+				'Fast': 'Too Fast',
+				'Slow': 'Too Slow',
+				'Censored': 'Too Slow'
+			};
+
+            // signal
+			this.data.warn_at = args.warn_at ?? [0, 500, 1500];
+			this.data.signal_after = args.signal_after ?? 2000;
+			
+			this.data.fixation_duration = this.data.signal_after - this.data.condition;
+			if (this.data.fixation_duration < 0) tomJS.error("negative fixation duration");
+			
+			this.signal = this.signal.bind(this);
+			this.warn = this.warn.bind(this);
+
+			// placeholder
+			this.data.rtt = null;
+			this.data.signal_on = null;
+			this.data.early = null;
+			this.data.late = null;
+
+            // append data headings to global data heading storage
+			if (!(tomJS.headings.includes('signal_tone'))) tomJS.headings = ArrayTools.joinUniques(tomJS.headings, this.data.keys());
+
+		}
+
+		calculateRT() {
+			super.calculateRT();
+			const rg = this.data.response_given;
+			const rs = this.data.signal_on;
+			this.data.rtt = Math.round((rg - rs), tomJS.rounding);
+		}
+
+		determineOutcome() {
+			// override
+			const rsp = this.data.response;
+			const rsg = this.data.response_given;
+			const erl = this.data.early;
+			const lte = this.data.late;
+			const tgt = this.data.target;
+			let _outcome;
+			if (rsp == null) { _outcome = 'Censored' }
+			else if (rsg <= erl) { _outcome = 'Fast' }
+			else if (rsg >= lte) { _outcome = 'Slow' }
+			else if (rsp == tgt) { _outcome = 'Correct' }
+			else { _outcome = 'Incorrect' };
+			this.data.outcome = _outcome;
+			tomJS.error("");
+		}
+
+		enter() {
+			super.enter();
+			this.data.signal_on = this.data.start + this.data.signal_after;
+			this.data.early = this.data.signal_on - this.data.stimulus_fast;
+			this.data.late = this.data.signal_on + this.data.stimulus_slow;
+			setTimeout(this.signal, this.data.signal_after);
+			for (let w of this.data.warn_at) {
+				setTimeout(this.warn, w);
+			};
+		}
+
+		signal() {
+			this.signal_tone.play();
+		}
+
+		warn() {
+			this.warning_tone.play();
 		}
 
 	}

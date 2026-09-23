@@ -7,24 +7,31 @@
     <script>
         
         const args = {
-            'verbose': true,
-            'debug_overlay': true,
+            'verbose': false,
+            'overlay': false,
+            'audio': true
         };
 
         const tomJS = new Experiment(args);
 
-        // constants
+        // const TICK = new Audio("ton_tief.wav");
+        // const TOCK = new Audio("ton_hoch.wav");
+
+        const TICK = new Sound("ton_tief.wav");
+        const TOCK = new Sound("ton_tief.wav");
 
         const TRIALWISE = {
 		    'condition': [500, 1500],
             'gabor_ori': [2, 358]
         };
 
-        const ADDITIONAL = {     
+        const ADDITIONAL = {
             'gabor_contrast': 0.03,
             'stimulus': Stimuli.Gabor,
             'iti_duration': [650, 750, 850],
-            'trial_type': Trials.CuedDeadline
+            'trial_type': Trials.TickTock,
+            'warning_tone': TICK,
+            'signal_tone': TOCK
         };
 
         const CONDITIONAL = [
@@ -34,26 +41,22 @@
 
         const ATTENTION = [];
 
-        // slides
-
         const KEYBOARD = new Slides.Slide([
             {'class': 'text','text': 'EXAMPLE EXPERIMENT','y': 0.25},
             { 'class': 'text', 'text': '~tomJS.keyboard.key~', 'upper': true },
-            {'class': 'text', 'text': 'Press F and J at the same time to continue.', 'y': 0.75}
+            {'class': 'text', 'text': 'Press F and J at the same time to start.', 'y': 0.75}
         ]);
 
         const END_BLOCK = new Slides.EndBlock([
-            { 'class': 'text', 'text': 'End of block. Please take a short break.', 'y': 0.25 },
+            { 'class': 'text', 'text': 'END OF EXAMPLE.', 'y': 0.25 },
             { 'class': 'text', 'text': 'Your accuracy was great!', 'y': 0.48, 'conditions': ['~this.data.accuracy~ >= 80'] },
             { 'class': 'text', 'text': 'Your accuracy was good.', 'y': 0.48, 'conditions': ['~this.data.accuracy~ < 80', '~this.data.accuracy~ >= 60'] },
             { 'class': 'text', 'text': 'Your accuracy needs improvement.', 'y': 0.48, 'conditions': ['~this.data.accuracy~ < 60'] },
             { 'class': 'text', 'text': 'Your timing was great!', 'y': 0.52, 'conditions': ['~this.data.hits~ >= 80'] },
             { 'class': 'text', 'text': 'Your timing was good.', 'y': 0.52, 'conditions': ['~this.data.hits~ < 80', '~this.data.hits~ >= 60'] },
             { 'class': 'text', 'text': 'Your timing needs improvement.', 'y': 0.52, 'conditions': ['~this.data.hits~ < 60'] },
-            { 'class': 'text', 'text': 'Press F and J at the same time to continue.', 'y': 0.75 },
+            { 'class': 'text', 'text': 'Press F and J at the same time to finish.', 'y': 0.75 },
         ]);
-
-        // block arguments
 
         const BLOCK = {
             'blockwise': {},
@@ -62,15 +65,11 @@
             'conditional': CONDITIONAL,
             'attention': ATTENTION,
             'trial_reps': 2,
-            'start_slide': null,
+            'start_slide': KEYBOARD,
             'end_slide': END_BLOCK,
             'add_countdown': true,
             'name': "FR"
         };
-
-        // timeline
-
-        tomJS.appendToTimeline(KEYBOARD);
 
         tomJS.appendBlock(BLOCK);
 
