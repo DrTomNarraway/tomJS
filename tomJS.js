@@ -1,6 +1,6 @@
 
 
-__version__ = '23.09.26 15:28';
+__version__ = '24.09.26 16:01';
 
 
 class Experiment {
@@ -226,6 +226,7 @@ class Experiment {
 		if (document.fullscreenElement!=null) document.exitFullscreen();
         const sessionData = new Data.BlockData();
 		sessionData.calculateData(this.data);
+		sessionData.id = this.demographics.id;
 		if (this.jatos)	{			
 			jatos.setStudySessionData(sessionData.toString());
 			jatos.startNextComponent();
@@ -283,7 +284,7 @@ class Experiment {
 			this.visual.canvas.width = this.visual.screen_size;
 			this.visual.canvas.height = this.visual.screen_size;
 			this.visual.canvas.style.left = (this.visual.width - this.visual.screen_size + 16) / 2 + "px";
-			this.setFont();
+			//this.setFont();
 		}, 50);
 	}
 	
@@ -334,7 +335,7 @@ class Experiment {
 		if (this.jatos) jatos.submitResultData(csv);
 	}
 
-	setFont(fontFamily="Times New Roman", t=0.02, h1=0.03, h0=0.05) {
+	setFont(fontFamily="Times New Roman", t=0.025, h1=0.035, h0=0.05) {
 		this.visual.fontFamily = fontFamily;
 		this.visual.h0       = Math.round(this.visual.screen_size * h0) + "px";
 		this.visual.h1       = Math.round(this.visual.screen_size * h1) + "px";
@@ -391,21 +392,19 @@ class Experiment {
 	 * x: portion (0.5): Where should the text render horizontally, from 0 (left) to 1 (right)?
 	 * y: portion (0.5): Where should the text render vertically, from 0 (top) to 1 (bottom)?
 	 */
-	writeToCanvas (text, args={}) {		
+	writeToCanvas (text, args={}) {
 		const _upper = args.upper ?? false;
 		const _text = _upper ? text.toUpperCase() : text;
-		tomJS.visual.context.fillStyle = args.colour ?? tomJS.visual.color;
-		tomJS.visual.context.textAlign = args.align  ?? "center";
-		const _pt = args.fontSize ?? tomJS.visual.fontSize;
-		const _tf = args.fontFamily ?? tomJS.visual.fontFamily;
+		this.visual.context.fillStyle = args.colour ?? this.visual.color;
+		this.visual.context.textAlign = args.align  ?? "center";
+		const _pt = args.fontSize ?? this.visual.fontSize;
+		const _tf = args.fontFamily ?? this.visual.fontFamily;
 		const _font = _pt + " " + _tf;
-		tomJS.visual.context.font = _font;
-		const _x = args.x ?? 0.5;
-		const _y = args.y ?? 0.5;
-		const _pos_x = tomJS.visual.screen_size * _x;
-		const _pos_y = tomJS.visual.screen_size * _y + (0.33 * (""+_pt).split('p')[0]);
-		const _width = tomJS.visual.screen_size ?? 1;
-		tomJS.visual.context.fillText(_text, _pos_x, _pos_y, _width);
+		this.visual.context.font = _font;
+		const _x = this.visual.screen_size * (args.x ?? 0.5);
+		const _y = this.visual.screen_size * (args.y ?? 0.5) + (0.33*(""+_pt).split('p')[0]);
+		const _width = this.visual.screen_size ?? 1;
+		this.visual.context.fillText(_text, _x, _y, _width);
 	}
 
 }
@@ -416,6 +415,7 @@ class Experiment {
 class Sound {
 
 	constructor(url) {
+		this.url = url;
 		this.audio = new Audio(url);
 		this.on_play = this.on_play.bind(this);
 		this.on_end = this.on_end.bind(this);
@@ -424,10 +424,12 @@ class Sound {
 		this.started = null;
 		this.ended = null;
 		this.duration = null;
+		this.playing = false;
 	}
 
 	play() {
 		this.audio.play();
+		this.playing = true;
 	}
 
 	on_play() {
@@ -437,6 +439,7 @@ class Sound {
 	on_end() {
 		this.ended = tomJS.now;
 		this.duration = this.ended - this.started;
+		this.playing = false;
 	}
 
 }
@@ -919,6 +922,16 @@ const Slides = ((module) => {
 						else if (tomJS.now >= this.data.signal_on) _c.signal.signalOn();
 						_c.signal.draw();
 						break;
+					case 'ticktock':
+						if (this.queued == false) {
+							this.queued = true;
+							setTimeout(()=>{this.signal_tone.play()}, this.signal_after);
+							setTimeout(()=>{this.queued = false}, this.signal_after+1000);
+							for (let w of this.warn_at) {
+								setTimeout(()=>{this.warning_tone.play()}, w);
+							};
+						};
+						break;
 				};
 			};
 		}
@@ -951,6 +964,13 @@ const Slides = ((module) => {
 						this.data.bar_duration = this.data.signal_after + this.data.signal_for;
 						const _bar = new (c.signal ?? Stimuli.ProgressBar)(this, c);
 						c['signal'] = _bar;
+						break;
+					case 'ticktock':
+						this.warning_tone = c.warning_tone ?? null;
+						this.signal_tone = c.signal_tone;
+						this.warn_at = c.warn_at ?? [500,1000,1500];
+						this.signal_after = c.signal_after ?? 2000;
+						this.queued = false;
 						break;
 				};
 			};
@@ -1295,7 +1315,10 @@ const Slides = ((module) => {
 			super(content, args);
 		}
 
-		// override
+		exit() {
+			super.exit();
+			tomJS.endExperiment();
+		}
 
 		gatherData() {
 			return tomJS.data;
@@ -2580,7 +2603,7 @@ const Trials = ((module) => {
 
 			// override
 			this.data.stimulus_fast = Number(args.stimulus_fast ?? 50);
-			this.data.stimulus_slow = Number(args.stimulus_slow ?? 100);
+			this.data.stimulus_slow = Number(args.stimulus_slow ?? 150);
 
 			this.feedback_texts = args.feedback_texts ?? {
 				'Correct': 'Hit',
@@ -2591,7 +2614,7 @@ const Trials = ((module) => {
 			};
 
             // signal
-			this.data.warn_at = args.warn_at ?? [0, 500, 1500];
+			this.data.warn_at = args.warn_at ?? [500, 1000, 1500];
 			this.data.signal_after = args.signal_after ?? 2000;
 			
 			this.data.fixation_duration = this.data.signal_after - this.data.condition;
@@ -2632,7 +2655,6 @@ const Trials = ((module) => {
 			else if (rsp == tgt) { _outcome = 'Correct' }
 			else { _outcome = 'Incorrect' };
 			this.data.outcome = _outcome;
-			tomJS.error("");
 		}
 
 		enter() {
