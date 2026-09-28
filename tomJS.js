@@ -1,6 +1,6 @@
 
 
-__version__ = '24.09.26 16:01';
+__version__ = '28.09.26 15:50';
 
 
 class Experiment {
@@ -850,6 +850,7 @@ const Slides = ((module) => {
 			this.timeline = null;
 			this.can_proceed = false;
 			this.realizeContent();
+			this.timers = [];
 		}
 
 		// super
@@ -858,6 +859,14 @@ const Slides = ((module) => {
 			super.enter();
 			this.can_proceed = false;
 			setTimeout(() => { this.can_proceed = true }, this.force_wait);
+		}
+
+		exit() {
+			super.exit();
+			// remove all active timers
+			for (let t of this.timers) {
+				clearTimeout(t);
+			};
 		}
 
 		update() {
@@ -925,10 +934,10 @@ const Slides = ((module) => {
 					case 'ticktock':
 						if (this.queued == false) {
 							this.queued = true;
-							setTimeout(()=>{this.signal_tone.play()}, this.signal_after);
-							setTimeout(()=>{this.queued = false}, this.signal_after+1000);
+							this.timers.push(setTimeout(()=>{this.signal_tone.play()}, this.signal_after));
+							this.timers.push(setTimeout(()=>{this.queued = false}, this.signal_after+1000));
 							for (let w of this.warn_at) {
-								setTimeout(()=>{this.warning_tone.play()}, w);
+								this.timers.push(setTimeout(()=>{this.warning_tone.play()}, w));
 							};
 						};
 						break;
@@ -2636,6 +2645,7 @@ const Trials = ((module) => {
 
 		calculateRT() {
 			super.calculateRT();
+			this.data.signal_on = this.signal.started;
 			const rg = this.data.response_given;
 			const rs = this.data.signal_on;
 			this.data.rtt = Math.round((rg - rs), tomJS.rounding);
