@@ -1,6 +1,6 @@
 
 
-__version__ = '28.09.26 15:50';
+__version__ = '29.09.26 14:37';
 
 
 class Experiment {
@@ -11,7 +11,7 @@ class Experiment {
 
 		// debug
 		this.debug = {};
-		this.debug.gridlines  = args.gridlines  ?? false;
+		this.debug.grid  = args.grid  ?? false;
 		this.debug.fullscreen = args.fullscreen ?? true;
 		this.debug.verbose    = args.verbose    ?? false;
         this.debug.overlay    = args.overlay    ?? false;
@@ -23,8 +23,8 @@ class Experiment {
 		this.visual.color = args.color ?? "white";
 		this.visual.stimulus_size = this.calculateStimulusSize();
 		this.onFullscreenChanged = this.onFullscreenChanged.bind(this);
-		document.addEventListener("fullscreenchange", this.onFullscreenChanged);
-		document.addEventListener("resize", this.onFullscreenChanged);
+		window.onFullscreenChanged = this.onFullscreenChanged;
+		window.onresize = this.onFullscreenChanged;
 		this.createCanvas();
 		this.setFont();
 
@@ -136,11 +136,12 @@ class Experiment {
 	calculateStimulusSize() {
 		const credit_card = document.createElement('div');
 		credit_card.id = "CreditCard";
-		credit_card.style.width = "85mm";
-		credit_card.style.height = "85mm";
+		credit_card.style.width = "100mm";
+		credit_card.style.height = "100mm";
 		document.body.appendChild(credit_card);
 		const stimulus_size = Math.round(credit_card.clientWidth);
 		credit_card.remove();
+		this.visual.one_hundred_mm = stimulus_size;
 		return stimulus_size;
 	}
 
@@ -185,15 +186,8 @@ class Experiment {
 		this.controls.key_a_upper = A.toUpperCase();
 		this.controls.key_b_upper = B.toUpperCase();
 	}
-	
-	drawDebugOverlay() {
-		this.strokeRect(0.5, 0.5, this.visual.screen_size-1, this.visual.screen_size-1, "green", 1);
-        this.strokeRect(0.5, 0.5, this.visual.stimulus_size, this.visual.stimulus_size, "green", 1);
-		this.fillRect(0, this.visual.screen_size * 0.5, this.visual.stimulus_size * 0.5, 1, "lightgreen");
-		this.fillRect(this.visual.screen_size-this.visual.stimulus_size*0.5, this.visual.screen_size * 0.5, this.visual.stimulus_size * 0.5, 1, "lightgreen");
-	}
 
-	drawGridLines() {
+	drawGrid() {
 		// horizontal
 		for (let i = 0; i < 5; i++) {
 			let w = this.visual.screen_size;
@@ -219,6 +213,13 @@ class Experiment {
 		const _x = tomJS.visual.screen_size * (args.x ?? 0.5) - (_size * 0.5);
 		const _y = tomJS.visual.screen_size * (args.y ?? 0.5) - (_size * 0.5);
 		tomJS.visual.context.drawImage(img, _x, _y, _size, _size);
+	}
+
+	drawOverlay() {
+		this.strokeRect(0.5, 0.5, this.visual.screen_size-1, this.visual.screen_size-1, "green", 1);
+        this.strokeRect(0.5, 0.5, this.visual.stimulus_size, this.visual.stimulus_size, "green", 1);
+		this.fillRect(0, this.visual.screen_size*0.5, this.visual.stimulus_size*0.5, 1, "green");
+		this.fillRect(this.visual.screen_size-(this.visual.stimulus_size*0.5), this.visual.screen_size*0.5, this.visual.stimulus_size*0.5, 1, "green");
 	}
 
 	endExperiment() {
@@ -284,7 +285,7 @@ class Experiment {
 			this.visual.canvas.width = this.visual.screen_size;
 			this.visual.canvas.height = this.visual.screen_size;
 			this.visual.canvas.style.left = (this.visual.width - this.visual.screen_size + 16) / 2 + "px";
-			//this.setFont();
+			this.visual.stimulus_size = Math.min(this.visual.screen_size, this.visual.one_hundred_mm);
 		}, 50);
 	}
 	
@@ -325,8 +326,8 @@ class Experiment {
 		this.now = Math.round(window.performance.now());
 		this.resetCanvas();
 		this.update();
-        if (this.debug.gridlines) this.drawGridLines();
-        if (this.debug.overlay) this.drawDebugOverlay();
+        if (this.debug.grid) this.drawGrid();
+        if (this.debug.overlay) this.drawOverlay();
 		requestAnimationFrame(this.run);
 	}
 
@@ -417,29 +418,29 @@ class Sound {
 	constructor(url) {
 		this.url = url;
 		this.audio = new Audio(url);
-		this.on_play = this.on_play.bind(this);
 		this.on_end = this.on_end.bind(this);
-		this.audio.onplay = this.on_play;
 		this.audio.onended = this.on_end;
-		this.started = null;
-		this.ended = null;
-		this.duration = null;
 		this.playing = false;
+		this.data = null;
 	}
 
-	play() {
+	play(data=null) {
 		this.audio.play();
 		this.playing = true;
-	}
-
-	on_play() {
-		this.started = tomJS.now;
+		if (data != null) {
+			this.data = data;
+			this.data.signal_on = tomJS.now;
+			this.data.signal_after = tomJS.now - this.data.start;
+		};
 	}
 
 	on_end() {
-		this.ended = tomJS.now;
-		this.duration = this.ended - this.started;
 		this.playing = false;
+		if (this.data != null) {
+			this.data.signal_off = tomJS.now;
+			this.data.signal_duration = tomJS.now - this.data.signal_on;
+		};
+		this.data = null;
 	}
 
 }
@@ -946,12 +947,25 @@ const Slides = ((module) => {
 		}
 
 		parseText(_text) {
-			if (_text.includes('~')) {
-				let _split = _text.split('~');
-				_text = _split[0] + eval(_split[1]) + _split[2];
+			while (_text.includes('~')) {
+				let first = _text.search("~");
+				_text = _text.replace("~","");
+				let second = _text.search("~");
+				let before = _text.slice(0, first);
+				let between = _text.slice(first, second);
+				let after = _text.slice(second+1, _text.length);
+				_text = before + eval(between) + after;
 			};
 			return _text;
 		}
+
+		//parseText(_text) {
+		//	if (_text.includes('~')) {
+		//		let _split = _text.split('~');
+		//		_text = _split[0] + eval(_split[1]) + _split[2];
+		//	};
+		//	return _text;
+		//}
 
 		realizeContent() {
 			for (let c of this.content) {
@@ -1245,7 +1259,7 @@ const Slides = ((module) => {
 			div.style.alignItems = "center";
 			div.style.display = "flex";
 			// create label
-			HTMLTools.Label(id + "Label", textContent, div, { 'width': '50vmin', 'marginRight': '3vh', 'textAlign': 'right' });
+			HTMLTools.Label(id + "Label", textContent, div, { 'width': tomJS.visual.stimulus_size + "px", 'marginRight': '3vh', 'textAlign': 'right' });
 			// create input options
 			let input;
 			switch (type) {
@@ -1267,7 +1281,7 @@ const Slides = ((module) => {
 					break;
 			};
 			input.id = id;
-			input.style.width = "50vmin";
+			input.style.width = tomJS.visual.stimulus_size + "px";
 			this[id] = input;
 			// stich together
 			div.append(input);
@@ -2261,6 +2275,7 @@ const Trials = ((module) => {
 			this.data.end = tomJS.now;
 			this.data.fullscreen = (document.fullscreenElement!=null);
 			if (this.attention_check & this.data.outcome != "Correct") tomJS.attentionCheckFailed();
+			if (tomJS.debug.verbose) console.log(this.data);
 		}
 
 		update() {
@@ -2635,8 +2650,8 @@ const Trials = ((module) => {
 			// placeholder
 			this.data.rtt = null;
 			this.data.signal_on = null;
-			this.data.early = null;
-			this.data.late = null;
+			this.data.signal_off = null;
+			this.data.signal_duration = null;
 
             // append data headings to global data heading storage
 			if (!(tomJS.headings.includes('signal_tone'))) tomJS.headings = ArrayTools.joinUniques(tomJS.headings, this.data.keys());
@@ -2645,7 +2660,6 @@ const Trials = ((module) => {
 
 		calculateRT() {
 			super.calculateRT();
-			this.data.signal_on = this.signal.started;
 			const rg = this.data.response_given;
 			const rs = this.data.signal_on;
 			this.data.rtt = Math.round((rg - rs), tomJS.rounding);
@@ -2655,8 +2669,8 @@ const Trials = ((module) => {
 			// override
 			const rsp = this.data.response;
 			const rsg = this.data.response_given;
-			const erl = this.data.early;
-			const lte = this.data.late;
+			const erl = this.data.stimulus_fast;
+			const lte = this.data.stimulus_slow;
 			const tgt = this.data.target;
 			let _outcome;
 			if (rsp == null) { _outcome = 'Censored' }
@@ -2664,14 +2678,14 @@ const Trials = ((module) => {
 			else if (rsg >= lte) { _outcome = 'Slow' }
 			else if (rsp == tgt) { _outcome = 'Correct' }
 			else { _outcome = 'Incorrect' };
-			this.data.outcome = _outcome;
+			this.data.outcome = _outcome;			
 		}
 
 		enter() {
 			super.enter();
 			this.data.signal_on = this.data.start + this.data.signal_after;
-			this.data.early = this.data.signal_on - this.data.stimulus_fast;
-			this.data.late = this.data.signal_on + this.data.stimulus_slow;
+			this.data.stimulus_fast = this.data.signal_on - this.data.stimulus_fast;
+			this.data.stimulus_slow = this.data.signal_on + this.data.stimulus_slow;
 			setTimeout(this.signal, this.data.signal_after);
 			for (let w of this.data.warn_at) {
 				setTimeout(this.warn, w);
@@ -2679,11 +2693,11 @@ const Trials = ((module) => {
 		}
 
 		signal() {
-			this.signal_tone.play();
+			this.signal_tone.play(this.data);
 		}
 
 		warn() {
-			this.warning_tone.play();
+			this.warning_tone.play(this.data);
 		}
 
 	}
