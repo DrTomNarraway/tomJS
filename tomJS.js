@@ -1,6 +1,6 @@
 
 
-__version__ = '29.09.26 14:37';
+__version__ = '29.09.26 15:34';
 
 
 class Experiment {
@@ -1396,6 +1396,35 @@ const Slides = ((module) => {
 			this.complete = true;
 		}
 		
+	}
+
+	module.ButtonSlide = class ButtonSlide extends module.Slide {
+
+		constructor(content=[], args = {}) {
+			super(content, args);
+			this.exit_button = null;
+			this.container = null;
+		}
+
+		enter() {
+			super.enter();
+			this.onExitPressed = this.onExitPressed.bind(this);
+			this.container = HTMLTools.Container("Container", document.body);
+			this.container.style.backgroundColor = null;
+			this.container.style.height = tomJS.visual.screen_size + "px";
+			this.container.style.width =  tomJS.visual.screen_size + "px";
+			this.exit_button = HTMLTools.Button("exitButton", "Continue", this.onExitPressed, this.container);
+		}
+
+		exit() {
+			super.exit();
+			this.container.remove();
+		}
+
+		onExitPressed() {
+			this.complete = true;
+		}
+
 	}
 
 	return module;
