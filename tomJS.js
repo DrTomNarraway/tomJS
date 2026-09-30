@@ -1,6 +1,6 @@
 
 
-__version__ = '29.09.26 15:34';
+__version__ = '30.09.26 09:39';
 
 
 class Experiment {
@@ -53,7 +53,7 @@ class Experiment {
 
 		// demographics
 		this.demographics = {};
-		this.demographics.id = Math.round(Math.random()*999999);
+		this.demographics.participant = Math.round(Math.random()*999999);
 		this.demographics.age = null;
 		this.demographics.gender = null;
 		this.demographics.hand = null;
@@ -78,7 +78,7 @@ class Experiment {
         this.stimuli = {};
 
 		// data
-		this.headings = ['id','age','gender','hand'];
+		this.headings = ['participant','age','gender','hand'];
 		this.data = [];
 		this.save = args.save ?? true;
 
@@ -151,7 +151,7 @@ class Experiment {
 		const url = jatos.urlQueryParameters ?? {};
 		const wrk = 'PROLIFIC_PID' in url;
 		const jts = jatos.studyResultId;
-		tomJS.demographics.id = wrk ? url.PROLIFIC_PID : jts;
+		tomJS.demographics.participant = wrk ? url.PROLIFIC_PID : jts;
 		tomJS.demographics.n = Math.round(jts);
 		tomJS.demographics.G = jts % 2;
 		if (this.fullfill_queue_on_jatos) this.fullfillQueue();
@@ -227,7 +227,7 @@ class Experiment {
 		if (document.fullscreenElement!=null) document.exitFullscreen();
         const sessionData = new Data.BlockData();
 		sessionData.calculateData(this.data);
-		sessionData.id = this.demographics.id;
+		sessionData.participant = this.demographics.participant;
 		if (this.jatos)	{			
 			jatos.setStudySessionData(sessionData.toString());
 			jatos.startNextComponent();
@@ -309,7 +309,7 @@ class Experiment {
 		this.saveData();
         const sessionData = new Data.BlockData();
 		sessionData.calculateData(this.data);
-		sessionData.id = this.demographics.id;
+		sessionData.participant = this.demographics.participant;
 		if (this.jatos)	{
 			jatos.setStudySessionData(sessionData.toString());
 			jatos.startComponentByPos(4);
