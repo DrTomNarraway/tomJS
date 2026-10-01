@@ -1,6 +1,6 @@
 
 
-__version__ = '30.09.26 09:39';
+__version__ = '1.10.26 11:33';
 
 
 class Experiment {
@@ -379,9 +379,9 @@ class Experiment {
             if (r.block > tomJS.block) continue;
 			const x = {...r, ...demo, ...visu};
 			let y = [];
-			for (let h of this.headings) y.push(x[h]);
+			for (let h of this.headings) y.push(x[h].replace(",","_"));
 			csv += y.toString() + '\n';
-		};        
+		};
 		return csv;
 	}
 
@@ -704,6 +704,16 @@ const Data = ((module) => {
 
 		values() {
 			return Object.values(this);
+		}
+
+		toCSV() {
+			const values = this.values();
+			let out = "";
+			for (let v of values) {
+				out += v + ", ";
+			};
+			out = out.slice(0, -2); // drop last comma and space
+			return out;
 		}
 
 		toString() {
