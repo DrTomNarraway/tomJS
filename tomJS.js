@@ -1,6 +1,6 @@
 
 
-__version__ = '1.10.26 11:33';
+__version__ = '26.10.1.1';
 
 
 class Experiment {
